@@ -20,29 +20,31 @@ function UsuarioManager({ onBack }) {
   };
 
   const handleSave = async (data) => {
-    // Em um app real, aqui você chamaria uma Edge Function para criar o usuário no Auth
-    // Por enquanto, vamos apenas simular o vínculo ou criar um registro placeholder
+    if (data.senha !== data.confirmar_senha) {
+      toast.error("As senhas não coincidem!");
+      return;
+    }
+
     try {
-      // Simulação: Criar vínculo com a empresa selecionada
-      const dadosVinculo = {
-        // user_id: 'uuid-gerado-no-auth', // Isso viria da criação do auth
+      // Chama a função que cria Auth + Banco
+      await createUsuarioVinculo({
+        nome: data.nome,
+        email: data.email,
+        senha: data.senha,
         empresa_id: data.empresa_id,
         role: data.role
-      };
+      });
       
-      // OBS: Como não podemos criar Auth Users sem backend, 
-      // aqui apenas mostramos o sucesso da intenção.
-      // createUsuarioVinculo(dadosVinculo); 
-      
-      toast.success(`Usuário ${data.nome} convidado com sucesso!`);
-      mutate('getUsuariosSistema');
+      toast.success(`Usuário ${data.nome} criado e vinculado!`);
+      mutate('getUsuariosSistema'); 
       setView('list');
     } catch (error) {
+      console.error(error);
       toast.error('Erro: ' + error.message);
     }
   };
 
-  // --- RENDER: LISTA (Baseado em UsuariosCard.png) ---
+  // --- RENDER: LISTA ---
   if (view === 'list') {
     return (
       <div className="config-module-container">
@@ -58,11 +60,12 @@ function UsuarioManager({ onBack }) {
         </div>
 
         <div className="cards-grid">
-          {/* Mock data para visualização se a tabela estiver vazia */}
-          {(!usuarios || usuarios.length === 0) && (
+          {isLoading && <p>Carregando...</p>}
+
+          {!isLoading && (!usuarios || usuarios.length === 0) && (
             <div className="user-card">
               <img src="https://i.pravatar.cc/150?u=1" alt="Avatar" className="user-avatar" />
-              <h3>Ana Beatriz</h3>
+              <h3>Ana Beatriz (Exemplo)</h3>
               <span className="user-role admin">Administrador</span>
               <span className="user-email">ana.beatriz@empresa.com</span>
             </div>
@@ -70,12 +73,28 @@ function UsuarioManager({ onBack }) {
           
           {usuarios?.map(user => (
             <div key={user.id} className="user-card">
-              <img src={`https://i.pravatar.cc/150?u=${user.id}`} alt="Avatar" className="user-avatar" />
-              <h3>Usuário ID: {user.id.substring(0,8)}</h3>
+              {/* Usa o user_id (UUID) para gerar um avatar consistente */}
+              <img 
+                src={`https://i.pravatar.cc/150?u=${user.user_id}`} 
+                alt="Avatar" 
+                className="user-avatar" 
+              />
+              
+              {/* CORREÇÃO AQUI: Usamos nome_exibicao ou convertemos o ID para string */}
+              <h3>{user.nome_exibicao || `Usuário #${user.id}`}</h3>
+              
               <span className={`user-role ${user.role === 'admin' ? 'admin' : 'colaborador'}`}>
                 {user.role}
               </span>
-              <span className="user-email">Loja: {user.empresas?.nome_fantasia}</span>
+              
+              {/* Mostra o email salvo no vínculo ou um placeholder */}
+              <span className="user-email">
+                {user.email_exibicao || 'Email não registrado'}
+              </span>
+
+              <span className="user-email" style={{marginTop: '4px', fontSize: '0.8rem', color: '#999'}}>
+                 Loja: {user.empresas?.nome_fantasia}
+              </span>
             </div>
           ))}
         </div>
@@ -83,7 +102,7 @@ function UsuarioManager({ onBack }) {
     );
   }
 
-  // --- RENDER: FORMULÁRIO (Baseado em CadastroUsuario.png) ---
+  // --- RENDER: FORMULÁRIO ---
   return (
     <div className="config-module-container">
       <div className="config-header">
