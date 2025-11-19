@@ -1,11 +1,12 @@
 // src/components/Chat/ChatFlutuante.jsx
 import React, { useState } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import './ChatFlutuante.css'; // Criaremos este CSS
+import './ChatFlutuante.css';
 
 function ChatFlutuante() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Mensagem inicial de boas-vindas
   const [messages, setMessages] = useState([
     {
       sender: 'ai',
@@ -18,31 +19,32 @@ function ChatFlutuante() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const userInput = e.target.elements.prompt.value;
-    if (!userInput) return;
+    
+    // Evita envio vazio
+    if (!userInput.trim()) return;
 
-    // Adiciona a mensagem do usuário à UI
+    // 1. Adiciona a mensagem do usuário à interface imediatamente (UX)
     setMessages(prev => [...prev, { sender: 'user', text: userInput }]);
     setIsLoading(true);
-    e.target.reset();
+    e.target.reset(); // Limpa o input
 
     try {
-      // --- CHAMADA PARA O BACKEND ---
-      // Esta é a chamada segura para nossa Edge Function
+      // 2. Chama a Edge Function 'chat-assistente' (Conectada ao Google Gemini)
       const { data, error } = await supabase.functions.invoke('chat-assistente', {
-        // O 'body' é o que enviamos para a função
         body: { prompt: userInput } 
       });
 
       if (error) throw error;
       
-      // Adiciona a resposta da IA à UI
+      // 3. Adiciona a resposta da IA à interface
+      // O Gemini pode retornar Markdown, mas por enquanto exibimos como texto puro
       setMessages(prev => [...prev, { sender: 'ai', text: data.reply }]);
 
     } catch (err) {
-      console.error(err);
+      console.error('Erro no chat:', err);
       setMessages(prev => [...prev, { 
         sender: 'ai', 
-        text: `Desculpe, ocorreu um erro: ${err.message}` 
+        text: `Desculpe, não consegui me conectar ao servidor. Tente novamente.` 
       }]);
     } finally {
       setIsLoading(false);
@@ -51,25 +53,29 @@ function ChatFlutuante() {
 
   return (
     <div className="chat-flutuante-wrapper">
-      {/* O Chat (Janela) */}
+      {/* A Janela do Chat (renderizada condicionalmente via CSS) */}
       <div className={`chat-janela ${isOpen ? 'open' : ''}`}>
+        
         {/* Cabeçalho */}
         <div className="chat-header">
           <h3>QualyBot</h3>
-          <button onClick={toggleChat} className="chat-close-btn">&times;</button>
+          <button onClick={toggleChat} className="chat-close-btn" aria-label="Fechar chat">
+            &times;
+          </button>
         </div>
         
-        {/* Mensagens */}
+        {/* Área de Mensagens */}
         <div className="chat-messages">
           {messages.map((msg, index) => (
             <div key={index} className={`message ${msg.sender}`}>
               {msg.text}
             </div>
           ))}
+          {/* Indicador de Digitação */}
           {isLoading && <div className="message ai typing">Digitando...</div>}
         </div>
         
-        {/* Input */}
+        {/* Formulário de Envio */}
         <form className="chat-input-form" onSubmit={handleSubmit}>
           <input
             type="text"
@@ -78,14 +84,14 @@ function ChatFlutuante() {
             autoComplete="off"
             disabled={isLoading}
           />
-          <button type="submit" disabled={isLoading}>
+          <button type="submit" disabled={isLoading} title="Enviar">
             <span className="material-symbols-outlined">send</span>
           </button>
         </form>
       </div>
 
-      {/* O Botão Flutuante */}
-      <button onClick={toggleChat} className="chat-fab">
+      {/* O Botão Flutuante (FAB) para abrir/fechar */}
+      <button onClick={toggleChat} className="chat-fab" aria-label="Abrir chat">
         <span className="material-symbols-outlined">chat</span>
       </button>
     </div>
