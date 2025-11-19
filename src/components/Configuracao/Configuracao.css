@@ -1,0 +1,223 @@
+/* Container Principal */
+.config-module-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Cabeçalho */
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.btn-back {
+  background: #f0f2f5;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #555;
+}
+.config-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+.config-header p {
+  color: #718096;
+  margin: 4px 0 0 0;
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #135bec;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-primary:hover { background-color: #0f4ac4; }
+
+.btn-secondary {
+  background-color: #f0f2f5;
+  color: #333;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- GRID DE CARDS (Empresas e Usuários) --- */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+/* Card Genérico (Empresa) */
+.info-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card-header-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.card-icon-box {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+.card-header-text h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #2d3748;
+}
+.card-subtext {
+  font-size: 0.85rem;
+  color: #718096;
+}
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #4a5568;
+  margin-top: 8px;
+}
+.info-row .material-symbols-outlined {
+  font-size: 18px;
+  color: #cbd5e0;
+}
+.card-footer-actions {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  gap: 16px;
+}
+.card-footer-actions button {
+  background: none;
+  border: none;
+  color: #135bec;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+/* Card de Usuário */
+.user-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.user-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 16px;
+}
+.user-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  color: #2d3748;
+}
+.user-role {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.user-role.admin { color: #135bec; }
+.user-role.colaborador { color: #718096; }
+.user-email {
+  font-size: 0.9rem;
+  color: #718096;
+}
+
+/* --- FORMULÁRIOS --- */
+.config-form {
+  background: #fff;
+  padding: 32px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+.form-section-title {
+  margin: 0 0 20px 0;
+  font-size: 1.1rem;
+  color: #2d3748;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.span-2 { grid-column: span 2; }
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+.form-group input,
+.form-group select,
+.imask-input {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #2d3748;
+}
+.form-group input:focus {
+  outline: 2px solid #135bec;
+  border-color: transparent;
+}
+
+.form-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
