@@ -1,22 +1,25 @@
+// src/components/Configuracao/EmpresaManager.jsx
 import React, { useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
 import { IMaskInput } from 'react-imask';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../services/supabaseClient';
 import { getEmpresas, createEmpresa, updateEmpresa, deleteEmpresa } from '../../services/empresaService';
 import ModalConfirmacao from '../Modal/ModalConfirmacao';
-import './Configuracao.css'; // Novo CSS unificado
+import './Configuracao.css'; 
 
 function EmpresaManager({ onBack }) {
   const { data: empresas, isLoading } = useSWR('getEmpresas', getEmpresas);
   const { mutate } = useSWRConfig();
+  const { user } = useAuth(); 
   
-  const [view, setView] = useState('list'); // 'list' | 'form'
+  const [view, setView] = useState('list'); 
   const [editingEmpresa, setEditingEmpresa] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
 
-  // --- FORMULÁRIO ---
-  const { control, register, handleSubmit, reset, setValue } = useForm();
+  const { control, register, handleSubmit, reset } = useForm();
 
   const handleNew = () => {
     setEditingEmpresa(null);
@@ -33,11 +36,31 @@ function EmpresaManager({ onBack }) {
   const handleSave = async (data) => {
     try {
       if (editingEmpresa) {
+        // Atualizar
         await updateEmpresa(editingEmpresa.id, data);
         toast.success('Empresa atualizada!');
       } else {
-        await createEmpresa(data);
-        toast.success('Empresa criada com sucesso!');
+        // Criar Nova
+        const novaEmpresa = await createEmpresa(data);
+        
+        // Cria a associação (vínculo) automaticamente para relatórios
+        if (novaEmpresa && user) {
+           const { error: vinculoError } = await supabase
+             .from('usuarios_empresas')
+             .insert([{
+               user_id: user.id,
+               empresa_id: novaEmpresa.id,
+               role: 'admin', // Define como admin por padrão
+               nome_exibicao: user.user_metadata?.nome_completo || 'Admin',
+               email_exibicao: user.email
+             }]);
+             
+           if (vinculoError) {
+             console.warn('Aviso: Empresa criada, mas falha ao criar associação:', vinculoError);
+             // Não lançamos erro aqui para não travar o fluxo, pois o sistema é Single-Tenant
+           }
+        }
+        toast.success('Empresa cadastrada com sucesso!');
       }
       mutate('getEmpresas');
       setView('list');
@@ -58,7 +81,7 @@ function EmpresaManager({ onBack }) {
     }
   };
 
-  // --- RENDER: LISTA (Baseado em EmpresasCard.png) ---
+  // --- RENDER: LISTA ---
   if (view === 'list') {
     return (
       <div className="config-module-container">
@@ -66,8 +89,8 @@ function EmpresaManager({ onBack }) {
           <div className="header-left">
             <button onClick={onBack} className="btn-back">&larr;</button>
             <div>
-              <h2>Empresas</h2>
-              <p>Gerencie as empresas cadastradas no sistema.</p>
+              <h2>Empresas (Cadastro Interno)</h2>
+              <p>Gerencie as empresas para fins de relatório e associação.</p>
             </div>
           </div>
           <button className="btn-primary" onClick={handleNew}>+ Nova Empresa</button>
@@ -78,7 +101,7 @@ function EmpresaManager({ onBack }) {
             <div key={emp.id} className="info-card">
               <div className="card-header-row">
                 <div className="card-icon-box" style={{background: '#e6f7ff', color: '#1890ff'}}>
-                  {emp.nome_fantasia.substring(0, 2).toUpperCase()}
+                  {emp.nome_fantasia ? emp.nome_fantasia.substring(0, 2).toUpperCase() : '??'}
                 </div>
                 <div className="card-header-text">
                   <h3>{emp.nome_fantasia}</h3>
@@ -98,7 +121,7 @@ function EmpresaManager({ onBack }) {
               </div>
 
               <div className="card-footer-actions">
-                <button onClick={() => handleEdit(emp)}>Ver Detalhes</button>
+                <button onClick={() => handleEdit(emp)}>Editar Dados</button>
                 <button onClick={() => setDeleteModal(emp)} style={{color: '#e53e3e'}}>Excluir</button>
               </div>
             </div>
@@ -111,13 +134,13 @@ function EmpresaManager({ onBack }) {
           onConfirm={handleDelete}
           title="Excluir Empresa"
         >
-          Tem certeza? Todos os funcionários vinculados perderão o acesso a esta empresa.
+          Tem certeza? Isso removerá a empresa dos relatórios e desvinculará os dados associados.
         </ModalConfirmacao>
       </div>
     );
   }
 
-  // --- RENDER: FORMULÁRIO (Baseado em CadastroEmpresa.png) ---
+  // --- RENDER: FORMULÁRIO ---
   return (
     <div className="config-module-container">
       <div className="config-header">
@@ -126,7 +149,6 @@ function EmpresaManager({ onBack }) {
 
       <form onSubmit={handleSubmit(handleSave)} className="config-form">
         
-        {/* Seção 1: Dados da Empresa */}
         <h4 className="form-section-title">Dados da Empresa</h4>
         <div className="form-grid">
           <div className="form-group span-2">
@@ -169,7 +191,6 @@ function EmpresaManager({ onBack }) {
           </div>
         </div>
 
-        {/* Seção 2: Endereço */}
         <h4 className="form-section-title">Endereço</h4>
         <div className="form-grid">
           <div className="form-group">
@@ -208,7 +229,6 @@ function EmpresaManager({ onBack }) {
           </div>
         </div>
 
-        {/* Seção 3: Responsável */}
         <h4 className="form-section-title">Contato do Responsável</h4>
         <div className="form-grid">
           <div className="form-group span-2">

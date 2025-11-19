@@ -3,7 +3,9 @@ import { supabase } from './supabaseClient';
 
 /**
  * Busca os 4 KPIs principais (Total, Pendentes, Ausentes, Folha)
- * chamando a função RPC 'get_dashboard_kpis' que criamos no Supabase.
+ * Chama a função RPC 'get_dashboard_kpis' SEM parâmetros (modo global).
+ * * IMPORTANTE: Certifique-se de ter rodado o SQL de reversão no banco
+ * para que a função 'get_dashboard_kpis' não exija argumentos.
  */
 export const getDashboardKPIs = async () => {
   const { data, error } = await supabase.rpc('get_dashboard_kpis');
@@ -18,7 +20,7 @@ export const getDashboardKPIs = async () => {
 
 /**
  * Busca os dados para o gráfico de pizza (Ausências por Tipo)
- * chamando a função RPC 'get_ausencias_por_tipo_90d'.
+ * Chama a função RPC 'get_ausencias_por_tipo_90d' SEM parâmetros.
  */
 export const getAusenciasPorTipo = async () => {
   const { data, error } = await supabase.rpc('get_ausencias_por_tipo_90d');
@@ -32,7 +34,7 @@ export const getAusenciasPorTipo = async () => {
 
 /**
  * Busca as próximas férias aprovadas (Próximos 14 dias)
- * Esta função consulta a tabela diretamente.
+ * Consulta a tabela diretamente, sem filtrar por empresa_id.
  */
 export const getProximasFerias = async () => {
   const hoje = new Date().toISOString();
@@ -43,12 +45,13 @@ export const getProximasFerias = async () => {
     .from('solicitacoes_ausencia')
     .select(`
       data_inicio,
-      funcionario_id:funcionarios ( nome_completo, avatar_url )
-    `) // Nota: 'funcionario_id' é a chave correta para esta tabela
+      funcionario_id:funcionarios!inner ( nome_completo, avatar_url )
+    `) 
+    // REMOVIDO O FILTRO: .eq('empresa_id', empresaId)
     .eq('tipo', 'Férias')
     .eq('status', 'Aprovado')
-    .gte('data_inicio', hoje)    // Data de início é maior ou igual a hoje
-    .lte('data_inicio', futuro) // E menor ou igual a 14 dias
+    .gte('data_inicio', hoje)    // Data de início maior ou igual a hoje
+    .lte('data_inicio', futuro)  // E menor ou igual a 14 dias
     .order('data_inicio', { ascending: true })
     .limit(5); // Pega apenas as 5 mais próximas
 
@@ -58,6 +61,3 @@ export const getProximasFerias = async () => {
   }
   return data;
 };
-
-// Nota: A lista de "Últimas Movimentações" usará a função 
-// 'getTodasMovimentacoes' que já existe no 'movimentacaoService.js'.

@@ -2,6 +2,7 @@
 import React from 'react';
 import useSWR from 'swr';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+// Contexto de empresa removido, pois o dashboard agora é global
 import { getDashboardKPIs, getAusenciasPorTipo, getProximasFerias } from '../services/dashboardService';
 import { getTodasMovimentacoes } from '../services/movimentacaoService';
 import { getAvatarPublicUrl } from '../services/funcionarioService';
@@ -16,14 +17,16 @@ const formatCurrency = (value) => {
   }).format(value);
 };
 
-// Helper para formatar data (para a lista de férias)
+// Helper para formatar data
 const formatDataFerias = (dataStr) => {
+  if (!dataStr) return '--/--';
   const data = new Date(dataStr.replace(/-/g, '/'));
   return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
 // --- 1. Componente: Os 4 KPIs Principais ---
 function KpiCards() {
+  // Busca global (sem ID na chave)
   const { data: kpis, error, isLoading } = useSWR('dashboardKPIs', getDashboardKPIs);
 
   if (isLoading) return <div className="kpi-grid"><div className="kpi-card loading"></div></div>;
@@ -51,13 +54,24 @@ function KpiCards() {
   );
 }
 
-// --- 2. Componente: Gráfico de Pizza (Ausências) ---
+// --- 2. Componente: Gráfico de Pizza ---
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
 function AusenciasChart() {
   const { data, error, isLoading } = useSWR('ausenciasPorTipo', getAusenciasPorTipo);
 
   if (isLoading) return <div className="dashboard-widget loading"></div>;
-  if (error || !data || data.length === 0) return <div className="dashboard-widget"><p>Sem dados de ausência.</p></div>;
+  
+  if (error || !data || data.length === 0) {
+    return (
+      <div className="dashboard-widget">
+        <h3>Ausências (Últ. 90 dias)</h3>
+        <div style={{height: '250px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999'}}>
+          Sem dados recentes.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-widget">
@@ -85,7 +99,7 @@ function AusenciasChart() {
   );
 }
 
-// --- 3. Componente: Lista de Próximas Férias ---
+// --- 3. Componente: Próximas Férias ---
 function ProximasFerias() {
   const { data, error, isLoading } = useSWR('proximasFerias', getProximasFerias);
 
@@ -99,14 +113,12 @@ function ProximasFerias() {
         {!data || data.length === 0 ? (
           <p className="lista-empty">Nenhuma férias agendada.</p>
         ) : (
-          data.map(item => {
-            // --- CORREÇÃO AQUI ---
-            // O objeto com os dados do funcionário está em 'id_funcionario'
-            const funcionario = item.id_funcionario; 
-            if (!funcionario) return null; // Pula se o funcionário foi deletado
+          data.map((item, idx) => {
+            const funcionario = item.funcionario_id; 
+            if (!funcionario) return null;
 
             return (
-              <div key={item.data_inicio} className="lista-item">
+              <div key={`${item.data_inicio}-${idx}`} className="lista-item">
                 <img 
                   src={funcionario.avatar_url ? getAvatarPublicUrl(funcionario.avatar_url) : 'https://placehold.co/100'} 
                   alt={funcionario.nome_completo} 
@@ -125,8 +137,9 @@ function ProximasFerias() {
   );
 }
 
-// --- 4. Componente: Lista de Últimas Movimentações ---
+// --- 4. Componente: Últimas Movimentações ---
 function UltimasMovimentacoes() {
+  // O service getTodasMovimentacoes já traz tudo (limitado a 50)
   const { data, error, isLoading } = useSWR('todasMovimentacoes', getTodasMovimentacoes);
 
   if (isLoading) return <div className="dashboard-widget loading"></div>;
@@ -140,10 +153,8 @@ function UltimasMovimentacoes() {
           <p className="lista-empty">Nenhuma movimentação recente.</p>
         ) : (
           data.map(mov => {
-            // --- CORREÇÃO AQUI ---
-            // O objeto com os dados do funcionário está em 'id_funcionario'
             const funcionario = mov.id_funcionario; 
-            if (!funcionario) return null; // Pula se o funcionário foi deletado
+            if (!funcionario) return null;
             
             return (
               <div key={mov.id} className="lista-item">
@@ -161,17 +172,14 @@ function UltimasMovimentacoes() {
   );
 }
 
-
-// --- Página Principal do Dashboard ---
+// --- Página Principal ---
 function DashboardPage() {
   return (
     <div className="dashboard-container">
       <h1 className="dashboard-title">Dashboard</h1>
       
-      {/* 1. KPIs */}
       <KpiCards />
 
-      {/* 2. Grid de Widgets */}
       <div className="dashboard-grid">
         <AusenciasChart />
         <ProximasFerias />

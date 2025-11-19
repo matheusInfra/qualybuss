@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { getAvatarPublicUrl } from '../services/funcionarioService';
-import './FuncionarioCard.css'; // O CSS que vamos mudar
+import './FuncionarioCard.css';
 
 function FuncionarioCard({ funcionario }) {
   const avatarUrl = funcionario.avatar_url 
@@ -9,9 +9,11 @@ function FuncionarioCard({ funcionario }) {
     : 'https://placehold.co/100';
 
   return (
-    <Link to={`/funcionarios/editar/${funcionario.id}`} className="card-link">
+    // CORREÇÃO CRÍTICA: O link agora casa com a rota definida no App.jsx
+    // Antes: /funcionarios/editar/:id (Não existia)
+    // Agora: /funcionarios/:id (Correto)
+    <Link to={`/funcionarios/${funcionario.id}`} className="card-link">
       <div className="funcionario-card">
-        {/* A estrutura mudou: avatar primeiro, depois info */}
         <img src={avatarUrl} alt={funcionario.nome_completo} className="card-avatar" />
         <div className="card-info">
           <h3 className="card-nome">{funcionario.nome_completo}</h3>
