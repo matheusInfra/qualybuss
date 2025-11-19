@@ -1,113 +1,102 @@
-// src/components/Ausencias/PainelSaldos.jsx
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
-import { getFuncionarios, getAvatarPublicUrl } from '../../services/funcionarioService';
-import { getHistoricoAusencias, getHistoricoCreditos } from '../../services/ausenciaService';
+import { getSaldosConsolidados } from '../../services/saldoService'; // Novo Service
+import { getAvatarPublicUrl } from '../../services/funcionarioService';
+import { getHistoricoAusencias } from '../../services/ausenciaService'; // Ainda usamos para ver os últimos débitos
 import SaldoCard from './SaldoCard';
 import './PainelSaldos.css';
 import ModalAjusteSaldo from '../Modal/ModalAjusteSaldo';
-import ModalExtrato from '../Modal/ModalExtrato'; // <-- NOVO IMPORT
-
-// --- Função de Cálculo Dinâmico (Mantida) ---
-const calcularSaldos = (funcId, historicoCreditos, historicoAusencias) => {
-  const dynamicBalances = {};
-
-  historicoCreditos
-    .filter(c => c.funcionario_id === funcId)
-    .forEach(credito => {
-      const tipo = credito.tipo;
-      dynamicBalances[tipo] = (dynamicBalances[tipo] || 0) + credito.quantidade;
-    });
-    
-  historicoAusencias
-    .filter(d => 
-      d.funcionario_id === funcId && 
-      (d.status === 'Aprovado' || d.status === 'Concluído') // <-- AGORA INCLUI 'CONCLUÍDO'
-    ) 
-    .forEach(debito => {
-      const tipo = debito.tipo;
-      if (dynamicBalances.hasOwnProperty(tipo)) {
-        if (tipo.toLowerCase().includes('férias') || tipo.toLowerCase().includes('licença')) {
-          const dataInicio = new Date(debito.data_inicio.replace(/-/g, '/'));
-          const dataFim = new Date(debito.data_fim.replace(/-/g, '/'));
-          const diffTime = Math.abs(dataFim - dataInicio);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-          
-          dynamicBalances[tipo] -= diffDays;
-        } 
-      }
-    });
-    
-  return dynamicBalances;
-};
-
+import ModalExtrato from '../Modal/ModalExtrato';
 
 function PainelSaldos() {
   const [modalState, setModalState] = useState({ isOpen: false, funcionario: null });
-  // Novo estado para o Extrato
   const [extratoModal, setExtratoModal] = useState({ isOpen: false, funcionario: null });
 
-  const { data: funcionarios, error: errorFunc, isLoading: isLoadingFunc } = useSWR('getFuncionarios', getFuncionarios);
-  const { data: creditos, error: errorCred, isLoading: isLoadingCred } = useSWR('getHistoricoCreditos', getHistoricoCreditos);
-  const { data: ausencias, error: errorAus, isLoading: isLoadingAus } = useSWR('getHistoricoAusencias', getHistoricoAusencias);
+  // 1. Busca os saldos já prontos da nossa View SQL
+  const { 
+    data: dadosView, 
+    error: errorSaldos, 
+    isLoading: isLoadingSaldos 
+  } = useSWR('getSaldosConsolidados', getSaldosConsolidados);
 
+  // 2. Ainda buscamos ausências para mostrar a lista de "Últimos Débitos" no card
+  // (Idealmente, isso também viria de uma query otimizada no futuro)
+  const { data: ausencias } = useSWR('getHistoricoAusencias', getHistoricoAusencias);
 
-  // Handlers
-  const handleAjustarSaldo = (funcionario) => { setModalState({ isOpen: true, funcionario: funcionario }); };
-  const handleCloseModal = () => { setModalState({ isOpen: false, funcionario: null }); };
-  
-  // Handler para abrir o Extrato
-  const handleVerExtrato = (funcionario) => {
-    setExtratoModal({ isOpen: true, funcionario });
-  };
-  const handleCloseExtrato = () => {
-    setExtratoModal({ isOpen: false, funcionario: null });
-  };
+  // 3. Transformação dos dados da View para o formato que o SaldoCard espera
+  // A View retorna linhas soltas (João - Férias, João - Banco de Horas).
+  // Precisamos agrupar por funcionário.
+  const funcionariosAgrupados = useMemo(() => {
+    if (!dadosView) return [];
 
-  const isLoading = isLoadingFunc || isLoadingCred || isLoadingAus;
-  const error = errorFunc || errorCred || errorAus;
-  
-  if (isLoading) return <p>Calculando saldos...</p>;
-  if (error) return <p className="error-message">Falha ao carregar dados.</p>;
-  if (!funcionarios || funcionarios.length === 0) {
-    return <div className="historico-empty"><p>Nenhum funcionário encontrado.</p></div>;
-  }
+    const map = new Map();
+
+    dadosView.forEach(row => {
+      if (!row.tipo_saldo) return; // Ignora se não tiver saldo nenhum
+
+      if (!map.has(row.funcionario_id)) {
+        map.set(row.funcionario_id, {
+          id: row.funcionario_id,
+          nome_completo: row.nome_completo,
+          cargo: row.cargo,
+          avatar_url: row.avatar_url,
+          saldos: {}
+        });
+      }
+      
+      const func = map.get(row.funcionario_id);
+      func.saldos[row.tipo_saldo] = row.saldo_final;
+    });
+
+    return Array.from(map.values());
+  }, [dadosView]);
+
+  // Handlers de Modal (iguais ao original)
+  const handleAjustarSaldo = (funcionario) => setModalState({ isOpen: true, funcionario });
+  const handleCloseModal = () => setModalState({ isOpen: false, funcionario: null });
+  const handleVerExtrato = (funcionario) => setExtratoModal({ isOpen: true, funcionario });
+  const handleCloseExtrato = () => setExtratoModal({ isOpen: false, funcionario: null });
+
+  if (isLoadingSaldos) return <div className="painel-loading"><p>Carregando saldos...</p></div>;
+  if (errorSaldos) return <p className="error-message">Falha ao carregar saldos.</p>;
 
   return (
     <div className="painel-saldos-container">
-      
       <div className="saldos-grid">
-        {funcionarios.map((func) => {
-          const saldosCalculados = calcularSaldos(func.id, creditos, ausencias);
-          
+        {funcionariosAgrupados.map((func) => {
+          // Filtra os últimos débitos para este funcionário (apenas visual)
           const debitosAprovados = ausencias
-            .filter(d => d.funcionario_id === func.id && (d.status === 'Aprovado' || d.status === 'Concluído'))
-            .slice(0, 3);
+            ? ausencias
+                .filter(d => d.funcionario_id === func.id && (d.status === 'Aprovado' || d.status === 'Concluído'))
+                .slice(0, 3)
+            : [];
 
           return (
             <SaldoCard 
               key={func.id}
               funcionario={func}
-              saldos={saldosCalculados}
+              saldos={func.saldos}
               ultimosDebitos={debitosAprovados}
               getAvatarUrl={getAvatarPublicUrl}
-              // Passa as funções de ação
               onAjustar={handleAjustarSaldo} 
-              onVerExtrato={handleVerExtrato} // <-- Nova Prop
+              onVerExtrato={handleVerExtrato}
             />
           );
         })}
+        
+        {funcionariosAgrupados.length === 0 && (
+           <p style={{gridColumn: '1/-1', textAlign: 'center', color: '#666'}}>
+             Nenhum saldo calculado ainda. Faça um lançamento para começar.
+           </p>
+        )}
       </div>
 
-      {/* Modal de Lançamento */}
       <ModalAjusteSaldo
         isOpen={modalState.isOpen}
         onClose={handleCloseModal}
         funcionario={modalState.funcionario}
       />
 
-      {/* Novo Modal de Extrato */}
       <ModalExtrato 
         isOpen={extratoModal.isOpen}
         onClose={handleCloseExtrato}
