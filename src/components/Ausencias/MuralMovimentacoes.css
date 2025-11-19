@@ -1,0 +1,212 @@
+/* src/components/Ausencias/MuralMovimentacoes.css */
+
+/* --- Barra de Filtro (como na imagem) --- */
+.mural-search-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem; /* 8px */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  padding: 0 16px;
+  margin-bottom: 24px;
+}
+.mural-search-bar .material-symbols-outlined {
+  color: #777;
+  font-size: 24px;
+}
+.mural-search-bar input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  padding: 0 12px;
+  font-size: 16px;
+  background: transparent;
+}
+
+/* --- O Grid de Cards --- */
+/* Baseado em: */
+.mural-card-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 24px;
+}
+/* Media queries para responsividade */
+@media (min-width: 640px) { /* sm: */
+  .mural-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) { /* lg: */
+  .mural-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 1280px) { /* xl: */
+  .mural-card-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* --- O Card --- */
+/* Baseado em: */
+.mural-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-radius: 0.75rem; /* 12px (xl) */
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s ease-in-out;
+}
+.mural-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-menu-button {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+}
+.card-menu-button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.card-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.card-avatar {
+  width: 48px; /* 12 (size-12) */
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #f0f0f0;
+}
+.card-info {
+  flex: 1;
+}
+.card-nome {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+.card-cargo {
+  font-size: 0.875rem;
+  color: #718096;
+  margin: 0;
+}
+
+.card-footer {
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}
+.card-data {
+  font-size: 0.875rem;
+  color: #718096;
+  margin: 0;
+}
+
+/* --- Status Pills (baseado no code.html) --- */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px; /* full */
+  padding: 4px 12px;
+  font-size: 0.75rem; /* 12px (xs) */
+  font-weight: 600;
+}
+.status-pill.aprovado {
+  background-color: rgba(40, 167, 69, 0.1); /* bg-[#28A745]/10 */
+  color: #28A745;
+}
+.status-pill.pendente {
+  background-color: rgba(255, 184, 0, 0.1); /* bg-[#FFB800]/10 */
+  color: #FFB800;
+}
+.status-pill.rejeitado {
+  background-color: rgba(220, 53, 69, 0.1); /* bg-[#DC3545]/10 */
+  color: #DC3545;
+}
+
+/* --- Estado Vazio --- */
+.mural-empty {
+  padding: 40px;
+  text-align: center;
+  color: #777;
+  background-color: #fff;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
+}
+
+/* ... (mantenha todos os estilos anteriores) ... */
+
+/* --- ADICIONE ISSO NO FINAL --- */
+
+.card-menu-container {
+  display: flex;
+  gap: 4px;
+}
+
+.card-menu-button {
+  background: #f0f2f5;
+  border: 1px solid #ddd;
+  color: #4a5568;
+  border-radius: 50%;
+  width: 32px; /* Menor */
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.card-menu-button:hover {
+  background: #e0e0e0;
+  border-color: #ccc;
+}
+.card-menu-button .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* Estilo específico do botão delete */
+.card-menu-button.delete:hover {
+  background: #fff1f0; /* Vermelho claro */
+  color: #E53E3E; /* Vermelho */
+  border-color: #f9c0c0;
+}
+
+.card-menu-button.success {
+  color: #28a745; /* Verde */
+  border-color: #c3e6cb;
+  background-color: #f0fff4;
+}
+.card-menu-button.success:hover {
+  background-color: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+
+/* Ajuste para o status Concluído */
+.status-pill.concluido {
+  background-color: #e2e8f0;
+  color: #4a5568;
+  border: 1px solid #cbd5e0;
+}

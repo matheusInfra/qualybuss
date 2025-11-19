@@ -1,0 +1,112 @@
+.ausencias-container {
+  width: 100%;
+}
+
+.ausencias-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.ausencias-header h1 {
+  margin: 0;
+}
+
+/* Estilo das Abas */
+.ausencias-tabs {
+  display: flex;
+  gap: 20px; 
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 24px;
+}
+.ausencias-tabs button {
+  padding: 12px 4px; 
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: #777; 
+  cursor: pointer;
+  margin-bottom: -2px; 
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.ausencias-tabs button:hover {
+  color: #333;
+}.ausencias-container {
+  width: 100%;
+}
+.ausencias-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.ausencias-header h1 {
+  margin: 0;
+}
+.ausencias-tabs {
+  display: flex;
+  gap: 20px; 
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 24px;
+}
+.ausencias-tabs button {
+  padding: 12px 4px; 
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: #777; 
+  cursor: pointer;
+  margin-bottom: -2px; 
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.ausencias-tabs button:hover {
+  color: #333;
+}
+.ausencias-tabs button.active {
+  color: #1a202c; 
+  border-bottom: 2px solid #1a202c; 
+}
+.ausencias-tab-content {
+  animation: fadeIn 0.5s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ausencias-tabs button.active {
+  color: #1a202c; 
+  border-bottom: 2px solid #1a202c; 
+}
+
+/* Conteúdo da Aba */
+.ausencias-tab-content {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Adicione isso ao final de src/pages/AusenciasPage.css */
+
+.button-novo-lancamento {
+  padding: 10px 16px;
+  background-color: #28a745; /* Verde (cor de "ação") */
+  color: white;
+  text-decoration: none;
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.button-novo-lancamento:hover {
+  background-color: #218838;
+}

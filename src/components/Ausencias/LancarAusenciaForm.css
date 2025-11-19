@@ -1,0 +1,208 @@
+/* Container principal do formulário */
+.ausencia-form-container {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Conteúdo interno (com padding) */
+.ausencia-form-content {
+  padding: 24px;
+}
+
+/* Grid para os campos */
+.ausencia-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Duas colunas */
+  gap: 20px;
+}
+
+/* Campo que ocupa a linha inteira */
+.ausencia-form-span-2 {
+  grid-column: span 2;
+}
+
+/* Grupo (label + input) */
+.ausencia-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.ausencia-form-group label {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a5568; 
+}
+
+/* Estilo dos Inputs, Selects e Textarea */
+.ausencia-form-group input[type="date"],
+.ausencia-form-group select,
+.ausencia-form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid #e0e0e0; 
+  border-radius: 4px;
+  box-sizing: border-box; 
+  background-color: #f5f8fa; 
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit; /* Garante que a fonte seja a mesma */
+}
+
+.ausencia-form-group input[type="date"]:focus,
+.ausencia-form-group select:focus,
+.ausencia-form-group textarea:focus {
+  outline: none;
+  border-color: #1a202c; 
+  background-color: #fff; 
+  box-shadow: 0 0 0 1px #1a202c;
+}
+
+/* Ajuste para o ícone de calendário */
+.ausencia-form-group .input-with-icon {
+  position: relative;
+}
+.ausencia-form-group .input-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #777;
+  pointer-events: none;
+  font-size: 20px; /* Ajuste o tamanho do ícone */
+}
+.ausencia-form-group input[type="date"] {
+  padding-left: 40px; /* Espaço para o ícone */
+}
+
+/* Campo de Upload */
+.ausencia-upload-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 128px; /* 8rem */
+  background-color: #f5f8fa;
+  border: 2px dashed #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.ausencia-upload-label:hover {
+  background-color: #f0f2f5;
+  border-color: #1a202c;
+}
+.ausencia-upload-label input[type="file"] {
+  display: none; /* Esconde o input real */
+}
+.ausencia-upload-text {
+  font-size: 14px;
+  color: #777;
+}
+.ausencia-upload-text .semibold {
+  font-weight: 600;
+  color: #1a202c;
+}
+.ausencia-upload-subtext {
+  font-size: 12px;
+  color: #999;
+}
+.ausencia-file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #137fec; /* Cor primária */
+}
+
+/* Rodapé com botões */
+.ausencia-form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+  background-color: #fcfcfc;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Estilo dos botões (reutilizando do FuncionarioForm) */
+.ausencia-form-footer .button-secondary,
+.ausencia-form-footer .button-primary {
+  padding: 10px 24px; 
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid; 
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ausencia-form-footer .button-primary {
+  background-color: #28a745; /* Verde (Salvar) */
+  border-color: #28a745;
+  color: white;
+}
+.ausencia-form-footer .button-primary:hover {
+  background-color: #218838;
+}
+.ausencia-form-footer .button-primary:disabled {
+  background-color: #a0aec0;
+  border-color: #a0aec0;
+}
+
+.ausencia-form-footer .button-secondary {
+  background-color: #fff;
+  border-color: #ccc; 
+  color: #333;
+}
+.ausencia-form-footer .button-secondary:hover {
+  background-color: #f8f9fa;
+}
+
+.ausencia-form-footer .button-icon {
+  font-size: 18px;
+  margin-right: 4px;
+  vertical-align: middle; /* Alinha o ícone com o texto */
+}
+
+/* --- APRIMORAMENTO 1: OVERLAY DE CARREGAMENTO --- */
+
+/* 1. O container do formulário precisa ser 'relative'
+   para que o overlay 'absolute' funcione dentro dele */
+.ausencia-form-container {
+  /* ... (outros estilos que já estão aqui) ... */
+  position: relative; /* <-- Adicione/Garanta que esta linha exista */
+}
+
+/* 2. O Overlay (fundo semi-transparente) */
+.form-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.75); /* Branco com 75% de opacidade */
+  border-radius: 8px; /* Para bater com as bordas do container */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10; /* Para ficar por cima de tudo */
+}
+
+/* 3. O Spinner (a "rodinha") */
+.form-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3; /* Cinza claro */
+  border-top: 5px solid #137fec; /* Cor primária (azul) */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 4. A Animação de giro */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

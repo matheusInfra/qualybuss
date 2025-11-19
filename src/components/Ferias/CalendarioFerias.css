@@ -1,0 +1,210 @@
+/* src/components/Ferias/CalendarioFerias.css */
+
+.calendar-container {
+  background-color: #fff;
+  border-radius: 0.75rem; /* 12px */
+  border: 1px solid #e0e0e0;
+  overflow: hidden; /* Para os cantos arredondados */
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* --- 1. CABEÇALHO (Dom, Seg, Ter...) --- */
+.calendar-header-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background-color: #f9fafb; /* Fundo levemente cinza para o header */
+}
+
+.calendar-header-cell {
+  text-align: center;
+  padding: 12px 0;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 1px solid #e0e0e0;
+}
+.calendar-header-cell:not(:last-child) {
+  border-right: 1px solid #e0e0e0;
+}
+
+/* --- 2. CORPO (Dias) --- */
+.calendar-body-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr); /* 6 linhas fixas para estabilidade */
+  height: calc(100vh - 280px); /* Altura dinâmica ajustada */
+  min-height: 600px;
+  position: relative; /* CRUCIAL para o posicionamento absoluto dos cards */
+}
+
+/* Animação de entrada suave */
+@keyframes fadeInCalendar {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-grid {
+  animation: fadeInCalendar 0.4s ease-out;
+}
+
+/* Célula do Dia */
+.calendar-day-cell {
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  position: relative; /* Para posicionar o indicador de feriado */
+  transition: background-color 0.2s;
+}
+.calendar-day-cell:not(:nth-child(7n)) {
+  border-right: 1px solid #e0e0e0;
+}
+.calendar-day-cell:nth-last-child(-n+7) {
+  border-bottom: none;
+}
+
+/* Número do Dia */
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.day-number {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2d3748;
+  z-index: 2; /* Fica acima de fundos */
+}
+
+/* Estados da Célula */
+.calendar-day-cell.other-month {
+  background-color: #fcfcfc;
+}
+.calendar-day-cell.other-month .day-number {
+  color: #cbd5e0;
+}
+
+.calendar-day-cell.today {
+  background-color: rgba(235, 248, 255, 0.5); /* Azul muito claro */
+}
+.calendar-day-cell.today .day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #135bec;
+  color: white;
+  font-weight: 700;
+}
+
+/* --- 3. FERIADOS (Novo Visual) --- */
+
+/* Bolinha Animada */
+.holiday-indicator {
+  width: 8px;
+  height: 8px;
+  background-color: #e53e3e; /* Vermelho */
+  border-radius: 50%;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  cursor: help;
+  z-index: 10;
+  box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+  animation: pulseHoliday 2s infinite;
+}
+
+@keyframes pulseHoliday {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(229, 62, 62, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
+  }
+}
+
+/* Tooltip Flutuante */
+.holiday-tooltip {
+  position: fixed; /* Segue a tela, calculado via JS */
+  background-color: #1a202c; /* Fundo escuro */
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 9999; /* Acima de tudo */
+  pointer-events: none; /* Não interfere no clique */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  transform: translate(10px, 10px); /* Offset do mouse */
+  animation: fadeInTooltip 0.2s ease-out;
+}
+
+@keyframes fadeInTooltip {
+  from { opacity: 0; transform: translate(10px, 15px); }
+  to { opacity: 1; transform: translate(10px, 10px); }
+}
+
+/* --- 4. CARDS DE FÉRIAS --- */
+
+.vacation-card-wrapper {
+  position: absolute;
+  padding: 1px 4px; /* Espaçamento horizontal entre cards */
+  cursor: pointer;
+  z-index: 5;
+  transition: transform 0.2s, z-index 0.2s;
+}
+.vacation-card-wrapper:hover {
+  z-index: 20; /* Traz para frente no hover */
+  transform: scale(1.02);
+}
+
+.vacation-card-inner {
+  /* Altura fixa para cálculo de empilhamento */
+  height: 20px;
+  line-height: 20px;
+  
+  border-radius: 4px;
+  /* Borda lateral esquerda mais grossa para identidade visual */
+  border-left-width: 4px; 
+  border-left-style: solid;
+  
+  padding: 0 8px;
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  /* Nota: Cores de fundo e texto são injetadas via style inline pelo JS */
+}
+
+/* --- 5. LOADING E ERROR --- */
+.calendar-loading,
+.calendar-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 16px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 20;
+}
+.calendar-error {
+  color: #e53e3e;
+  border: 1px solid #e53e3e;
+}
+.calendar-loading {
+  color: #135bec;
+}

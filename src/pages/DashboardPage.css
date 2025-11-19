@@ -1,0 +1,167 @@
+/* src/pages/DashboardPage.css */
+
+.dashboard-container {
+  width: 100%;
+  animation: fadeIn 0.5s ease-out; /* */
+}
+
+.dashboard-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+/* --- KPIs --- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.kpi-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+.kpi-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #718096;
+  margin-bottom: 8px;
+}
+.kpi-value {
+  font-size: 2.25rem; /* 36px */
+  font-weight: 700;
+  color: #1a202c;
+  line-height: 1.2;
+}
+.kpi-value.warning {
+  color: #FFB800; /* Amarelo/Laranja para pendências */
+}
+.kpi-card.loading {
+  height: 120px;
+  background-color: #f0f0f0;
+  animation: pulse 1.5s ease-in-out infinite; /* */
+}
+
+/* --- Widgets (Gráficos e Listas) --- */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 20px;
+}
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    /* 1 Coluna Fracionada (Gráfico), 1 Coluna Fixa (Listas) */
+    grid-template-columns: 2fr 1fr;
+    
+    /* Reorganiza para o gráfico ficar ao lado das 2 listas */
+    grid-template-areas:
+      "grafico lista1"
+      "grafico lista2";
+  }
+}
+@media (min-width: 1280px) {
+  .dashboard-grid {
+    grid-template-columns: 1.5fr 1fr;
+  }
+}
+
+
+.dashboard-widget {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  padding: 20px 24px;
+  height: 300px; /* Altura fixa */
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-widget.loading {
+  background-color: #f0f0f0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.dashboard-widget h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.125rem; /* 18px */
+}
+
+/* Gráfico */
+@media (min-width: 1024px) {
+  .dashboard-widget:nth-child(1) {
+    grid-area: grafico;
+    height: 620px; /* Altura combinada (300 + 300 + 20 gap) */
+  }
+  .dashboard-widget:nth-child(2) {
+    grid-area: lista1;
+  }
+  .dashboard-widget:nth-child(3) {
+    grid-area: lista2;
+  }
+}
+
+/* Estilos das Listas */
+.lista-widget {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin: -10px;
+  padding: 10px;
+}
+.lista-empty {
+  color: #718096;
+  font-size: 14px;
+}
+.lista-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.lista-item:last-child {
+  border-bottom: none;
+}
+.lista-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.lista-info {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+.lista-nome {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+}
+.lista-detalhe {
+  font-size: 13px;
+  color: #718096;
+}
+.lista-data {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+  flex-shrink: 0;
+}

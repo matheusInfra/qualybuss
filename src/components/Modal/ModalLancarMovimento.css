@@ -1,0 +1,96 @@
+/* src/components/Modal/ModalLancarMovimento.css */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content-lancamento {
+  background: white;
+  padding: 0; /* Header/footer cuidam do padding */
+  border-radius: 8px;
+  width: 100%;
+  max-width: 800px; /* Modal mais largo */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  animation: fadeInModal 0.3s ease-out;
+}
+
+.modal-header-lancamento {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-title-lancamento {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #777;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-body-lancamento {
+  padding: 24px;
+  max-height: 70vh; /* Limita altura e adiciona scroll */
+  overflow-y: auto;
+}
+
+/* Toggle Débito/Crédito */
+.tipo-lancamento-toggle {
+  display: flex;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.tipo-lancamento-toggle button {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  background: #f8f9fa;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tipo-lancamento-toggle button.active.debito {
+  background: #fff1f0;
+  color: #f5222d;
+}
+.tipo-lancamento-toggle button.active.credito {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+/* Wrapper do formulário */
+.form-wrapper .ausencia-form-container {
+  /* Remove as bordas do formulário, já que ele está dentro de um modal */
+  border: none;
+  box-shadow: none;
+}
+.form-wrapper .ausencia-form-content {
+  padding: 0;
+}
+.form-wrapper .ausencia-form-footer {
+  /* O footer do form fica colado no modal */
+  border-radius: 0 0 8px 8px;
+}
