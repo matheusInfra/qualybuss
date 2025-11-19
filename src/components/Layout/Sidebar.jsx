@@ -25,6 +25,7 @@ function Sidebar() {
           <li><Link to="/documentos">Documentos</Link></li>
           <li><Link to="/ferias">Férias</Link></li>
           <li><Link to="/movimentacoes">Movimentações</Link></li>
+          <li><Link to="/configuracoes">Configurações IA</Link></li>
         </ul>
       </nav>
 

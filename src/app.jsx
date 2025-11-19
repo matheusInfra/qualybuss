@@ -2,6 +2,7 @@ import React, { Suspense } from 'react'; // 1. Importe o Suspense
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext.jsx';
 
+
 // 2. Importe o Layout e o Login normalmente
 import Layout from './components/Layout/Layout.jsx';
 import LoginPage from './pages/LoginPage.jsx';
@@ -17,6 +18,7 @@ const DocumentosPage = React.lazy(() => import('./pages/DocumentosPage.jsx'));
 const MovimentacoesPage = React.lazy(() => import('./pages/MovimentacoesPage.jsx'));
 const DocumentoDetalhePage = React.lazy(() => import('./pages/DocumentoDetalhePage.jsx'));
 const FeriasPage = React.lazy(() => import('./pages/FeriasPage.jsx'));
+const ConfiguracoesPage = React.lazy(() => import('./pages/ConfiguracoesPage.jsx')); // Importe
 
 // Componente especial para redirecionar se já estiver logado
 function PublicRouteWrapper({ children }) {
@@ -113,6 +115,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<p>Carregando Página...</p>}>
                 <MovimentacoesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "/configuracoes",
+            element: (
+              <Suspense fallback={<p>Carregando...</p>}>
+                <ConfiguracoesPage />
               </Suspense>
             ),
           },
