@@ -1,97 +1,22 @@
-/* Reseta básico para começar limpo */
-body, html, #root {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f4f7f6;
-}
-
-/* O container principal do aplicativo */
-.app-layout {
-  display: flex;
-  height: 100vh; /* Ocupa 100% da altura da tela */
-}
-
-/* --- Estilos da Sidebar (Menu Esquerdo) --- */
-.sidebar {
-  width: 250px; /* Largura fixa do menu */
-  background-color: #1a202c; /* Um cinza escuro/azulado */
-  color: white;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.sidebar-header {
-  padding: 20px;
-  text-align: center;
-  border-bottom: 1px solid #2d3748;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  color: #a0aec0; /* Cor mais suave para o título */
-}
-
-.sidebar-nav {
-  flex-grow: 1; /* Faz a navegação ocupar o espaço restante */
-}
-
-.sidebar-nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 20px 0;
-}
-
-.sidebar-nav li {
-  padding: 10px 20px;
-}
-
-.sidebar-nav a {
-  text-decoration: none;
-  color: #cbd5e0; /* Cor do link */
-  font-size: 16px;
-  display: block;
-  transition: all 0.2s;
-}
-
-.sidebar-nav a:hover {
-  color: white;
-  background-color: #2d3748; /* Fundo no hover */
-  border-radius: 5px;
-}
-
-/* --- Estilos da Área de Conteúdo (Direita) --- */
-.content-area {
-  flex-grow: 1; /* Ocupa todo o espaço restante */
-  padding: 24px;
-  height: 100vh;
-  overflow-y: auto; /* Adiciona scroll se o conteúdo for maior que a tela */
-  box-sizing: border-box; /* Garante que o padding não quebre o layout */
-}
-
-/* ... Adicione no final do arquivo ... */
-
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid #2d3748;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Espaço entre o link e o botão */
 }
 
-.logout-button {
-  width: 100%;
+.config-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e0;
+  text-decoration: none;
   padding: 10px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a202c; /* Cor escura do texto */
-  background-color: #a0aec0; /* Cor clara */
-  border: none;
   border-radius: 5px;
-  cursor: pointer;
   transition: all 0.2s;
 }
-
-.logout-button:hover {
-  background-color: #cbd5e0;
-  color: #1a202c;
+.config-link:hover {
+  background-color: #2d3748;
+  color: white;
 }
