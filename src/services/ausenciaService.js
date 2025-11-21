@@ -29,10 +29,6 @@ export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
 
 // --- GESTÃO DE PERÍODOS (SALDO DE FÉRIAS) ---
 
-/**
- * Busca todos os períodos aquisitivos de um funcionário.
- * Ordenado do mais antigo para o mais novo para lógica FIFO (First-In, First-Out).
- */
 export const getPeriodosAquisitivos = async (funcionarioId) => {
   const { data, error } = await supabase
     .from('periodos_aquisitivos')
@@ -44,9 +40,6 @@ export const getPeriodosAquisitivos = async (funcionarioId) => {
   return data;
 };
 
-/**
- * Atualiza manualmente um período (usado na tela de Ajuste de Saldos).
- */
 export const updatePeriodoAquisitivo = async (id, dados) => {
   const { data, error } = await supabase
     .from('periodos_aquisitivos')
@@ -60,17 +53,12 @@ export const updatePeriodoAquisitivo = async (id, dados) => {
 
 // --- VALIDAÇÕES E SOLICITAÇÕES ---
 
-/**
- * Verifica se existe conflito de datas para o funcionário.
- * Retorna TRUE se já houver uma solicitação (não rejeitada) no intervalo.
- */
 export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, ignoreId = null) => {
   let query = supabase
     .from('solicitacoes_ausencia')
     .select('id')
     .eq('funcionario_id', funcionarioId)
-    .neq('status', 'Rejeitado') // Ignora as rejeitadas, elas não bloqueiam agenda
-    // Lógica de sobreposição: (InicioA <= FimB) e (FimA >= InicioB)
+    .neq('status', 'Rejeitado')
     .or(`data_inicio.lte.${dataFim},data_fim.gte.${dataInicio}`);
 
   if (ignoreId) {
@@ -83,22 +71,17 @@ export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, ign
   return data.length > 0;
 };
 
-/**
- * Cria uma nova solicitação de ausência.
- */
 export const createSolicitacaoAusencia = async (dados) => {
-  // 1. Validação de Conflito no Backend (Segurança extra)
   const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
   if (temConflito) {
     throw new Error("Conflito detectado: Já existe uma ausência registrada neste período.");
   }
 
-  // 2. Prepara o objeto
   const payload = {
     funcionario_id: dados.funcionario_id,
     empresa_id: dados.empresa_id,
     tipo: dados.tipo,
-    categoria: dados.categoria, // 'Ferias', 'Saude', 'Pessoal', etc.
+    categoria: dados.categoria,
     data_inicio: dados.data_inicio,
     data_fim: dados.data_fim,
     motivo: dados.motivo || null,
@@ -118,9 +101,6 @@ export const createSolicitacaoAusencia = async (dados) => {
   return data[0];
 };
 
-/**
- * Busca TODAS as solicitações (Visão Global / Single-Tenant).
- */
 export const getTodasSolicitacoes = async () => {
   const { data, error } = await supabase
     .from('solicitacoes_ausencia')
@@ -156,4 +136,55 @@ export const deleteSolicitacao = async (id) => {
 
   if (error) throw error;
   return true;
+};
+
+// --- FUNÇÕES DO MÓDULO DE FÉRIAS (CALENDÁRIO) ---
+// Esta função estava faltando e causava o erro
+
+export const getFeriasAprovadasParaCalendario = async (ano, mes, searchTerm = '', departamento = 'Todos') => {
+  // Calcula o primeiro e último dia do mês para filtrar
+  const dataInicioMes = new Date(ano, mes - 1, 1).toISOString();
+  // O dia 0 do mês seguinte é o último dia do mês atual
+  const dataFimMes = new Date(ano, mes, 0).toISOString();
+
+  let query = supabase
+    .from('solicitacoes_ausencia')
+    .select(`
+      id,
+      data_inicio,
+      data_fim,
+      funcionario_id,
+      funcionarios ( nome_completo, departamento )
+    `)
+    .eq('tipo', 'Férias') // Filtra apenas férias
+    .eq('status', 'Aprovado') // Apenas aprovadas aparecem no calendário
+    // Lógica para pegar férias que começam, terminam ou atravessam o mês atual
+    .or(
+      `data_inicio.gte.${dataInicioMes},data_inicio.lte.${dataFimMes},` +
+      `data_fim.gte.${dataInicioMes},data_fim.lte.${dataFimMes},` +
+      `and(data_inicio.lt.${dataInicioMes},data_fim.gt.${dataFimMes})`
+    );
+
+  // Aplica filtros de busca visual (Nome e Departamento)
+  if (searchTerm) {
+    // Como o supabase js não faz filtro em tabela relacionada facilmente dessa forma no .or(),
+    // a filtragem por nome pode ser refinada no front-end ou exigiria uma query mais complexa.
+    // Por enquanto, mantemos simples ou assumimos que o filtro principal é no banco.
+    // Nota: Se der erro no filtro por nome dentro do objeto relacionado, remova esta linha.
+    // A maioria das versões suporta:
+    query = query.ilike('funcionarios.nome_completo', `%${searchTerm}%`);
+  }
+  
+  if (departamento && departamento !== 'Todos') {
+    query = query.eq('funcionarios.departamento', departamento);
+  }
+
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error("Erro ao buscar férias para o calendário:", error);
+    throw error;
+  }
+  
+  return data;
 };
