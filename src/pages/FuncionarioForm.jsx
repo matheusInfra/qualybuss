@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form'; // <-- 1. Importado
-import { zodResolver } from '@hookform/resolvers/zod'; // <-- 2. Importado
-import { z } from 'zod'; // <-- 3. Importado
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { IMaskInput } from 'react-imask';
 import { cpf } from 'cpf-cnpj-validator';
 import useSWR, { useSWRConfig } from 'swr';
@@ -17,17 +17,18 @@ import {
   getAvatarPublicUrl,
   deleteFuncionario
 } from '../services/funcionarioService';
-import ModalConfirmacao from '../components/Modal/ModalConfirmacao';
-import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes'; // <-- 4. Importado
-import './FuncionarioForm.css'; //
+import { getEmpresas } from '../services/empresaService'; 
 
-// --- 5. DEFINIÇÃO DO SCHEMA ZOD (AS REGRAS DE NEGÓCIO) ---
+import ModalConfirmacao from '../components/Modal/ModalConfirmacao';
+import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes';
+import './FuncionarioForm.css';
+
 const funcionarioSchema = z.object({
   // Pessoal
   nome_completo: z.string().min(3, "Nome completo é obrigatório"),
   data_nascimento: z.string().nullable(),
   cpf: z.string()
-    .transform((val) => val.replace(/\D/g, '')) // Limpa a máscara
+    .transform((val) => val.replace(/\D/g, ''))
     .refine((val) => val.length === 0 || cpf.isValid(val), {
       message: "CPF inválido",
     }),
@@ -45,6 +46,7 @@ const funcionarioSchema = z.object({
   endereco_cidade: z.string().nullable(),
   endereco_estado: z.string().nullable(),
   // Contratual
+  empresa_id: z.string().min(1, "Vínculo com Empresa é obrigatório"),
   id_matricula: z.string().nullable(),
   cargo: z.string().min(1, "Cargo é obrigatório"),
   departamento: z.string().nullable(),
@@ -61,7 +63,7 @@ const funcionarioSchema = z.object({
   banco_agencia: z.string().nullable(),
   banco_conta_numero: z.string().nullable(),
   banco_tipo_conta: z.string().nullable(),
-  // Avatar (controlado separadamente)
+  // Avatar
   avatar_url: z.string().nullable(),
 });
 
@@ -79,14 +81,13 @@ function FuncionarioForm() {
   const isEditMode = Boolean(id);
   const { mutate } = useSWRConfig();
 
-  // --- 6. INICIALIZAÇÃO DO REACT HOOK FORM ---
   const {
     register,
     handleSubmit,
     formState: { errors },
     control,
     setValue,
-    reset // Usado para carregar os dados
+    reset
   } = useForm({
     resolver: zodResolver(funcionarioSchema),
     defaultValues: {
@@ -95,17 +96,24 @@ function FuncionarioForm() {
       tipo_contrato: 'CLT',
       status: 'Ativo',
       banco_tipo_conta: 'Corrente',
+      empresa_id: '', 
     }
   });
 
-  // --- Lógica de busca de dados (SWR) ---
-  const { 
-    data: funcionarioData, 
-    error: fetchError,
-    isLoading: isFetching 
-  } = useSWR(isEditMode ? ['funcionario', id] : null, () => getFuncionarioById(id));
+  // --- BUSCAS DE DADOS (SWR) ---
+  
+  // 1. CORREÇÃO AQUI: Extraímos 'isLoading' e renomeamos para 'isFetching'
+  const { data: funcionarioData, isLoading: isFetching } = useSWR(
+    isEditMode ? ['funcionario', id] : null, 
+    () => getFuncionarioById(id)
+  );
 
-  // Efeito para preencher o formulário com dados do SWR
+  // 2. Busca lista de empresas
+  const { data: listaEmpresas, isLoading: loadingEmpresas } = useSWR(
+    'getEmpresas', 
+    getEmpresas
+  );
+
   useEffect(() => {
     if (funcionarioData) {
       const formattedData = {
@@ -113,8 +121,8 @@ function FuncionarioForm() {
         data_nascimento: funcionarioData.data_nascimento ? funcionarioData.data_nascimento.split('T')[0] : null,
         data_admissao: funcionarioData.data_admissao ? funcionarioData.data_admissao.split('T')[0] : null,
         salario_bruto: funcionarioData.salario_bruto || '',
+        empresa_id: funcionarioData.empresa_id || '', 
       };
-      // 7. 'reset' preenche o react-hook-form
       reset(formattedData); 
       if (funcionarioData.avatar_url) {
         setAvatarPreview(getAvatarPublicUrl(funcionarioData.avatar_url));
@@ -130,8 +138,6 @@ function FuncionarioForm() {
     }
   };
 
-  // --- 8. HANDLESUBMIT SIMPLIFICADO ---
-  // A validação do Zod já aconteceu. 'data' é um objeto limpo.
   const onSubmit = async (data) => {
     if (isLoading) return;
     setIsLoading(true);
@@ -164,7 +170,6 @@ function FuncionarioForm() {
     } catch (err) {
       console.error(err);
       let errorMessage = "Erro ao salvar colaborador."; 
-      // Validação de duplicidade do Supabase
       if (err.message.includes('funcionarios_cpf_key')) {
         errorMessage = "Este CPF já está cadastrado no sistema.";
         setActiveTab('pessoal');
@@ -184,7 +189,6 @@ function FuncionarioForm() {
     }
   };
 
-  // --- 9. BUSCA CEP (agora usa 'setValue') ---
   const handleCepBlur = async (e) => {
     const cep = e.target.value;
     const cepLimpo = cep.replace(/\D/g, '');
@@ -196,12 +200,10 @@ function FuncionarioForm() {
       if (data.erro) {
         setPageError("CEP não encontrado ou inválido.");
       } else {
-        // Usa 'setValue' do react-hook-form
         setValue('endereco_rua', data.logradouro);
         setValue('endereco_bairro', data.bairro);
         setValue('endereco_cidade', data.localidade);
         setValue('endereco_estado', data.uf);
-        
         if (numeroInputRef.current) numeroInputRef.current.focus();
         setPageError(null);
       }
@@ -210,7 +212,6 @@ function FuncionarioForm() {
     }
   };
 
-  // --- (Lógica de Exclusão não muda) ---
   const handleConfirmDelete = async () => {
     if (!isEditMode) return;
     setIsLoading(true);
@@ -231,15 +232,11 @@ function FuncionarioForm() {
   };
   const handleDeleteClick = () => { setIsModalOpen(true); };
 
-  if (isFetching) return <p>Carregando dados do colaborador...</p>;
-  if (fetchError) return <p className="error-message">Falha ao carregar dados: {fetchError.message}</p>;
+  // Agora 'isFetching' está definido
+  if (isFetching && isEditMode) return <p>Carregando dados do colaborador...</p>;
 
-  //
-  // --- 10. JSX ATUALIZADO ---
-  //
   return (
     <div className="form-container">
-      {/* O onSubmit agora chama o wrapper do react-hook-form */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="form-header">
           <h2>{isEditMode ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
@@ -263,7 +260,6 @@ function FuncionarioForm() {
           <button type="button" onClick={() => setActiveTab('pessoal')} className={activeTab === 'pessoal' ? 'active' : ''}>Dados Pessoais</button>
           <button type="button" onClick={() => setActiveTab('contratual')} className={activeTab === 'contratual' ? 'active' : ''}>Dados Contratuais</button>
           <button type="button" onClick={() => setActiveTab('bancario')} className={activeTab === 'bancario' ? 'active' : ''}>Dados Bancários</button>
-          {/* --- NOVA ABA (SÓ APARECE EM EDIÇÃO) --- */}
           {isEditMode && (
             <button type="button" onClick={() => setActiveTab('historico')} className={activeTab === 'historico' ? 'active' : ''}>
               Histórico
@@ -274,7 +270,6 @@ function FuncionarioForm() {
         <div className="form-content">
           {activeTab === 'pessoal' && (
             <div className="form-grid">
-              {/* --- Campo refatorado com ...register e 'errors' --- */}
               <div className="form-group span-3">
                 <label>Nome Completo *</label>
                 <input type="text" {...register("nome_completo")} />
@@ -292,7 +287,6 @@ function FuncionarioForm() {
                 {errors.email_pessoal && <span className="error-message">{errors.email_pessoal.message}</span>}
               </div>
 
-              {/* --- Campo refatorado com <Controller> (para IMaskInput) --- */}
               <div className="form-group span-2">
                 <label>Telefone Celular</label>
                 <Controller
@@ -363,7 +357,7 @@ function FuncionarioForm() {
                       name={field.name}
                       value={field.value || ''}
                       onAccept={(value) => field.onChange(value)}
-                      onBlur={handleCepBlur} // O onBlur é mantido
+                      onBlur={handleCepBlur} 
                     />
                   )}
                 />
@@ -379,7 +373,23 @@ function FuncionarioForm() {
           )}
           {activeTab === 'contratual' && (
             <div className="form-grid">
-              <div className="form-group">
+              {/* Campo de Seleção de Empresa */}
+              <div className="form-group span-2">
+                <label>Vínculo Empresa *</label>
+                <select 
+                  {...register("empresa_id")} 
+                  disabled={loadingEmpresas}
+                  style={errors.empresa_id ? {borderColor: '#e53e3e'} : {}}
+                >
+                  <option value="">Selecione a empresa...</option>
+                  {listaEmpresas?.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.nome_fantasia}</option>
+                  ))}
+                </select>
+                {errors.empresa_id && <span className="error-message">{errors.empresa_id.message}</span>}
+              </div>
+
+              <div className="form-group span-2">
                 <label>Email Corporativo *</label>
                 <input type="email" {...register("email_corporativo")} />
                 {errors.email_corporativo && <span className="error-message">{errors.email_corporativo.message}</span>}
@@ -432,7 +442,6 @@ function FuncionarioForm() {
             </div>
           )}
           
-          {/* --- NOVA ABA SENDO RENDERIZADA --- */}
           {isEditMode && activeTab === 'historico' && (
             <HistoricoMovimentacoes funcionarioId={id} />
           )}
@@ -462,7 +471,6 @@ function FuncionarioForm() {
       >
         <p>Você tem certeza que deseja excluir este colaborador?</p>
         <p>Esta ação não pode ser desfeita.</p>
-        {/* <p>Nome: <strong>{formData.nome_completo}</strong></p> */}
       </ModalConfirmacao>
     </div>
   );
