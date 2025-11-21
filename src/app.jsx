@@ -1,15 +1,15 @@
-// src/app.jsx
 import React, { Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
 
+// Layouts e Componentes de Proteção
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ErrorFallback from './components/ErrorBoundary/ErrorFallback';
 
-// Páginas
+// Páginas (Lazy Loading para performance)
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const FuncionariosPage = React.lazy(() => import('./pages/FuncionariosPage'));
@@ -20,8 +20,8 @@ const DocumentosPage = React.lazy(() => import('./pages/DocumentosPage'));
 const DocumentoDetalhePage = React.lazy(() => import('./pages/DocumentoDetalhePage'));
 const MovimentacoesPage = React.lazy(() => import('./pages/MovimentacoesPage'));
 const ConfiguracoesPage = React.lazy(() => import('./pages/ConfiguracoesPage'));
-[cite_start]// Removemos SelecaoEmpresaPage [cite: 11]
 
+// --- DEFINIÇÃO DAS ROTAS ---
 const router = createBrowserRouter([
   {
     path: "/login",
@@ -33,7 +33,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/",
-    // A única proteção é estar LOGADO (Auth)
+    // Primeiro nível de proteção: Usuário deve estar LOGADO
     element: (
       <ErrorBoundary fallback={<ErrorFallback />}>
         <ProtectedRoute />
@@ -42,8 +42,8 @@ const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        // REMOVIDO: <RequireEmpresa>
-        // Agora o Layout carrega direto
+        // ESTRATÉGIA SINGLE-TENANT:
+        // Removemos o <RequireEmpresa>. O usuário logado acessa direto o Layout.
         element: <Layout />,
         children: [
           {
@@ -149,8 +149,6 @@ const router = createBrowserRouter([
 function App() {
   return (
     <AuthProvider>
-      {/* Mantemos o Provider para ter acesso aos dados da empresa se necessário, 
-          mas ele não bloqueará mais a navegação */}
       <EmpresaProvider>
         <RouterProvider router={router} />
       </EmpresaProvider>
