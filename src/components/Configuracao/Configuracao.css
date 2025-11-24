@@ -1,13 +1,69 @@
 /* src/components/Configuracao/Configuracao.css */
 
-/* --- LAYOUT MASTER-DETAIL (Dividido) --- */
+/* --- 1. TELA INICIAL (DASHBOARD DE CONFIG) --- */
+.config-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.config-home-card {
+  background: white;
+  border-radius: 12px;
+  padding: 32px 24px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+}
+.config-home-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px rgba(0,0,0,0.08);
+  border-color: #d1d5db;
+}
+.config-home-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+}
+
+.icon-bg {
+  width: 64px; height: 64px; borderRadius: 50%;
+  display: flex; alignItems: center; justifyContent: center;
+  margin-bottom: 20px;
+}
+.icon-bg.blue { background: #e0f2fe; color: #0284c7; }
+.icon-bg.green { background: #dcfce7; color: #16a34a; }
+.icon-bg.orange { background: #ffedd5; color: #ea580c; }
+.icon-bg.purple { background: #f3e8ff; color: #9333ea; }
+.icon-bg .material-symbols-outlined { fontSize: 32px; }
+
+.config-home-card h3 { margin: 0 0 8px 0; color: #111827; font-size: 1.1rem; font-weight: 600; }
+.config-home-card p { margin: 0; fontSize: 0.9rem; color: #6b7280; }
+
+
+/* --- 2. LAYOUT MASTER-DETAIL (Dividido) --- */
 .config-split-layout {
   display: flex;
-  height: calc(100vh - 80px); /* Altura total menos header do app */
-  background-color: #f8f9fa; /* Fundo geral claro */
+  height: calc(100vh - 140px); /* Ajuste conforme header do app */
+  background-color: #f8f9fa; 
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* Lado Esquerdo: Lista (Sidebar interna) */
@@ -23,6 +79,7 @@
 .list-header {
   padding: 16px;
   border-bottom: 1px solid #e5e7eb;
+  background-color: #fff;
 }
 
 .list-search-wrapper {
@@ -49,6 +106,7 @@
 .list-search-input:focus {
   border-color: #005A9C;
   background: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 90, 156, 0.1);
 }
 
 .list-items-container {
@@ -70,7 +128,7 @@
   background-color: #f9fafb;
 }
 .list-item.active {
-  background-color: #eff6ff; /* Azul bem claro */
+  background-color: #eff6ff; 
   border-left: 4px solid #005A9C;
 }
 
@@ -86,7 +144,7 @@
   color: #6b7280;
 }
 
-/* Badges de Status */
+/* Badges */
 .status-badge {
   padding: 2px 8px;
   border-radius: 12px;
@@ -98,51 +156,54 @@
 .status-badge.inativo { background-color: #fee2e2; color: #991b1b; }
 .status-badge.pendente { background-color: #fef3c7; color: #92400e; }
 
-/* Lado Direito: Conteúdo Principal (Formulário) */
+
+/* --- 3. LADO DIREITO: FORMULÁRIO/DETALHE --- */
 .config-detail-view {
   flex: 1;
   overflow-y: auto;
-  background-color: #f8f9fa;
+  background-color: #f9fafb;
   padding: 24px;
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
 }
 .detail-title h2 {
   margin: 0;
   font-size: 1.5rem;
   color: #111827;
+  font-weight: 700;
 }
 .detail-subtitle {
   color: #6b7280;
   margin: 4px 0 0 0;
+  font-size: 0.95rem;
 }
 
-/* Cards de Seção no Formulário */
+/* Cards de Seção */
 .detail-card {
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 12px; /* xl */
   padding: 24px;
   margin-bottom: 24px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .detail-card h3 {
   margin-top: 0;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   font-size: 1.1rem;
-  color: #374151;
-  border-bottom: 1px solid #f3f4f6;
-  padding-bottom: 12px;
+  color: #111827;
+  font-weight: 600;
 }
 
-/* Grid do Formulário */
+/* Grid do Formulário (ERP Style) */
 .erp-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 colunas padrão */
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 .col-span-2 { grid-column: span 2; }
@@ -161,11 +222,12 @@
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.95rem;
   background-color: #fff;
   color: #111827;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 .erp-input:focus, .erp-select:focus {
   outline: none;
@@ -190,18 +252,19 @@
   padding: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: #f9fafb;
+  background: #fff;
   cursor: pointer;
   transition: all 0.2s;
 }
 .permission-card:hover {
-  background: #fff;
   border-color: #005A9C;
+  background-color: #f0f9ff;
 }
 .permission-card input[type="checkbox"] {
   width: 18px;
   height: 18px;
   accent-color: #005A9C;
+  cursor: pointer;
 }
 .permission-label {
   font-size: 0.9rem;
@@ -209,7 +272,7 @@
   color: #374151;
 }
 
-/* Toggle Switch (Notificações) */
+/* Toggle Switch (iOS Style) */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -239,7 +302,7 @@
   background-color: white;
   transition: .4s;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 input:checked + .slider {
   background-color: #005A9C;
@@ -248,13 +311,14 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
-/* Ações */
+/* Botões de Ação */
 .erp-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb; /* Fundo do footer igual ao background */
 }
 .btn-danger {
   background-color: #DC3545;
@@ -264,6 +328,7 @@ input:checked + .slider:before {
   font-weight: 600;
   border: none;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 .btn-danger:hover { background-color: #bb2d3b; }
 
@@ -275,8 +340,21 @@ input:checked + .slider:before {
   font-weight: 600;
   border: none;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 .btn-primary:hover { background-color: #004a80; }
+
+.btn-secondary {
+  background-color: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-secondary:hover { background-color: #f3f4f6; }
 
 .btn-icon {
   width: 36px; 
@@ -286,39 +364,9 @@ input:checked + .slider:before {
   justify-content: center;
   background: #005A9C;
   color: white;
-  border-radius: 6px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
-
-.config-home-card {
-  background: white;
-  border-radius: 12px;
-  padding: 32px 24px;
-  border: 1px solid #e0e0e0;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  transition: all 0.2s ease;
-}
-.config-home-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 20px rgba(0,0,0,0.08);
-}
-.config-home-card.disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-.icon-bg {
-  width: 64px; height: 64px; borderRadius: 50%;
-  display: flex; alignItems: center; justifyContent: center;
-  margin-bottom: 20px;
-}
-.icon-bg.blue { background: #e6f7ff; color: #1890ff; }
-.icon-bg.green { background: #f0fff4; color: #2f855a; }
-.icon-bg span { fontSize: 32px; }
-.config-home-card h3 { margin: 0 0 8px 0; color: #2d3748; font-size: 1.1rem; }
-.config-home-card p { margin: 0; fontSize: 14px; color: #718096; }
+.btn-icon:hover { background-color: #004a80; }
