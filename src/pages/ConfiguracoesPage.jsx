@@ -1,26 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { toast } from 'react-hot-toast';
-import { getConfiguracaoIA, updateConfiguracaoIA } from '../services/configService';
+import React, { useState } from 'react';
 import EmpresaManager from '../components/Configuracao/EmpresaManager';
-import UsuarioManager from '../components/Configuracao/UsuarioManager'; // NOVO IMPORT
-import './FuncionarioForm.css'; // CSS antigo (pode ser mantido ou migrado)
+import UsuarioManager from '../components/Configuracao/UsuarioManager';
+import NotificacoesManager from '../components/Configuracao/NotificacoesManager'; // NOVO
+import './FuncionarioForm.css'; // Pode remover se não usar mais
+import '../components/Configuracao/Configuracao.css'; // Garante que o CSS novo carregue
 
-// --- SUB-COMPONENTE: Formulário de Configuração da IA ---
-function ConfigIAForm({ onBack }) {
-  // ... (Mantenha o código existente do form de IA aqui) ...
-  // Vou omitir o conteúdo repetido para focar na estrutura
-  return <div>Formulário IA (código já existente) <button onClick={onBack}>Voltar</button></div>;
-}
+// Sub-componentes placeholders se necessário
+function ConfigIAForm({ onBack }) { return <div><button onClick={onBack}>Voltar</button> IA Config...</div> }
 
-// --- COMPONENTE PRINCIPAL ---
 function ConfiguracoesPage() {
   const [activeModule, setActiveModule] = useState(null);
 
   // Roteamento interno
-  if (activeModule === 'ia') return <ConfigIAForm onBack={() => setActiveModule(null)} />;
   if (activeModule === 'empresas') return <EmpresaManager onBack={() => setActiveModule(null)} />;
-  if (activeModule === 'usuarios') return <UsuarioManager onBack={() => setActiveModule(null)} />; // NOVO
+  if (activeModule === 'usuarios') return <UsuarioManager onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'notificacoes') return (
+    <div className="config-split-layout"> {/* Envolve em layout para manter padrão se quiser */}
+      <div style={{flex:1, overflowY: 'auto', background:'#f8f9fa'}}>
+         <button onClick={() => setActiveModule(null)} style={{margin:'20px', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px', color:'#666'}}>
+            <span className="material-symbols-outlined">arrow_back</span> Voltar
+         </button>
+         <NotificacoesManager />
+      </div>
+    </div>
+  );
+  if (activeModule === 'ia') return <ConfigIAForm onBack={() => setActiveModule(null)} />;
 
   return (
     <div style={{ width: '100%', animation: 'fadeIn 0.3s ease-out' }}>
@@ -36,79 +40,35 @@ function ConfiguracoesPage() {
       }}>
         
         {/* Card 1: Empresas */}
-        <div 
-          onClick={() => setActiveModule('empresas')}
-          className="config-card"
-          style={{
-            background: 'white', borderRadius: '12px', padding: '32px 24px', 
-            border: '1px solid #e0e0e0', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 20px rgba(0,0,0,0.08)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'; }}
-        >
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '50%', 
-            background: '#f0fff4', color: '#2f855a', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px'
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>business</span>
-          </div>
-          <h3 style={{ margin: '0 0 8px 0', color: '#2d3748', fontSize: '1.1rem' }}>Gestão de Empresas</h3>
-          <p style={{ margin: 0, fontSize: '14px', color: '#718096' }}>Cadastre filiais e dados da organização.</p>
+        <div onClick={() => setActiveModule('empresas')} className="config-home-card">
+          <div className="icon-bg blue"><span className="material-symbols-outlined">business</span></div>
+          <h3>Gestão de Empresas</h3>
+          <p>Cadastre filiais e dados da organização.</p>
         </div>
 
-        {/* Card 2: Usuários (AGORA ATIVO) */}
-        <div 
-          onClick={() => setActiveModule('usuarios')}
-          className="config-card"
-          style={{
-            background: 'white', borderRadius: '12px', padding: '32px 24px', 
-            border: '1px solid #e0e0e0', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 20px rgba(0,0,0,0.08)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'; }}
-        >
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '50%', 
-            background: '#fff5f5', color: '#e53e3e', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px'
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>group</span>
-          </div>
-          <h3 style={{ margin: '0 0 8px 0', color: '#2d3748', fontSize: '1.1rem' }}>Usuários e Permissões</h3>
-          <p style={{ margin: 0, fontSize: '14px', color: '#718096' }}>Convide e gerencie acesso ao sistema.</p>
+        {/* Card 2: Usuários */}
+        <div onClick={() => setActiveModule('usuarios')} className="config-home-card">
+          <div className="icon-bg green"><span className="material-symbols-outlined">group</span></div>
+          <h3>Usuários e Permissões</h3>
+          <p>Convide e gerencie acesso ao sistema.</p>
         </div>
 
-        {/* Card 3: IA */}
-        <div 
-          onClick={() => setActiveModule('ia')}
-          className="config-card"
-          style={{
-            background: 'white', borderRadius: '12px', padding: '32px 24px', 
-            border: '1px solid #e0e0e0', cursor: 'not-allowed', // Mantendo restrito se desejar
-            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden'
-          }}
-        >
-          {/* Label Restrito */}
-          <div style={{position: 'absolute', top: '12px', right: '12px', background: '#f7fafc', padding: '4px 8px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #e2e8f0'}}>
-            <span className="material-symbols-outlined" style={{fontSize: '16px', color: '#718096'}}>lock</span>
-            <span style={{fontSize: '11px', fontWeight: '600', color: '#718096'}}>Restrito TI</span>
+        {/* Card 3: Notificações (NOVO) */}
+        <div onClick={() => setActiveModule('notificacoes')} className="config-home-card">
+          <div className="icon-bg orange" style={{background:'#fff7ed', color:'#c2410c'}}>
+            <span className="material-symbols-outlined">notifications</span>
           </div>
-          
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '50%', 
-            background: '#e6f7ff', color: '#1890ff', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px'
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>smart_toy</span>
+          <h3>Notificações</h3>
+          <p>Alertas por e-mail, sistema e integrações.</p>
+        </div>
+
+        {/* Card 4: IA */}
+        <div onClick={() => setActiveModule('ia')} className="config-home-card disabled">
+          <div className="icon-bg purple" style={{background:'#f3e8ff', color:'#7e22ce'}}>
+             <span className="material-symbols-outlined">smart_toy</span>
           </div>
-          <h3 style={{ margin: '0 0 8px 0', color: '#2d3748', fontSize: '1.1rem' }}>Inteligência Artificial</h3>
-          <p style={{ margin: 0, fontSize: '14px', color: '#718096' }}>Configurações do QualyBot.</p>
+          <h3>Inteligência Artificial</h3>
+          <p>Configurações do QualyBot (Em breve).</p>
         </div>
 
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useForm, Controller } from 'react-hook-form';
 import { IMaskInput } from 'react-imask';
@@ -7,34 +7,45 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabaseClient';
 import { getEmpresas, createEmpresa, updateEmpresa, deleteEmpresa } from '../../services/empresaService';
 import ModalConfirmacao from '../Modal/ModalConfirmacao';
-import './Configuracao.css'; 
+import './Configuracao.css';
 
-function EmpresaManager({ onBack }) {
-  const { data: empresas, isLoading } = useSWR('getEmpresas', getEmpresas);
+function EmpresaManager() {
+  const { data: empresas } = useSWR('getEmpresas', getEmpresas);
   const { mutate } = useSWRConfig();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   
-  const [view, setView] = useState('list'); 
-  const [editingEmpresa, setEditingEmpresa] = useState(null);
+  // Estado para controlar qual empresa está selecionada (Detail View)
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState('new'); 
   const [deleteModal, setDeleteModal] = useState(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
+  const [filterTerm, setFilterTerm] = useState('');
 
-  const { control, register, handleSubmit, reset, setValue, setFocus } = useForm();
+  const { control, register, handleSubmit, reset, setValue } = useForm();
 
+  // Filtro da lista lateral
+  const filteredEmpresas = empresas?.filter(e => 
+    e.nome_fantasia.toLowerCase().includes(filterTerm.toLowerCase()) ||
+    (e.cnpj && e.cnpj.includes(filterTerm))
+  ) || [];
+
+  // Quando clica em um item da lista
+  const handleSelectEmpresa = (empresa) => {
+    setSelectedEmpresaId(empresa.id);
+    reset(empresa); // Preenche o formulário
+  };
+
+  // Quando clica no botão "+"
   const handleNew = () => {
-    setEditingEmpresa(null);
-    reset({});
-    setView('form');
+    setSelectedEmpresaId('new');
+    reset({
+      nome_fantasia: '',
+      razao_social: '',
+      cnpj: '',
+      logradouro: '',
+      // ...limpar outros campos se necessário
+    });
   };
 
-  const handleEdit = (empresa) => {
-    setEditingEmpresa(empresa);
-    // Ajusta campos que podem vir nulos ou com nomes diferentes se necessário
-    reset(empresa);
-    setView('form');
-  };
-
-  // --- BUSCA DE CEP ---
   const handleCepBlur = async (e) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -48,14 +59,11 @@ function EmpresaManager({ onBack }) {
         toast.error('CEP não encontrado.');
         return;
       }
-
       setValue('logradouro', data.logradouro);
       setValue('bairro', data.bairro);
       setValue('cidade', data.localidade);
       setValue('estado', data.uf);
-      // Foca no número após preencher
       setTimeout(() => document.getElementById('campo-numero')?.focus(), 100);
-      
     } catch (error) {
       toast.error('Erro ao buscar CEP.');
     } finally {
@@ -64,42 +72,31 @@ function EmpresaManager({ onBack }) {
   };
 
   const handleSave = async (data) => {
-    // Loading toast
-    const toastId = toast.loading('Salvando dados empresariais...');
-
+    const toastId = toast.loading('Salvando...');
     try {
-      // Tratamento de dados (conversão de datas vazias para null, etc)
-      const payload = {
-        ...data,
-        data_fundacao: data.data_fundacao || null,
-      };
+      const payload = { ...data, data_fundacao: data.data_fundacao || null };
 
-      if (editingEmpresa) {
-        await updateEmpresa(editingEmpresa.id, payload);
-        toast.success('Cadastro empresarial atualizado!', { id: toastId });
+      if (selectedEmpresaId !== 'new') {
+        await updateEmpresa(selectedEmpresaId, payload);
+        toast.success('Empresa atualizada!', { id: toastId });
       } else {
         const novaEmpresa = await createEmpresa(payload);
-        
         // Vínculo Automático
         if (novaEmpresa && user) {
-           const { error: vinculoError } = await supabase
-             .from('usuarios_empresas')
-             .insert([{
-               user_id: user.id,
-               empresa_id: novaEmpresa.id,
-               role: 'admin',
-               nome_exibicao: user.user_metadata?.nome_completo || 'Admin',
-               email_exibicao: user.email
-             }]);
-             
-           if (vinculoError) console.warn('Erro no vínculo automático:', vinculoError);
+           await supabase.from('usuarios_empresas').insert([{
+             user_id: user.id,
+             empresa_id: novaEmpresa.id,
+             role: 'admin',
+             nome_exibicao: user.user_metadata?.nome_completo || 'Admin',
+             email_exibicao: user.email
+           }]);
         }
-        toast.success('Empresa cadastrada com sucesso!', { id: toastId });
+        toast.success('Empresa criada!', { id: toastId });
+        handleSelectEmpresa(novaEmpresa); // Seleciona a nova
       }
       mutate('getEmpresas');
-      setView('list');
     } catch (error) {
-      toast.error('Erro ao salvar: ' + error.message, { id: toastId });
+      toast.error('Erro: ' + error.message, { id: toastId });
     }
   };
 
@@ -108,255 +105,181 @@ function EmpresaManager({ onBack }) {
     try {
       await deleteEmpresa(deleteModal.id);
       mutate('getEmpresas');
-      toast.success('Empresa removida e dados desvinculados.');
+      toast.success('Empresa removida.');
       setDeleteModal(null);
+      handleNew(); // Volta para tela de nova
     } catch (error) {
       toast.error('Erro ao excluir: ' + error.message);
     }
   };
 
-  // --- VIEW: LISTA ---
-  if (view === 'list') {
-    return (
-      <div className="config-module-container">
-        <div className="config-header">
-          <div className="header-left">
-            <button onClick={onBack} className="btn-back">&larr;</button>
-            <div>
-              <h2>Gestão Corporativa</h2>
-              <p>Gerencie as unidades de negócio e dados fiscais.</p>
-            </div>
+  return (
+    <div className="config-split-layout">
+      {/* SIDEBAR: Lista de Empresas */}
+      <div className="config-list-sidebar">
+        <div className="list-header">
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <h3 style={{margin:0}}>Unidades</h3>
+            <button className="btn-icon" onClick={handleNew} title="Nova Unidade">
+              <span className="material-symbols-outlined">add</span>
+            </button>
           </div>
-          <button className="btn-primary" onClick={handleNew}>+ Nova Empresa</button>
+          <div className="list-search-wrapper">
+            <span className="material-symbols-outlined list-search-icon">search</span>
+            <input 
+              className="list-search-input" 
+              placeholder="Buscar por Nome ou CNPJ" 
+              value={filterTerm}
+              onChange={e => setFilterTerm(e.target.value)}
+            />
+          </div>
         </div>
-
-        <div className="cards-grid">
-          {isLoading ? <p>Carregando...</p> : empresas?.map(emp => (
-            <div key={emp.id} className="info-card">
-              <div className="card-header-row">
-                <div className="card-icon-box" style={{background: '#e6f7ff', color: '#1890ff'}}>
-                  {emp.nome_fantasia ? emp.nome_fantasia.substring(0, 2).toUpperCase() : 'EP'}
+        
+        <div className="list-items-container">
+          {filteredEmpresas.map(emp => (
+            <div 
+              key={emp.id} 
+              className={`list-item ${selectedEmpresaId === emp.id ? 'active' : ''}`}
+              onClick={() => handleSelectEmpresa(emp)}
+            >
+              <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
+                <div style={{width:'40px', height:'40px', background:'#e0f2fe', color:'#005A9C', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                  <span className="material-symbols-outlined">business</span>
                 </div>
-                <div className="card-header-text">
-                  <h3>{emp.nome_fantasia}</h3>
-                  <span className="card-subtext" style={{fontSize:'0.8rem'}}>{emp.razao_social || emp.nome_fantasia}</span>
-                  <div className="card-subtext">{emp.cnpj || 'CNPJ não informado'}</div>
-                </div>
-              </div>
-              
-              <div className="card-body-rows">
-                <div className="info-row">
-                  <span className="material-symbols-outlined">location_on</span>
-                  <span>{emp.cidade ? `${emp.cidade}/${emp.estado}` : 'Endereço pendente'}</span>
-                </div>
-                <div className="info-row">
-                  <span className="material-symbols-outlined">verified</span>
-                  <span>{emp.regime_tributario || 'Regime não informado'}</span>
+                <div className="item-main">
+                  <h4>{emp.nome_fantasia}</h4>
+                  <p className="item-sub">{emp.cnpj || 'CNPJ Pendente'}</p>
                 </div>
               </div>
-
-              <div className="card-footer-actions">
-                <button onClick={() => handleEdit(emp)}>Gerenciar Dados</button>
-                <button onClick={() => setDeleteModal(emp)} style={{color: '#e53e3e'}}>Baixar/Excluir</button>
-              </div>
+              <span className="material-symbols-outlined" style={{color:'#9ca3af'}}>chevron_right</span>
             </div>
           ))}
+        </div>
+      </div>
 
-          {!isLoading && empresas?.length === 0 && (
-            <div style={{gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: '#666', border: '1px dashed #ccc', borderRadius: '8px'}}>
-              Nenhuma empresa cadastrada. Comece adicionando sua Matriz.
-            </div>
+      {/* MAIN: Formulário de Detalhes */}
+      <div className="config-detail-view">
+        <div className="detail-header">
+          <div className="detail-title">
+            <h2>{selectedEmpresaId === 'new' ? 'Nova Unidade' : 'Editar Unidade'}</h2>
+            <p className="detail-subtitle">
+              {selectedEmpresaId === 'new' ? 'Preencha os dados para cadastrar uma nova filial ou matriz.' : 'Gerencie os dados cadastrais e fiscais desta unidade.'}
+            </p>
+          </div>
+          {selectedEmpresaId !== 'new' && (
+            <button 
+              type="button" 
+              className="btn-danger" 
+              onClick={() => setDeleteModal(empresas.find(e => e.id === selectedEmpresaId))}
+            >
+              Excluir Unidade
+            </button>
           )}
         </div>
 
-        <ModalConfirmacao 
-          isOpen={!!deleteModal} 
-          onClose={() => setDeleteModal(null)}
-          onConfirm={handleDelete}
-          title="Excluir Registro Empresarial"
-        >
-          Tem certeza? Esta ação é irreversível e afetará todos os colaboradores vinculados a este CNPJ.
-        </ModalConfirmacao>
-      </div>
-    );
-  }
-
-  // --- VIEW: FORMULÁRIO ERP ---
-  return (
-    <div className="config-module-container">
-      <div className="config-header">
-        <h2>{editingEmpresa ? 'Editar Dados Corporativos' : 'Novo Cadastro Empresarial'}</h2>
-      </div>
-
-      <form onSubmit={handleSubmit(handleSave)} className="config-form">
-        
-        {/* Seção 1: Identificação */}
-        <h4 className="form-section-title">Identificação da Empresa</h4>
-        <div className="form-grid">
-          <div className="form-group span-2">
-            <label>Razão Social (Obrigatório)</label>
-            <input {...register('razao_social')} placeholder="Razão Social Ltda." />
-            <small style={{color: '#718096', fontSize: '0.8rem'}}>Nome oficial registrado no contrato social.</small>
-          </div>
-
-          <div className="form-group span-2">
-            <label>Nome Fantasia *</label>
-            <input {...register('nome_fantasia', { required: true })} placeholder="Ex: QualyBuss Matriz" />
-          </div>
-          
-          <div className="form-group">
-            <label>CNPJ</label>
-            <Controller
-              name="cnpj"
-              control={control}
-              render={({ field }) => (
-                <IMaskInput
-                  mask="00.000.000/0000-00"
-                  {...field}
-                  placeholder="00.000.000/0000-00"
-                  className="imask-input"
+        <form onSubmit={handleSubmit(handleSave)}>
+          {/* Informações Gerais */}
+          <div className="detail-card">
+            <h3>Informações Gerais</h3>
+            <div className="erp-grid">
+              <div className="erp-group col-span-2">
+                <label>Razão Social</label>
+                <input className="erp-input" {...register('razao_social')} placeholder="Razão Social Ltda." />
+              </div>
+              <div className="erp-group">
+                <label>Nome Fantasia *</label>
+                <input className="erp-input" {...register('nome_fantasia', { required: true })} />
+              </div>
+              <div className="erp-group">
+                <label>CNPJ</label>
+                <Controller
+                  name="cnpj"
+                  control={control}
+                  render={({ field }) => (
+                    <IMaskInput className="erp-input" mask="00.000.000/0000-00" {...field} placeholder="00.000.000/0000-00" />
+                  )}
                 />
-              )}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Data de Fundação</label>
-            <input type="date" {...register('data_fundacao')} />
-          </div>
-        </div>
-
-        {/* Seção 2: Dados Fiscais */}
-        <h4 className="form-section-title" style={{marginTop: '32px'}}>Dados Fiscais & Contato</h4>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Inscrição Estadual</label>
-            <input {...register('inscricao_estadual')} placeholder="Isento ou número" />
-          </div>
-          
-          <div className="form-group">
-            <label>Inscrição Municipal</label>
-            <input {...register('inscricao_municipal')} />
-          </div>
-
-          <div className="form-group">
-            <label>Regime Tributário</label>
-            <select {...register('regime_tributario')}>
-              <option value="">Selecione...</option>
-              <option value="Simples Nacional">Simples Nacional</option>
-              <option value="Lucro Presumido">Lucro Presumido</option>
-              <option value="Lucro Real">Lucro Real</option>
-              <option value="MEI">MEI</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Site / Web</label>
-            <input {...register('site')} placeholder="www.suaempresa.com.br" />
-          </div>
-          
-          <div className="form-group">
-            <label>Email Corporativo</label>
-            <input {...register('email_contato')} type="email" />
-          </div>
-
-          <div className="form-group">
-            <label>Telefone Comercial</label>
-            <Controller
-              name="telefone"
-              control={control}
-              render={({ field }) => (
-                <IMaskInput mask="(00) 0000-0000" {...field} className="imask-input" />
-              )}
-            />
-          </div>
-        </div>
-
-        {/* Seção 3: Endereço (ViaCEP) */}
-        <h4 className="form-section-title" style={{marginTop: '32px'}}>Endereço e Localização</h4>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>CEP (Busca Automática)</label>
-            <div style={{position: 'relative'}}>
-              <Controller
-                name="cep"
-                control={control}
-                render={({ field }) => (
-                  <IMaskInput 
-                    mask="00000-000" 
-                    {...field} 
-                    onBlur={(e) => {
-                      field.onBlur(e);
-                      handleCepBlur(e);
-                    }}
-                    placeholder="00000-000" 
-                    className="imask-input" 
-                  />
-                )}
-              />
-              {buscandoCep && <span style={{position:'absolute', right:'10px', top:'12px', fontSize:'0.8rem', color:'#135bec'}}>Buscando...</span>}
+              </div>
             </div>
           </div>
-          
-          <div className="form-group span-2">
-            <label>Logradouro</label>
-            <input {...register('logradouro')} placeholder="Rua, Av..." />
+
+          {/* Endereço */}
+          <div className="detail-card">
+            <h3>Endereço</h3>
+            <div className="erp-grid">
+              <div className="erp-group">
+                <label>CEP {buscandoCep && '(Buscando...)'}</label>
+                <Controller
+                  name="cep"
+                  control={control}
+                  render={({ field }) => (
+                    <IMaskInput className="erp-input" mask="00000-000" {...field} onBlur={(e) => { field.onBlur(e); handleCepBlur(e); }} />
+                  )}
+                />
+              </div>
+              <div className="erp-group">
+                <label>Logradouro</label>
+                <input className="erp-input" {...register('logradouro')} />
+              </div>
+              <div className="erp-group">
+                <label>Número</label>
+                <input id="campo-numero" className="erp-input" {...register('numero')} />
+              </div>
+              <div className="erp-group">
+                <label>Complemento</label>
+                <input className="erp-input" {...register('complemento')} />
+              </div>
+              <div className="erp-group">
+                <label>Bairro</label>
+                <input className="erp-input" {...register('bairro')} />
+              </div>
+              <div className="erp-group">
+                <label>Cidade</label>
+                <input className="erp-input" {...register('cidade')} />
+              </div>
+              <div className="erp-group">
+                <label>UF</label>
+                <input className="erp-input" {...register('estado')} maxLength={2} />
+              </div>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Número</label>
-            <input id="campo-numero" {...register('numero')} placeholder="123" />
+          {/* Contato */}
+          <div className="detail-card">
+            <h3>Contato</h3>
+            <div className="erp-grid">
+              <div className="erp-group">
+                <label>Telefone Principal</label>
+                <Controller
+                  name="telefone"
+                  control={control}
+                  render={({ field }) => (
+                    <IMaskInput className="erp-input" mask="(00) 0000-0000" {...field} />
+                  )}
+                />
+              </div>
+              <div className="erp-group">
+                <label>E-mail de Contato</label>
+                <input className="erp-input" type="email" {...register('email_contato')} />
+              </div>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Complemento</label>
-            <input {...register('complemento')} placeholder="Sala, Bloco" />
+          <div className="erp-actions">
+             <button type="button" className="btn-secondary" style={{background:'transparent', border:'1px solid #ccc', padding:'10px 20px', borderRadius:'6px', cursor:'pointer'}} onClick={handleNew}>Cancelar</button>
+             <button type="submit" className="btn-primary">Salvar Alterações</button>
           </div>
+        </form>
+      </div>
 
-          <div className="form-group">
-            <label>Bairro</label>
-            <input {...register('bairro')} />
-          </div>
-
-          <div className="form-group">
-            <label>Cidade</label>
-            <input {...register('cidade')} />
-          </div>
-
-          <div className="form-group">
-            <label>Estado (UF)</label>
-            <input {...register('estado')} maxLength={2} style={{textTransform: 'uppercase'}} />
-          </div>
-        </div>
-
-        {/* Seção 4: Responsável Legal */}
-        <h4 className="form-section-title" style={{marginTop: '32px'}}>Responsável Legal</h4>
-        <div className="form-grid">
-          <div className="form-group span-2">
-            <label>Nome do Responsável</label>
-            <input {...register('nome_responsavel')} />
-          </div>
-          <div className="form-group">
-            <label>Email do Responsável</label>
-            <input {...register('email_responsavel')} type="email" />
-          </div>
-          <div className="form-group">
-            <label>Celular / WhatsApp</label>
-            <Controller
-              name="telefone_responsavel"
-              control={control}
-              render={({ field }) => (
-                <IMaskInput mask="(00) 00000-0000" {...field} className="imask-input" />
-              )}
-            />
-          </div>
-        </div>
-
-        <div className="form-footer-actions">
-          <button type="button" className="btn-secondary" onClick={() => setView('list')}>Cancelar</button>
-          <button type="submit" className="btn-primary">Salvar Cadastro</button>
-        </div>
-      </form>
+      <ModalConfirmacao 
+        isOpen={!!deleteModal} 
+        onClose={() => setDeleteModal(null)} 
+        onConfirm={handleDelete} 
+        title="Excluir Empresa"
+      >
+        Tem certeza? Dados vinculados serão perdidos.
+      </ModalConfirmacao>
     </div>
   );
 }

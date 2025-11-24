@@ -8,45 +8,60 @@ import { getEmpresas } from '../../services/empresaService';
 import ModalConfirmacao from '../Modal/ModalConfirmacao';
 import './Configuracao.css';
 
-function UsuarioManager({ onBack }) {
-  const { data: usuarios, isLoading } = useSWR('getUsuariosSistema', getUsuariosSistema);
+function UsuarioManager() {
+  const { data: usuarios } = useSWR('getUsuariosSistema', getUsuariosSistema);
   const { data: empresas } = useSWR('getEmpresas', getEmpresas);
   const { mutate } = useSWRConfig();
   
-  const [view, setView] = useState('list');
+  const [selectedUserId, setSelectedUserId] = useState('new');
   const [deleteModal, setDeleteModal] = useState(null);
+  const [filterTerm, setFilterTerm] = useState('');
+
   const { control, register, handleSubmit, reset } = useForm();
 
+  // Filtro
+  const filteredUsers = usuarios?.filter(u => 
+    (u.nome_exibicao || '').toLowerCase().includes(filterTerm.toLowerCase()) ||
+    (u.email_exibicao || '').toLowerCase().includes(filterTerm.toLowerCase())
+  ) || [];
+
+  const handleSelectUser = (user) => {
+    setSelectedUserId(user.id);
+    reset(user);
+  };
+
   const handleNew = () => {
-    reset({});
-    setView('form');
+    setSelectedUserId('new');
+    reset({ nome: '', email: '', cargo: '', role: 'colaborador' });
   };
 
   const handleSave = async (data) => {
-    if (data.senha !== data.confirmar_senha) {
-      toast.error("As senhas não coincidem!");
+    if (selectedUserId === 'new' && data.senha !== data.confirmar_senha) {
+      toast.error("Senhas não conferem!");
       return;
     }
-
-    const toastId = toast.loading('Criando acesso...');
-
+    
+    const toastId = toast.loading('Processando...');
     try {
-      await createUsuarioVinculo({
-        nome: data.nome,
-        email: data.email,
-        password: data.senha,
-        empresa_id: data.empresa_id,
-        role: data.role,
-        // Novos Campos ERP
-        cargo: data.cargo,
-        telefone: data.telefone
-      });
-      
-      toast.success(`Usuário ${data.nome} criado!`, { id: toastId });
-      mutate('getUsuariosSistema'); 
-      setView('list');
+      if (selectedUserId === 'new') {
+        await createUsuarioVinculo({
+          nome: data.nome_exibicao || data.nome, // Ajuste de compatibilidade
+          email: data.email_exibicao || data.email,
+          password: data.senha,
+          empresa_id: data.empresa_id,
+          role: data.role,
+          cargo: data.cargo,
+          telefone: data.telefone
+        });
+        toast.success('Usuário criado!', { id: toastId });
+      } else {
+        // Aqui entraria lógica de update se a API suportasse, 
+        // por enquanto foca em criação/deleção conforme seu pedido anterior
+        toast.success('Dados atualizados (Simulação)', { id: toastId });
+      }
+      mutate('getUsuariosSistema');
+      handleNew(); // Reseta
     } catch (error) {
-      console.error(error);
       toast.error('Erro: ' + error.message, { id: toastId });
     }
   };
@@ -58,163 +73,163 @@ function UsuarioManager({ onBack }) {
       mutate('getUsuariosSistema');
       toast.success('Acesso revogado.');
       setDeleteModal(null);
+      handleNew();
     } catch (error) {
-      toast.error('Erro ao remover: ' + error.message);
+      toast.error('Erro: ' + error.message);
     }
   };
 
-  // --- LISTA ---
-  if (view === 'list') {
-    return (
-      <div className="config-module-container">
-        <div className="config-header">
-          <div className="header-left">
-            <button onClick={onBack} className="btn-back">&larr;</button>
-            <div>
-              <h2>Usuários do Sistema</h2>
-              <p>Gerencie os logins de acesso e operadores.</p>
-            </div>
+  return (
+    <div className="config-split-layout">
+      {/* SIDEBAR: Lista de Usuários */}
+      <div className="config-list-sidebar">
+        <div className="list-header">
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <h3 style={{margin:0}}>Usuários</h3>
+            <button className="btn-icon" onClick={handleNew} title="Novo Usuário">
+              <span className="material-symbols-outlined">add</span>
+            </button>
           </div>
-          <button className="btn-primary" onClick={handleNew}>+ Novo Usuário</button>
+          <div className="list-search-wrapper">
+            <span className="material-symbols-outlined list-search-icon">search</span>
+            <input 
+              className="list-search-input" 
+              placeholder="Pesquisar por nome ou e-mail..." 
+              value={filterTerm}
+              onChange={e => setFilterTerm(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="cards-grid">
-          {isLoading && <p>Carregando...</p>}
-          
-          {!isLoading && usuarios?.length === 0 && (
-             <p style={{gridColumn: '1/-1', color: '#666', textAlign: 'center', padding: '40px', border: '1px dashed #ccc', borderRadius: '8px'}}>
-               Nenhum usuário adicional. Crie o primeiro operador.
-             </p>
-          )}
-          
-          {usuarios?.map(user => (
-            <div key={user.id} className="user-card">
-              <img 
-                src={`https://i.pravatar.cc/150?u=${user.user_id}`} 
-                alt="Avatar" 
-                className="user-avatar" 
-              />
-              
-              <h3 style={{marginBottom: '2px'}}>{user.nome_exibicao}</h3>
-              <span style={{fontSize: '0.8rem', color: '#718096', marginBottom: '8px'}}>{user.cargo || 'Sem cargo definido'}</span>
-              
-              <span className={`user-role ${user.role}`}>
-                {user.role === 'admin' ? 'Administrador' : user.role === 'gerente' ? 'Gerente' : 'Colaborador'}
-              </span>
-              
-              <div style={{marginTop: '16px', width: '100%', textAlign: 'left', fontSize: '0.85rem', color: '#4a5568', borderTop: '1px solid #f0f0f0', paddingTop: '12px'}}>
-                <div style={{display: 'flex', gap: '8px', marginBottom: '4px'}}>
-                  <span className="material-symbols-outlined" style={{fontSize: '16px', color: '#cbd5e0'}}>mail</span>
-                  {user.email_exibicao}
-                </div>
-                {user.telefone && (
-                  <div style={{display: 'flex', gap: '8px', marginBottom: '4px'}}>
-                    <span className="material-symbols-outlined" style={{fontSize: '16px', color: '#cbd5e0'}}>call</span>
-                    {user.telefone}
-                  </div>
-                )}
-                 <div style={{display: 'flex', gap: '8px'}}>
-                  <span className="material-symbols-outlined" style={{fontSize: '16px', color: '#cbd5e0'}}>business</span>
-                  {user.empresas?.nome_fantasia || '---'}
+        <div className="list-items-container">
+          {filteredUsers.map(u => (
+            <div 
+              key={u.id} 
+              className={`list-item ${selectedUserId === u.id ? 'active' : ''}`}
+              onClick={() => handleSelectUser(u)}
+            >
+              <div style={{display:'flex', gap:'12px', alignItems:'center', overflow:'hidden'}}>
+                <img 
+                  src={`https://i.pravatar.cc/150?u=${u.user_id}`} 
+                  alt="Avatar" 
+                  style={{width:'40px', height:'40px', borderRadius:'50%'}}
+                />
+                <div className="item-main" style={{overflow:'hidden'}}>
+                  <h4 style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{u.nome_exibicao}</h4>
+                  <p className="item-sub" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{u.email_exibicao}</p>
                 </div>
               </div>
-
-              <button 
-                onClick={() => setDeleteModal(user)} 
-                style={{marginTop: 'auto', color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem', paddingTop: '16px'}}
-              >
-                Revogar Acesso
-              </button>
+              {/* Badge Simples (Baseado no Role) */}
+              <span className={`status-badge ${u.role === 'admin' ? 'ativo' : 'pendente'}`}>
+                {u.role === 'admin' ? 'Admin' : 'User'}
+              </span>
             </div>
           ))}
         </div>
-
-        <ModalConfirmacao 
-          isOpen={!!deleteModal} 
-          onClose={() => setDeleteModal(null)}
-          onConfirm={handleDelete}
-          title="Revogar Acesso"
-        >
-          O usuário perderá o acesso a esta empresa imediatamente.
-        </ModalConfirmacao>
-      </div>
-    );
-  }
-
-  // --- FORMULÁRIO ---
-  return (
-    <div className="config-module-container">
-      <div className="config-header">
-        <h2>Novo Operador</h2>
       </div>
 
-      <form onSubmit={handleSubmit(handleSave)} className="config-form user-form">
-        
-        <h4 className="form-section-title">Dados de Acesso</h4>
-        <div className="form-grid">
-          <div className="form-group span-2">
-            <label>E-mail (Login) *</label>
-            <input {...register('email')} type="email" placeholder="usuario@empresa.com" required />
+      {/* MAIN: Formulário de Detalhes */}
+      <div className="config-detail-view">
+        <div className="detail-header">
+          <div className="detail-title">
+            <h2>{selectedUserId === 'new' ? 'Novo Usuário' : 'Editar Usuário'}</h2>
+            <p className="detail-subtitle">Gerencie as informações, função e permissões.</p>
           </div>
-          
-          <div className="form-group">
-            <label>Senha Provisória *</label>
-            <input {...register('senha')} type="password" placeholder="Mínimo 6 caracteres" required />
-          </div>
-          <div className="form-group">
-            <label>Confirmar Senha *</label>
-            <input {...register('confirmar_senha')} type="password" required />
-          </div>
+          {selectedUserId !== 'new' && (
+            <button type="button" className="btn-danger" onClick={() => setDeleteModal(usuarios.find(u => u.id === selectedUserId))}>
+              Revogar Acesso
+            </button>
+          )}
         </div>
 
-        <h4 className="form-section-title" style={{marginTop: '32px'}}>Perfil do Usuário</h4>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Nome Completo *</label>
-            <input {...register('nome')} placeholder="Ex: João Silva" required />
-          </div>
-          <div className="form-group">
-            <label>Cargo / Função</label>
-            <input {...register('cargo')} placeholder="Ex: Analista de RH" />
-          </div>
-
-          <div className="form-group">
-            <label>Telefone / Celular</label>
-            <Controller
-              name="telefone"
-              control={control}
-              render={({ field }) => (
-                <IMaskInput mask="(00) 00000-0000" {...field} placeholder="(00) 00000-0000" className="imask-input" />
+        <form onSubmit={handleSubmit(handleSave)}>
+          {/* Informações do Usuário */}
+          <div className="detail-card">
+            <h3>Informações do Usuário</h3>
+            <div className="erp-grid">
+              <div className="erp-group">
+                <label>Nome Completo</label>
+                <input className="erp-input" {...register(selectedUserId === 'new' ? 'nome' : 'nome_exibicao')} />
+              </div>
+              <div className="erp-group">
+                <label>Email</label>
+                <input className="erp-input" type="email" {...register(selectedUserId === 'new' ? 'email' : 'email_exibicao')} disabled={selectedUserId !== 'new'} />
+              </div>
+              <div className="erp-group">
+                <label>Cargo</label>
+                <input className="erp-input" {...register('cargo')} placeholder="Ex: Gerente de Projetos" />
+              </div>
+              <div className="erp-group">
+                <label>Função no Sistema</label>
+                <select className="erp-select" {...register('role')}>
+                  <option value="colaborador">Funcionário (Visualizar)</option>
+                  <option value="gerente">Gerente (Editar)</option>
+                  <option value="admin">Administrador (Total)</option>
+                </select>
+              </div>
+              
+              {/* Campos de Senha (Só aparecem ao criar) */}
+              {selectedUserId === 'new' && (
+                <>
+                  <div className="erp-group">
+                    <label>Senha Provisória</label>
+                    <input className="erp-input" type="password" {...register('senha')} />
+                  </div>
+                  <div className="erp-group">
+                    <label>Confirmar Senha</label>
+                    <input className="erp-input" type="password" {...register('confirmar_senha')} />
+                  </div>
+                </>
               )}
-            />
+
+              <div className="erp-group col-span-2">
+                 <label>Empresa Vinculada</label>
+                 <select className="erp-select" {...register('empresa_id')} disabled={selectedUserId !== 'new'}>
+                   <option value="">Selecione...</option>
+                   {empresas?.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia}</option>)}
+                 </select>
+              </div>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Nível de Permissão *</label>
-            <select {...register('role')} required>
-              <option value="colaborador">Colaborador (Apenas Visualiza)</option>
-              <option value="gerente">Gerente (Edita Dados)</option>
-              <option value="admin">Administrador (Acesso Total)</option>
-            </select>
+          {/* Permissões (Visual - Checkboxes) */}
+          <div className="detail-card">
+            <h3>Permissões (Visualização)</h3>
+            <div className="permissions-grid">
+               <label className="permission-card">
+                 <input type="checkbox" checked readOnly />
+                 <span className="permission-label">Acessar Painel</span>
+               </label>
+               <label className="permission-card">
+                 <input type="checkbox" defaultChecked={false} />
+                 <span className="permission-label">Aprovar Férias</span>
+               </label>
+               <label className="permission-card">
+                 <input type="checkbox" defaultChecked={false} />
+                 <span className="permission-label">Gerenciar Times</span>
+               </label>
+               <label className="permission-card">
+                 <input type="checkbox" defaultChecked={true} />
+                 <span className="permission-label">Ver Relatórios</span>
+               </label>
+            </div>
           </div>
 
-          <div className="form-group span-2">
-            <label>Empresa Vinculada *</label>
-            <select {...register('empresa_id')} required>
-              <option value="">Selecione a empresa...</option>
-              {empresas?.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.nome_fantasia}</option>
-              ))}
-            </select>
-            <small style={{color: '#718096'}}>O usuário terá acesso aos dados desta unidade.</small>
+          <div className="erp-actions">
+             <button type="button" className="btn-secondary" style={{background:'transparent', border:'1px solid #ccc', padding:'10px 20px', borderRadius:'6px', cursor:'pointer'}} onClick={handleNew}>Cancelar</button>
+             <button type="submit" className="btn-primary">Salvar Alterações</button>
           </div>
-        </div>
+        </form>
+      </div>
 
-        <div className="form-footer-actions">
-          <button type="button" className="btn-secondary" onClick={() => setView('list')}>Cancelar</button>
-          <button type="submit" className="btn-primary">Criar Usuário</button>
-        </div>
-      </form>
+      <ModalConfirmacao 
+        isOpen={!!deleteModal} 
+        onClose={() => setDeleteModal(null)} 
+        onConfirm={handleDelete} 
+        title="Revogar Acesso"
+      >
+        O usuário perderá o acesso imediatamente.
+      </ModalConfirmacao>
     </div>
   );
 }
