@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { IMaskInput } from 'react-imask';
 import { toast } from 'react-hot-toast';
 import { getUsuariosSistema, createUsuarioVinculo, deleteUsuarioVinculo } from '../../services/usuarioService';
@@ -19,7 +19,6 @@ function UsuarioManager() {
 
   const { control, register, handleSubmit, reset } = useForm();
 
-  // Filtro
   const filteredUsers = usuarios?.filter(u => 
     (u.nome_exibicao || '').toLowerCase().includes(filterTerm.toLowerCase()) ||
     (u.email_exibicao || '').toLowerCase().includes(filterTerm.toLowerCase())
@@ -27,12 +26,16 @@ function UsuarioManager() {
 
   const handleSelectUser = (user) => {
     setSelectedUserId(user.id);
-    reset(user);
+    reset({
+      ...user,
+      nome: user.nome_exibicao,
+      email: user.email_exibicao
+    });
   };
 
   const handleNew = () => {
     setSelectedUserId('new');
-    reset({ nome: '', email: '', cargo: '', role: 'colaborador' });
+    reset({ nome: '', email: '', cargo: '', role: 'colaborador', telefone: '' });
   };
 
   const handleSave = async (data) => {
@@ -40,13 +43,12 @@ function UsuarioManager() {
       toast.error("Senhas não conferem!");
       return;
     }
-    
     const toastId = toast.loading('Processando...');
     try {
       if (selectedUserId === 'new') {
         await createUsuarioVinculo({
-          nome: data.nome_exibicao || data.nome, // Ajuste de compatibilidade
-          email: data.email_exibicao || data.email,
+          nome: data.nome,
+          email: data.email,
           password: data.senha,
           empresa_id: data.empresa_id,
           role: data.role,
@@ -55,12 +57,10 @@ function UsuarioManager() {
         });
         toast.success('Usuário criado!', { id: toastId });
       } else {
-        // Aqui entraria lógica de update se a API suportasse, 
-        // por enquanto foca em criação/deleção conforme seu pedido anterior
         toast.success('Dados atualizados (Simulação)', { id: toastId });
       }
       mutate('getUsuariosSistema');
-      handleNew(); // Reseta
+      handleNew();
     } catch (error) {
       toast.error('Erro: ' + error.message, { id: toastId });
     }
@@ -79,13 +79,23 @@ function UsuarioManager() {
     }
   };
 
+  // Helper para classe do badge
+  const getBadgeClass = (role) => {
+    if (role === 'admin') return 'admin';
+    return 'ativo'; // Todo usuário que existe é considerado ativo por padrão
+  };
+
+  const getBadgeLabel = (role) => {
+    if (role === 'admin') return 'Admin';
+    return 'Ativo';
+  };
+
   return (
     <div className="config-split-layout">
-      {/* SIDEBAR: Lista de Usuários */}
       <div className="config-list-sidebar">
         <div className="list-header">
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <h3 style={{margin:0}}>Usuários</h3>
+            <h3 style={{margin:0, fontSize:'1.1rem', color:'#111827'}}>Usuários</h3>
             <button className="btn-icon" onClick={handleNew} title="Novo Usuário">
               <span className="material-symbols-outlined">add</span>
             </button>
@@ -94,7 +104,7 @@ function UsuarioManager() {
             <span className="material-symbols-outlined list-search-icon">search</span>
             <input 
               className="list-search-input" 
-              placeholder="Pesquisar por nome ou e-mail..." 
+              placeholder="Pesquisar..." 
               value={filterTerm}
               onChange={e => setFilterTerm(e.target.value)}
             />
@@ -119,16 +129,16 @@ function UsuarioManager() {
                   <p className="item-sub" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{u.email_exibicao}</p>
                 </div>
               </div>
-              {/* Badge Simples (Baseado no Role) */}
-              <span className={`status-badge ${u.role === 'admin' ? 'ativo' : 'pendente'}`}>
-                {u.role === 'admin' ? 'Admin' : 'User'}
+              
+              {/* Badge Corrigido: Admin = Azul, Outros = Verde (Ativo) */}
+              <span className={`status-badge ${getBadgeClass(u.role)}`}>
+                {getBadgeLabel(u.role)}
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* MAIN: Formulário de Detalhes */}
       <div className="config-detail-view">
         <div className="detail-header">
           <div className="detail-title">
@@ -143,7 +153,6 @@ function UsuarioManager() {
         </div>
 
         <form onSubmit={handleSubmit(handleSave)}>
-          {/* Informações do Usuário */}
           <div className="detail-card">
             <h3>Informações do Usuário</h3>
             <div className="erp-grid">
@@ -157,18 +166,17 @@ function UsuarioManager() {
               </div>
               <div className="erp-group">
                 <label>Cargo</label>
-                <input className="erp-input" {...register('cargo')} placeholder="Ex: Gerente de Projetos" />
+                <input className="erp-input" {...register('cargo')} />
               </div>
               <div className="erp-group">
                 <label>Função no Sistema</label>
                 <select className="erp-select" {...register('role')}>
-                  <option value="colaborador">Funcionário (Visualizar)</option>
-                  <option value="gerente">Gerente (Editar)</option>
-                  <option value="admin">Administrador (Total)</option>
+                  <option value="colaborador">Funcionário</option>
+                  <option value="gerente">Gerente</option>
+                  <option value="admin">Administrador</option>
                 </select>
               </div>
               
-              {/* Campos de Senha (Só aparecem ao criar) */}
               {selectedUserId === 'new' && (
                 <>
                   <div className="erp-group">
@@ -192,31 +200,8 @@ function UsuarioManager() {
             </div>
           </div>
 
-          {/* Permissões (Visual - Checkboxes) */}
-          <div className="detail-card">
-            <h3>Permissões (Visualização)</h3>
-            <div className="permissions-grid">
-               <label className="permission-card">
-                 <input type="checkbox" checked readOnly />
-                 <span className="permission-label">Acessar Painel</span>
-               </label>
-               <label className="permission-card">
-                 <input type="checkbox" defaultChecked={false} />
-                 <span className="permission-label">Aprovar Férias</span>
-               </label>
-               <label className="permission-card">
-                 <input type="checkbox" defaultChecked={false} />
-                 <span className="permission-label">Gerenciar Times</span>
-               </label>
-               <label className="permission-card">
-                 <input type="checkbox" defaultChecked={true} />
-                 <span className="permission-label">Ver Relatórios</span>
-               </label>
-            </div>
-          </div>
-
           <div className="erp-actions">
-             <button type="button" className="btn-secondary" style={{background:'transparent', border:'1px solid #ccc', padding:'10px 20px', borderRadius:'6px', cursor:'pointer'}} onClick={handleNew}>Cancelar</button>
+             <button type="button" className="btn-secondary" onClick={handleNew}>Cancelar</button>
              <button type="submit" className="btn-primary">Salvar Alterações</button>
           </div>
         </form>

@@ -41,7 +41,7 @@
 }
 
 .icon-bg {
-  width: 64px; height: 64px; borderRadius: 50%;
+  width: 64px; height: 64px; border-radius: 50%;
   display: flex; alignItems: center; justifyContent: center;
   margin-bottom: 20px;
 }
@@ -54,11 +54,10 @@
 .config-home-card h3 { margin: 0 0 8px 0; color: #111827; font-size: 1.1rem; font-weight: 600; }
 .config-home-card p { margin: 0; fontSize: 0.9rem; color: #6b7280; }
 
-
 /* --- 2. LAYOUT MASTER-DETAIL (Dividido) --- */
 .config-split-layout {
   display: flex;
-  height: calc(100vh - 140px); /* Ajuste conforme header do app */
+  height: calc(100vh - 140px);
   background-color: #f8f9fa; 
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -66,7 +65,7 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Lado Esquerdo: Lista (Sidebar interna) */
+/* Lado Esquerdo: Lista */
 .config-list-sidebar {
   width: 320px;
   background-color: #ffffff;
@@ -102,6 +101,7 @@
   font-size: 0.9rem;
   outline: none;
   background: #f9fafb;
+  box-sizing: border-box;
 }
 .list-search-input:focus {
   border-color: #005A9C;
@@ -114,7 +114,6 @@
   overflow-y: auto;
 }
 
-/* Item da Lista */
 .list-item {
   padding: 16px;
   border-bottom: 1px solid #f3f4f6;
@@ -144,7 +143,7 @@
   color: #6b7280;
 }
 
-/* Badges */
+/* Badges de Status (Correção das Cores) */
 .status-badge {
   padding: 2px 8px;
   border-radius: 12px;
@@ -152,12 +151,11 @@
   font-weight: 700;
   text-transform: uppercase;
 }
-.status-badge.ativo { background-color: #dcfce7; color: #166534; }
-.status-badge.inativo { background-color: #fee2e2; color: #991b1b; }
-.status-badge.pendente { background-color: #fef3c7; color: #92400e; }
+.status-badge.ativo { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.status-badge.inativo { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.status-badge.admin { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
 
-
-/* --- 3. LADO DIREITO: FORMULÁRIO/DETALHE --- */
+/* --- 3. LADO DIREITO: FORMULÁRIO --- */
 .config-detail-view {
   flex: 1;
   overflow-y: auto;
@@ -183,11 +181,10 @@
   font-size: 0.95rem;
 }
 
-/* Cards de Seção */
 .detail-card {
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 12px; /* xl */
+  border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -198,9 +195,11 @@
   font-size: 1.1rem;
   color: #111827;
   font-weight: 600;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 12px;
 }
 
-/* Grid do Formulário (ERP Style) */
+/* Grid do Formulário */
 .erp-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -239,40 +238,7 @@
   color: #9ca3af;
 }
 
-/* Permissões (Checkbox Cards) */
-.permissions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-.permission-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.permission-card:hover {
-  border-color: #005A9C;
-  background-color: #f0f9ff;
-}
-.permission-card input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: #005A9C;
-  cursor: pointer;
-}
-.permission-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-/* Toggle Switch (iOS Style) */
+/* Toggle Switch */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -311,14 +277,14 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
-/* Botões de Ação */
+/* Botões */
 .erp-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
-  background-color: #f9fafb; /* Fundo do footer igual ao background */
+  background-color: #f9fafb;
 }
 .btn-danger {
   background-color: #DC3545;
@@ -357,16 +323,10 @@ input:checked + .slider:before {
 .btn-secondary:hover { background-color: #f3f4f6; }
 
 .btn-icon {
-  width: 36px; 
-  height: 36px; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center;
-  background: #005A9C;
-  color: white;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
+  width: 36px; height: 36px; 
+  display: flex; align-items: center; justifyContent: center;
+  background: #005A9C; color: white;
+  border-radius: 8px; border: none; cursor: pointer;
   transition: background-color 0.2s;
 }
 .btn-icon:hover { background-color: #004a80; }
