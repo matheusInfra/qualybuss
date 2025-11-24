@@ -24,48 +24,58 @@ import ModalConfirmacao from '../components/Modal/ModalConfirmacao';
 import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes';
 import './FuncionarioForm.css';
 
-// Schema de Validação (Igual ao anterior)
+// Schema de Validação Refinado
 const funcionarioSchema = z.object({
+  // Pessoal
   nome_completo: z.string().min(3, "Nome completo é obrigatório"),
-  data_nascimento: z.string().nullable(),
+  data_nascimento: z.string().nullish().or(z.literal('')),
   cpf: z.string()
     .transform((val) => val.replace(/\D/g, ''))
     .refine((val) => val.length === 0 || cpf.isValid(val), {
       message: "CPF inválido",
     }),
-  rg: z.string().nullable(),
-  genero: z.string().nullable(),
-  estado_civil: z.string().nullable(),
-  email_pessoal: z.string().email("E-mail inválido").or(z.literal("")).nullable(),
-  telefone_celular: z.string().nullable(),
+  rg: z.string().nullish().or(z.literal('')),
+  genero: z.string().nullish().or(z.literal('')),
+  estado_civil: z.string().nullish().or(z.literal('')),
+  email_pessoal: z.string().email("E-mail inválido").or(z.literal("")).nullish(),
+  telefone_celular: z.string().nullish().or(z.literal('')),
+  
   // Endereço
-  endereco_cep: z.string().nullable(),
-  endereco_rua: z.string().nullable(),
-  endereco_numero: z.string().nullable(),
-  endereco_complemento: z.string().nullable(),
-  endereco_bairro: z.string().nullable(),
-  endereco_cidade: z.string().nullable(),
-  endereco_estado: z.string().nullable(),
+  endereco_cep: z.string().nullish().or(z.literal('')),
+  endereco_rua: z.string().nullish().or(z.literal('')),
+  endereco_numero: z.string().nullish().or(z.literal('')),
+  endereco_complemento: z.string().nullish().or(z.literal('')),
+  endereco_bairro: z.string().nullish().or(z.literal('')),
+  endereco_cidade: z.string().nullish().or(z.literal('')),
+  endereco_estado: z.string().nullish().or(z.literal('')),
+  
   // Contratual
-  empresa_id: z.string().min(1, "Selecione a Empresa (Aba Contratual)"), // Mensagem clara
-  id_matricula: z.string().nullable(),
+  empresa_id: z.string().min(1, "Selecione a Empresa (Aba Contratual)"),
+  id_matricula: z.string().nullish().or(z.literal('')),
   cargo: z.string().min(1, "Cargo é obrigatório"),
-  departamento: z.string().nullable(),
+  departamento: z.string().nullish().or(z.literal('')),
   email_corporativo: z.string().email("E-mail inválido").min(1, "E-mail corporativo é obrigatório"),
-  data_admissao: z.string().nullable(),
-  tipo_contrato: z.string(),
+  data_admissao: z.string().nullish().or(z.literal('')),
+  tipo_contrato: z.string().optional(),
+  
+  // Correção para Salário: Trata undefined, null e string vazia
   salario_bruto: z.preprocess(
-    (val) => (String(val) === '' ? null : parseFloat(String(val))),
+    (val) => {
+      if (!val || String(val).trim() === '') return null;
+      return parseFloat(String(val));
+    },
     z.number().nullable()
   ),
-  status: z.string(),
+  status: z.string().optional(),
+  
   // Bancário
-  banco_nome: z.string().nullable(),
-  banco_agencia: z.string().nullable(),
-  banco_conta_numero: z.string().nullable(),
-  banco_tipo_conta: z.string().nullable(),
-  // Avatar
-  avatar_url: z.string().nullable(),
+  banco_nome: z.string().nullish().or(z.literal('')),
+  banco_agencia: z.string().nullish().or(z.literal('')),
+  banco_conta_numero: z.string().nullish().or(z.literal('')),
+  banco_tipo_conta: z.string().nullish().or(z.literal('')),
+  
+  // Avatar (pode ser null ou string vazia)
+  avatar_url: z.string().nullish().or(z.literal('')),
 });
 
 function FuncionarioForm() {
@@ -92,17 +102,40 @@ function FuncionarioForm() {
     reset
   } = useForm({
     resolver: zodResolver(funcionarioSchema),
+    // --- CORREÇÃO PRINCIPAL: Default Values Completos ---
     defaultValues: {
       nome_completo: '',
+      data_nascimento: '',
       cpf: '',
+      rg: '',
+      genero: '',
+      estado_civil: '',
+      email_pessoal: '',
+      telefone_celular: '',
+      endereco_cep: '',
+      endereco_rua: '',
+      endereco_numero: '',
+      endereco_complemento: '',
+      endereco_bairro: '',
+      endereco_cidade: '',
+      endereco_estado: '',
+      empresa_id: '',
+      id_matricula: '',
+      cargo: '',
+      departamento: '',
+      email_corporativo: '',
+      data_admissao: '',
       tipo_contrato: 'CLT',
+      salario_bruto: '',
       status: 'Ativo',
+      banco_nome: '',
+      banco_agencia: '',
+      banco_conta_numero: '',
       banco_tipo_conta: 'Corrente',
-      empresa_id: '', 
+      avatar_url: '',
     }
   });
 
-  // --- BUSCAS ---
   const { data: funcionarioData, isLoading: isFetching } = useSWR(
     isEditMode ? ['funcionario', id] : null, 
     () => getFuncionarioById(id)
@@ -121,10 +154,30 @@ function FuncionarioForm() {
     if (funcionarioData) {
       const formattedData = {
         ...funcionarioData,
-        data_nascimento: funcionarioData.data_nascimento ? funcionarioData.data_nascimento.split('T')[0] : null,
-        data_admissao: funcionarioData.data_admissao ? funcionarioData.data_admissao.split('T')[0] : null,
+        data_nascimento: funcionarioData.data_nascimento ? funcionarioData.data_nascimento.split('T')[0] : '',
+        data_admissao: funcionarioData.data_admissao ? funcionarioData.data_admissao.split('T')[0] : '',
         salario_bruto: funcionarioData.salario_bruto || '',
         empresa_id: funcionarioData.empresa_id || '', 
+        // Garante que null vire string vazia para o formulário
+        rg: funcionarioData.rg || '',
+        genero: funcionarioData.genero || '',
+        estado_civil: funcionarioData.estado_civil || '',
+        email_pessoal: funcionarioData.email_pessoal || '',
+        telefone_celular: funcionarioData.telefone_celular || '',
+        endereco_cep: funcionarioData.endereco_cep || '',
+        endereco_rua: funcionarioData.endereco_rua || '',
+        endereco_numero: funcionarioData.endereco_numero || '',
+        endereco_complemento: funcionarioData.endereco_complemento || '',
+        endereco_bairro: funcionarioData.endereco_bairro || '',
+        endereco_cidade: funcionarioData.endereco_cidade || '',
+        endereco_estado: funcionarioData.endereco_estado || '',
+        id_matricula: funcionarioData.id_matricula || '',
+        departamento: funcionarioData.departamento || '',
+        banco_nome: funcionarioData.banco_nome || '',
+        banco_agencia: funcionarioData.banco_agencia || '',
+        banco_conta_numero: funcionarioData.banco_conta_numero || '',
+        banco_tipo_conta: funcionarioData.banco_tipo_conta || 'Corrente',
+        avatar_url: funcionarioData.avatar_url || '',
       };
       reset(formattedData); 
       if (funcionarioData.avatar_url) {
@@ -141,25 +194,17 @@ function FuncionarioForm() {
     }
   };
 
-  // --- NOVO: MANIPULADOR DE ERROS DE VALIDAÇÃO ---
   const onInvalid = (errors) => {
     console.error("Erros de validação:", errors);
     
-    // Lógica para descobrir em qual aba está o erro e mudar para lá
     const errorKeys = Object.keys(errors);
-    
-    // Campos da aba Contratual
     const contractualFields = ['empresa_id', 'cargo', 'email_corporativo', 'salario_bruto', 'tipo_contrato', 'status', 'id_matricula', 'departamento', 'data_admissao'];
-    // Campos da aba Bancária
     const bankingFields = ['banco_nome', 'banco_agencia', 'banco_conta_numero', 'banco_tipo_conta'];
 
-    const hasContractualError = errorKeys.some(key => contractualFields.includes(key));
-    const hasBankingError = errorKeys.some(key => bankingFields.includes(key));
-
-    if (hasContractualError) {
+    if (errorKeys.some(key => contractualFields.includes(key))) {
       setActiveTab('contratual');
       toast.error("Verifique os erros na aba 'Dados Contratuais'");
-    } else if (hasBankingError) {
+    } else if (errorKeys.some(key => bankingFields.includes(key))) {
       setActiveTab('bancario');
       toast.error("Verifique os erros na aba 'Dados Bancários'");
     } else {
@@ -167,7 +212,6 @@ function FuncionarioForm() {
       toast.error("Verifique os erros na aba 'Dados Pessoais'");
     }
   };
-  // ------------------------------------------------
 
   const onSubmit = async (data) => {
     if (isLoading) return;
@@ -176,11 +220,19 @@ function FuncionarioForm() {
 
     try {
       let finalData = { ...data };
+      
+      // Limpeza de campos vazios para null antes de enviar ao banco
+      Object.keys(finalData).forEach(key => {
+        if (finalData[key] === '') finalData[key] = null;
+      });
+
+      // Upload do Avatar
       if (avatarFile) {
         const avatarPath = await uploadAvatar(avatarFile);
         finalData.avatar_url = avatarPath;
       }
       
+      // Tratamento específico de datas
       if (finalData.data_nascimento === '') finalData.data_nascimento = null;
       if (finalData.data_admissao === '') finalData.data_admissao = null;
 
@@ -243,11 +295,12 @@ function FuncionarioForm() {
     }
   };
 
+  const handleDeleteClick = () => setIsModalOpen(true);
+
   if (isFetching && isEditMode) return <p>Carregando...</p>;
 
   return (
     <div className="form-container">
-      {/* AQUI ESTÁ A MÁGICA: passamos o onInvalid como segundo argumento */}
       <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
         <div className="form-header">
           <h2>{isEditMode ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
