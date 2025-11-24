@@ -18,6 +18,7 @@ import {
   deleteFuncionario
 } from '../services/funcionarioService';
 import { getEmpresas } from '../services/empresaService'; 
+import { getListaBancos } from '../services/bancoService'; // <--- NOVO IMPORT
 
 import ModalConfirmacao from '../components/Modal/ModalConfirmacao';
 import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes';
@@ -74,6 +75,9 @@ function FuncionarioForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // --- NOVO ESTADO PARA BANCOS ---
+  const [listaBancos, setListaBancos] = useState([]);
 
   const numeroInputRef = useRef(null);
   const { id } = useParams();
@@ -101,19 +105,22 @@ function FuncionarioForm() {
   });
 
   // --- BUSCAS DE DADOS (SWR) ---
-  
-  // 1. CORREÇÃO AQUI: Extraímos 'isLoading' e renomeamos para 'isFetching'
   const { data: funcionarioData, isLoading: isFetching } = useSWR(
     isEditMode ? ['funcionario', id] : null, 
     () => getFuncionarioById(id)
   );
 
-  // 2. Busca lista de empresas
   const { data: listaEmpresas, isLoading: loadingEmpresas } = useSWR(
     'getEmpresas', 
     getEmpresas
   );
 
+  // --- EFEITO: Carregar Bancos da API ---
+  useEffect(() => {
+    getListaBancos().then(data => setListaBancos(data));
+  }, []);
+
+  // --- EFEITO: Preencher formulário na edição ---
   useEffect(() => {
     if (funcionarioData) {
       const formattedData = {
@@ -232,7 +239,6 @@ function FuncionarioForm() {
   };
   const handleDeleteClick = () => { setIsModalOpen(true); };
 
-  // Agora 'isFetching' está definido
   if (isFetching && isEditMode) return <p>Carregando dados do colaborador...</p>;
 
   return (
@@ -429,7 +435,23 @@ function FuncionarioForm() {
           )}
           {activeTab === 'bancario' && (
              <div className="form-grid">
-              <div className="form-group"><label>Banco</label><input type="text" {...register("banco_nome")} /></div>
+              {/* --- CAMPO BANCO ATUALIZADO COM DATALIST --- */}
+              <div className="form-group">
+                <label>Banco</label>
+                <input 
+                  list="bancos-list" 
+                  placeholder="Digite o código ou nome..." 
+                  {...register("banco_nome")} 
+                  autoComplete="off"
+                />
+                <datalist id="bancos-list">
+                  {listaBancos.map(banco => (
+                    <option key={banco.code} value={`${banco.code} - ${banco.name}`} />
+                  ))}
+                </datalist>
+              </div>
+              {/* -------------------------------------------- */}
+
               <div className="form-group"><label>Agência</label><input type="text" {...register("banco_agencia")} /></div>
               <div className="form-group"><label>Conta</label><input type="text" {...register("banco_conta_numero")} /></div>
               
