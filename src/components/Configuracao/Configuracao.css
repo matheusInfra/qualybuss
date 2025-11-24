@@ -330,3 +330,38 @@ input:checked + .slider:before {
   transition: background-color 0.2s;
 }
 .btn-icon:hover { background-color: #004a80; }
+
+.notification-row {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 20px 24px; 
+  border-bottom: 1px solid #f3f4f6;
+}
+.notification-row:last-child { border-bottom: none; }
+.icon-box {
+  width: 48px; height: 48px; 
+  background: #f3f4f6; 
+  border-radius: 8px; 
+  display: flex; align-items: center; justifyContent: center; 
+  color: #111827;
+}
+.row-title { font-weight: 600; color: #111827; font-size: 0.95rem; }
+.row-subtitle { font-size: 0.85rem; color: #6b7280; }
+
+.btn-back-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: color 0.2s;
+  padding: 0;
+}
+.btn-back-link:hover {
+  color: #111827;
+}
