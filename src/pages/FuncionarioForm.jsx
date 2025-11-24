@@ -18,14 +18,14 @@ import {
   deleteFuncionario
 } from '../services/funcionarioService';
 import { getEmpresas } from '../services/empresaService'; 
-import { getListaBancos } from '../services/bancoService'; // <--- NOVO IMPORT
+import { getListaBancos } from '../services/bancoService'; 
 
 import ModalConfirmacao from '../components/Modal/ModalConfirmacao';
 import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes';
 import './FuncionarioForm.css';
 
+// Schema de Validação (Igual ao anterior)
 const funcionarioSchema = z.object({
-  // Pessoal
   nome_completo: z.string().min(3, "Nome completo é obrigatório"),
   data_nascimento: z.string().nullable(),
   cpf: z.string()
@@ -47,7 +47,7 @@ const funcionarioSchema = z.object({
   endereco_cidade: z.string().nullable(),
   endereco_estado: z.string().nullable(),
   // Contratual
-  empresa_id: z.string().min(1, "Vínculo com Empresa é obrigatório"),
+  empresa_id: z.string().min(1, "Selecione a Empresa (Aba Contratual)"), // Mensagem clara
   id_matricula: z.string().nullable(),
   cargo: z.string().min(1, "Cargo é obrigatório"),
   departamento: z.string().nullable(),
@@ -75,8 +75,6 @@ function FuncionarioForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // --- NOVO ESTADO PARA BANCOS ---
   const [listaBancos, setListaBancos] = useState([]);
 
   const numeroInputRef = useRef(null);
@@ -104,7 +102,7 @@ function FuncionarioForm() {
     }
   });
 
-  // --- BUSCAS DE DADOS (SWR) ---
+  // --- BUSCAS ---
   const { data: funcionarioData, isLoading: isFetching } = useSWR(
     isEditMode ? ['funcionario', id] : null, 
     () => getFuncionarioById(id)
@@ -115,12 +113,10 @@ function FuncionarioForm() {
     getEmpresas
   );
 
-  // --- EFEITO: Carregar Bancos da API ---
   useEffect(() => {
     getListaBancos().then(data => setListaBancos(data));
   }, []);
 
-  // --- EFEITO: Preencher formulário na edição ---
   useEffect(() => {
     if (funcionarioData) {
       const formattedData = {
@@ -145,6 +141,34 @@ function FuncionarioForm() {
     }
   };
 
+  // --- NOVO: MANIPULADOR DE ERROS DE VALIDAÇÃO ---
+  const onInvalid = (errors) => {
+    console.error("Erros de validação:", errors);
+    
+    // Lógica para descobrir em qual aba está o erro e mudar para lá
+    const errorKeys = Object.keys(errors);
+    
+    // Campos da aba Contratual
+    const contractualFields = ['empresa_id', 'cargo', 'email_corporativo', 'salario_bruto', 'tipo_contrato', 'status', 'id_matricula', 'departamento', 'data_admissao'];
+    // Campos da aba Bancária
+    const bankingFields = ['banco_nome', 'banco_agencia', 'banco_conta_numero', 'banco_tipo_conta'];
+
+    const hasContractualError = errorKeys.some(key => contractualFields.includes(key));
+    const hasBankingError = errorKeys.some(key => bankingFields.includes(key));
+
+    if (hasContractualError) {
+      setActiveTab('contratual');
+      toast.error("Verifique os erros na aba 'Dados Contratuais'");
+    } else if (hasBankingError) {
+      setActiveTab('bancario');
+      toast.error("Verifique os erros na aba 'Dados Bancários'");
+    } else {
+      setActiveTab('pessoal');
+      toast.error("Verifique os erros na aba 'Dados Pessoais'");
+    }
+  };
+  // ------------------------------------------------
+
   const onSubmit = async (data) => {
     if (isLoading) return;
     setIsLoading(true);
@@ -167,28 +191,20 @@ function FuncionarioForm() {
       }
       
       mutate('getFuncionarios');
-      if(isEditMode) {
-        mutate(['funcionario', id]);
-      }
+      if(isEditMode) mutate(['funcionario', id]);
 
-      toast.success(isEditMode ? 'Colaborador atualizado!' : 'Colaborador criado com sucesso!');
+      toast.success(isEditMode ? 'Atualizado com sucesso!' : 'Cadastrado com sucesso!');
       navigate('/funcionarios');
 
     } catch (err) {
-      console.error(err);
-      let errorMessage = "Erro ao salvar colaborador."; 
-      if (err.message.includes('funcionarios_cpf_key')) {
-        errorMessage = "Este CPF já está cadastrado no sistema.";
-        setActiveTab('pessoal');
-      } else if (err.message.includes('funcionarios_email_corporativo_key')) {
-        errorMessage = "Este Email Corporativo já está em uso.";
-        setActiveTab('contratual');
-      } else if (err.message.includes('funcionarios_id_matricula_key')) {
-        errorMessage = "Esta Matrícula já está em uso.";
-        setActiveTab('contratual');
-      } else {
-        errorMessage = err.message || errorMessage;
-      }
+      console.error("Erro no submit:", err);
+      let errorMessage = "Erro ao salvar.";
+      
+      if (err.message?.includes('funcionarios_cpf_key')) errorMessage = "CPF já cadastrado.";
+      else if (err.message?.includes('funcionarios_email_corporativo_key')) errorMessage = "Email Corporativo já em uso.";
+      else if (err.message?.includes('funcionarios_id_matricula_key')) errorMessage = "Matrícula já em uso.";
+      else if (err.message) errorMessage = err.message;
+
       setPageError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -197,53 +213,42 @@ function FuncionarioForm() {
   };
 
   const handleCepBlur = async (e) => {
-    const cep = e.target.value;
-    const cepLimpo = cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) return;
+    const cep = e.target.value.replace(/\D/g, '');
+    if (cep.length !== 8) return;
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-      if (!response.ok) throw new Error('CEP não encontrado');
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await response.json();
-      if (data.erro) {
-        setPageError("CEP não encontrado ou inválido.");
-      } else {
+      if (!data.erro) {
         setValue('endereco_rua', data.logradouro);
         setValue('endereco_bairro', data.bairro);
         setValue('endereco_cidade', data.localidade);
         setValue('endereco_estado', data.uf);
-        if (numeroInputRef.current) numeroInputRef.current.focus();
-        setPageError(null);
+        numeroInputRef.current?.focus();
       }
-    } catch (error) {
-      setPageError("Falha ao buscar o CEP. Verifique sua conexão.");
-    }
+    } catch (error) { /* silêncio */ }
   };
 
   const handleConfirmDelete = async () => {
     if (!isEditMode) return;
     setIsLoading(true);
-    setPageError(null);
-    setIsModalOpen(false);
     try {
       await deleteFuncionario(id);
       mutate('getFuncionarios');
-      toast.success('Colaborador excluído com sucesso!');
+      toast.success('Excluído com sucesso!');
       navigate('/funcionarios');
     } catch (err) {
-      console.error(err);
-      const errorMsg = "Erro ao excluir colaborador. Tente novamente.";
-      setPageError(errorMsg);
-      toast.error(errorMsg);
+      toast.error("Erro ao excluir.");
       setIsLoading(false);
+      setIsModalOpen(false);
     }
   };
-  const handleDeleteClick = () => { setIsModalOpen(true); };
 
-  if (isFetching && isEditMode) return <p>Carregando dados do colaborador...</p>;
+  if (isFetching && isEditMode) return <p>Carregando...</p>;
 
   return (
     <div className="form-container">
-      <form onSubmit={handleSubmit(onSubmit)}>
+      {/* AQUI ESTÁ A MÁGICA: passamos o onInvalid como segundo argumento */}
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
         <div className="form-header">
           <h2>{isEditMode ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
           <div className="form-actions-right">
@@ -335,7 +340,6 @@ function FuncionarioForm() {
                   <option value="Masculino">Masculino</option>
                   <option value="Feminino">Feminino</option>
                   <option value="Outro">Outro</option>
-                  <option value="NaoInformar">Prefiro não informar</option>
                 </select>
               </div>
 
@@ -346,7 +350,6 @@ function FuncionarioForm() {
                   <option value="Solteiro">Solteiro(a)</option>
                   <option value="Casado">Casado(a)</option>
                   <option value="Divorciado">Divorciado(a)</option>
-                  <option value="Viuvo">Viúvo(a)</option>
                 </select>
               </div>
 
@@ -379,7 +382,6 @@ function FuncionarioForm() {
           )}
           {activeTab === 'contratual' && (
             <div className="form-grid">
-              {/* Campo de Seleção de Empresa */}
               <div className="form-group span-2">
                 <label>Vínculo Empresa *</label>
                 <select 
@@ -422,39 +424,29 @@ function FuncionarioForm() {
               <div className="form-group">
                 <label>Salário Bruto</label>
                 <input type="number" step="0.01" {...register("salario_bruto")} />
-                {errors.salario_bruto && <span className="error-message">{errors.salario_bruto.message}</span>}
               </div>
               
               <div className="form-group">
                 <label>Status</label>
                 <select {...register("status")}>
-                  <option value="Ativo">Ativo</option><option value="Ferias">Férias</option><option value="Licenca">Licença</option><option value="Inativo">Inativo</option>
+                  <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
                 </select>
               </div>
             </div>
           )}
           {activeTab === 'bancario' && (
              <div className="form-grid">
-              {/* --- CAMPO BANCO ATUALIZADO COM DATALIST --- */}
               <div className="form-group">
                 <label>Banco</label>
-                <input 
-                  list="bancos-list" 
-                  placeholder="Digite o código ou nome..." 
-                  {...register("banco_nome")} 
-                  autoComplete="off"
-                />
+                <input list="bancos-list" placeholder="Busque..." {...register("banco_nome")} autoComplete="off" />
                 <datalist id="bancos-list">
                   {listaBancos.map(banco => (
                     <option key={banco.code} value={`${banco.code} - ${banco.name}`} />
                   ))}
                 </datalist>
               </div>
-              {/* -------------------------------------------- */}
-
               <div className="form-group"><label>Agência</label><input type="text" {...register("banco_agencia")} /></div>
               <div className="form-group"><label>Conta</label><input type="text" {...register("banco_conta_numero")} /></div>
-              
               <div className="form-group">
                 <label>Tipo de Conta</label>
                 <select {...register("banco_tipo_conta")}>
@@ -473,12 +465,7 @@ function FuncionarioForm() {
 
         <div className="form-footer">
           {isEditMode && (
-            <button
-              type="button"
-              className="button-delete"
-              onClick={handleDeleteClick}
-              disabled={isLoading}
-            >
+            <button type="button" className="button-delete" onClick={handleDeleteClick} disabled={isLoading}>
               Excluir Colaborador
             </button>
           )}
@@ -492,7 +479,6 @@ function FuncionarioForm() {
         title="Confirmar Exclusão"
       >
         <p>Você tem certeza que deseja excluir este colaborador?</p>
-        <p>Esta ação não pode ser desfeita.</p>
       </ModalConfirmacao>
     </div>
   );
