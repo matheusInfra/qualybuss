@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { toast } from 'react-hot-toast';
 import { differenceInDays, parseISO } from 'date-fns';
-import './LancarAusenciaForm.css'; // CSS Reutilizado
+import './LancarAusenciaForm.css'; 
 import { getFuncionarios } from '../../services/funcionarioService';
 import { createCreditoSaldo, getCreditoById, updateCredito } from '../../services/ausenciaService';
 
@@ -12,9 +12,10 @@ const initialState = {
   quantidade: '',
   unidade: 'dias',
   motivo: '',
-  data_inicio: new Date().toISOString().split('T')[0], // Renomeado
-  data_fim: '', // Novo Campo
-  data_limite: '', // Novo Campo (opcional para férias)
+  data_lancamento: new Date().toISOString().split('T')[0],
+  data_inicio: new Date().toISOString().split('T')[0],
+  data_fim: '', 
+  data_limite: '',
 };
 
 function LancarCreditoForm({ idParaEditar = null, onClose }) {
@@ -31,15 +32,14 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
       setFormData({ 
         ...dadosCredito, 
         data_inicio: dadosCredito.data_lancamento?.split('T')[0] || '',
-        // Para edição, assumimos que data_fim não é salva no historico simples, apenas para novos periodos
+        data_lancamento: dadosCredito.data_lancamento?.split('T')[0] || '',
       });
     }
   }, [dadosCredito]);
 
-  // Cálculo automático de dias
   useEffect(() => {
     if (formData.unidade === 'dias' && formData.data_inicio && formData.data_fim) {
-      const diff = differenceInDays(parseISO(formData.data_fim), parseISO(formData.data_inicio)) + 1; // +1 para contar o dia final
+      const diff = differenceInDays(parseISO(formData.data_fim), parseISO(formData.data_inicio)) + 1;
       if (diff > 0) {
         setFormData(prev => ({ ...prev, quantidade: diff }));
       }
@@ -57,9 +57,13 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
     
     setIsSubmitting(true);
     try {
-      const payload = { ...formData, quantidade: parseFloat(formData.quantidade) };
+      const payload = { 
+        ...formData, 
+        quantidade: parseFloat(formData.quantidade),
+        // Garante que data_lancamento seja preenchido para o histórico
+        data_lancamento: formData.data_inicio 
+      };
       
-      // A função createCreditoSaldo agora sabe lidar com Férias (Periodos) vs Banco
       const promise = isEditMode ? updateCredito(idParaEditar, payload) : createCreditoSaldo(payload);
       
       await toast.promise(promise, {
@@ -68,8 +72,13 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
         error: (e) => `Erro: ${e.message}`
       });
       
+      // --- ATUALIZAÇÃO DE CACHE ---
       mutate('getHistoricoCreditos');
-      mutate('getSaldosConsolidados'); // Atualiza o Painel de Saldos!
+      mutate('getSaldosConsolidados');
+      
+      // Adicionado: Atualiza o Mural para mostrar o crédito novo!
+      mutate('getMuralRecente'); 
+      
       onClose();
     } catch (err) { setIsSubmitting(false); }
   };
@@ -98,9 +107,9 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
               <label>Tipo de Lançamento *</label>
               <select name="tipo" value={formData.tipo} onChange={handleChange} required>
                 <option value="">Selecione...</option>
+                <option value="Folga">Folga (Compensação)</option>
                 <option value="Férias">Período Aquisitivo (Férias)</option>
-                <option value="Banco de Horas">Crédito de Banco de Horas</option>
-                <option value="Folga">Crédito de Folga Extra</option>
+                <option value="Banco de Horas">Banco de Horas (Extra)</option>
               </select>
             </div>
 
@@ -113,7 +122,7 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
             </div>
 
             <div className="form-section-title">
-              {isFerias ? 'Período Aquisitivo' : 'Período/Data de Referência'}
+              {isFerias ? 'Período Aquisitivo' : 'Data de Referência'}
             </div>
 
             <div className="ausencia-form-group">
@@ -121,13 +130,11 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
               <input type="date" name="data_inicio" value={formData.data_inicio} onChange={handleChange} required />
             </div>
 
-            {/* Campo Data Fim (Crucial para Férias) */}
             <div className="ausencia-form-group">
               <label>Data Final {isFerias ? '*' : '(Opcional)'}</label>
               <input type="date" name="data_fim" value={formData.data_fim} onChange={handleChange} required={isFerias} />
             </div>
 
-            {/* Campo Quantidade (Calculado ou Manual) */}
             <div className="ausencia-form-group">
               <label>Quantidade Total ({formData.unidade}) *</label>
               <div className="input-with-icon">
@@ -136,17 +143,16 @@ function LancarCreditoForm({ idParaEditar = null, onClose }) {
               </div>
             </div>
 
-            {/* Campo Extra para Férias: Limite Concessivo */}
             {isFerias && (
               <div className="ausencia-form-group">
-                <label title="Data limite para o funcionário tirar essas férias">Limite Concessivo (Opcional)</label>
+                <label title="Data limite para tirar essas férias">Limite Concessivo</label>
                 <input type="date" name="data_limite" value={formData.data_limite} onChange={handleChange} />
               </div>
             )}
 
             <div className="ausencia-form-group ausencia-form-span-2">
               <label>Justificativa</label>
-              <textarea name="motivo" rows="2" placeholder="Ex: Período 2023/2024" value={formData.motivo || ''} onChange={handleChange}></textarea>
+              <textarea name="motivo" rows="2" placeholder="Ex: Hora extra dia 20/10" value={formData.motivo || ''} onChange={handleChange}></textarea>
             </div>
 
           </div>

@@ -3,44 +3,62 @@ import { supabase } from './supabaseClient';
 
 const ANEXOS_BUCKET = 'anexos_ausencias';
 
-// --- 1. UPLOAD E ARQUIVOS ---
+// ==============================================================================
+// 1. UPLOAD E ARQUIVOS
+// ==============================================================================
+
 export const uploadAnexoAusencia = async (file, funcionarioId) => {
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}.${fileExt}`;
   const filePath = `${funcionarioId}/${fileName}`;
-  const { error } = await supabase.storage.from(ANEXOS_BUCKET).upload(filePath, file);
+  
+  const { error } = await supabase.storage
+    .from(ANEXOS_BUCKET)
+    .upload(filePath, file);
+
   if (error) throw error;
   return filePath;
 };
 
 export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
-  const { data, error } = await supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(pathStorage, 60);
+  const { data, error } = await supabase.storage
+    .from(ANEXOS_BUCKET)
+    .createSignedUrl(pathStorage, 60);
+
   if (error) throw error;
   return data.signedUrl;
 };
 
-// --- 2. CRIAÇÃO E LANÇAMENTO (Débitos e Créditos) ---
+// ==============================================================================
+// 2. CRIAÇÃO E LANÇAMENTO (DÉBITOS E CRÉDITOS)
+// ==============================================================================
 
-// Lançar Ausência (Débito)
+// Lançar Ausência (Débito na "Conta Corrente")
 export const createAusencia = async (dados) => {
+  // Verifica conflito apenas se for bloqueio de agenda (Férias/Folga)
   if (['Férias', 'Folga Pessoal'].includes(dados.tipo)) {
     const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
     if (temConflito) throw new Error("Já existe uma ausência registrada neste período.");
   }
-  const { data, error } = await supabase.from('solicitacoes_ausencia').insert([dados]).select();
+
+  const { data, error } = await supabase
+    .from('solicitacoes_ausencia')
+    .insert([dados])
+    .select();
+
   if (error) throw error;
   return data[0];
 };
 
-// Lançar Crédito (INTELIGENTE: Direciona para a tabela correta)
+// Lançar Crédito (Aporte na "Conta Corrente")
 export const createCreditoSaldo = async (dados) => {
-  // LÓGICA DE CORREÇÃO: Se for Férias, cria um Período Aquisitivo
+  // Se for "Férias", grava na tabela de Períodos Aquisitivos (Regra CLT)
   if (dados.tipo === 'Férias') {
     const periodoPayload = {
       funcionario_id: dados.funcionario_id,
-      inicio_periodo: dados.data_inicio, // Data Inicial
-      fim_periodo: dados.data_fim,       // Data Final
-      limite_concessivo: dados.data_limite || dados.data_fim, // Data Limite
+      inicio_periodo: dados.data_inicio,
+      fim_periodo: dados.data_fim,
+      limite_concessivo: dados.data_limite || dados.data_fim,
       dias_direito: dados.quantidade,
       status: 'Aberto'
     };
@@ -48,17 +66,15 @@ export const createCreditoSaldo = async (dados) => {
     if (error) throw error;
     return data[0];
   } 
-  
-  // Se for Banco de Horas ou Outros, vai para o histórico comum
+  // Se for "Banco de Horas" ou "Folga", grava no Histórico de Créditos (Conta Corrente)
   else {
-    // Mapeia campos do form para a tabela de histórico
     const historicoPayload = {
       funcionario_id: dados.funcionario_id,
       tipo: dados.tipo,
       quantidade: dados.quantidade,
       unidade: dados.unidade,
       motivo: dados.motivo,
-      data_lancamento: dados.data_inicio // Usa a data de início como referência
+      data_lancamento: dados.data_inicio // Usa a data de início como referência do crédito
     };
     const { data, error } = await supabase.from('historico_creditos').insert([historicoPayload]).select();
     if (error) throw error;
@@ -66,73 +82,105 @@ export const createCreditoSaldo = async (dados) => {
   }
 };
 
-// --- 3. BUSCAS OTIMIZADAS ---
+// ==============================================================================
+// 3. BUSCAS OTIMIZADAS (MURAL E HISTÓRICO)
+// ==============================================================================
 
 export const getMuralRecente = async () => {
   const hoje = new Date();
   const trintaDiasAtras = new Date(hoje); trintaDiasAtras.setDate(hoje.getDate() - 30);
   const trintaDiasFrente = new Date(hoje); trintaDiasFrente.setDate(hoje.getDate() + 30);
 
-  const { data: ausencias } = await supabase
+  // 1. Débitos (Ausências agendadas)
+  const queryAusencias = supabase
     .from('solicitacoes_ausencia')
     .select('*, funcionarios(nome_completo, avatar_url, cargo)')
     .gte('data_inicio', trintaDiasAtras.toISOString())
     .lte('data_inicio', trintaDiasFrente.toISOString())
     .order('created_at', { ascending: false });
 
-  const { data: creditos } = await supabase
+  // 2. Créditos (Folgas/Banco lançados)
+  const queryCreditos = supabase
     .from('historico_creditos')
     .select('*, funcionarios(nome_completo, avatar_url, cargo)')
     .gte('data_lancamento', trintaDiasAtras.toISOString())
     .lte('data_lancamento', trintaDiasFrente.toISOString())
     .order('created_at', { ascending: false });
 
-  return { ausencias: ausencias || [], creditos: creditos || [] };
+  // 3. Direitos (Novos Períodos Aquisitivos de Férias)
+  const queryPeriodos = supabase
+    .from('periodos_aquisitivos')
+    .select('*, funcionarios(nome_completo, avatar_url, cargo)')
+    .gte('created_at', trintaDiasAtras.toISOString()) 
+    .order('created_at', { ascending: false });
+
+  const [resA, resC, resP] = await Promise.all([queryAusencias, queryCreditos, queryPeriodos]);
+
+  return { 
+    ausencias: resA.data || [], 
+    creditos: resC.data || [],
+    periodos: resP.data || [] 
+  };
 };
 
 export const getExtratoFiltrado = async ({ funcionarioId, dataInicio, dataFim }) => {
   let queryAusencia = supabase.from('solicitacoes_ausencia').select('*, funcionarios(nome_completo, avatar_url)').order('data_inicio', { ascending: false });
   let queryCredito = supabase.from('historico_creditos').select('*, funcionarios(nome_completo, avatar_url)').order('data_lancamento', { ascending: false });
+  let queryPeriodos = supabase.from('periodos_aquisitivos').select('*, funcionarios(nome_completo, avatar_url)').order('inicio_periodo', { ascending: false });
 
   if (funcionarioId) {
     queryAusencia = queryAusencia.eq('funcionario_id', funcionarioId);
     queryCredito = queryCredito.eq('funcionario_id', funcionarioId);
+    queryPeriodos = queryPeriodos.eq('funcionario_id', funcionarioId);
   }
   if (dataInicio) {
     queryAusencia = queryAusencia.gte('data_inicio', dataInicio);
     queryCredito = queryCredito.gte('data_lancamento', dataInicio);
+    queryPeriodos = queryPeriodos.gte('inicio_periodo', dataInicio);
   }
   if (dataFim) {
     queryAusencia = queryAusencia.lte('data_inicio', dataFim);
     queryCredito = queryCredito.lte('data_lancamento', dataFim);
+    queryPeriodos = queryPeriodos.lte('inicio_periodo', dataFim);
   }
 
-  const [resA, resC] = await Promise.all([queryAusencia, queryCredito]);
+  const [resA, resC, resP] = await Promise.all([queryAusencia, queryCredito, queryPeriodos]);
+  
   if (resA.error) throw resA.error;
   if (resC.error) throw resC.error;
+  if (resP.error) throw resP.error;
 
-  return { ausencias: resA.data, creditos: resC.data };
+  return { 
+    ausencias: resA.data || [], 
+    creditos: resC.data || [],
+    periodos: resP.data || []
+  };
 };
 
-// --- 4. CALENDÁRIO (Corrigido para mostrar Pendentes) ---
+// ==============================================================================
+// 4. CALENDÁRIO (MÓDULO FÉRIAS - CORRIGIDO)
+// ==============================================================================
 
 export const getFeriasAprovadasParaCalendario = async (ano, mes, searchTerm = '', departamento = 'Todos') => {
-  const dataInicioMes = new Date(ano, mes - 1, 1).toISOString();
-  const dataFimMes = new Date(ano, mes, 0).toISOString();
+  // CORREÇÃO: Formatação de data manual para garantir YYYY-MM-DD
+  const mesFormatado = String(mes).padStart(2, '0');
+  const dataInicioMes = `${ano}-${mesFormatado}-01`;
+  
+  // Pega o último dia do mês corretamente
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const dataFimMes = `${ano}-${mesFormatado}-${ultimoDia}`;
 
   let query = supabase
     .from('solicitacoes_ausencia')
     .select(`
-      id,
-      data_inicio,
-      data_fim,
-      status, 
-      funcionario_id,
+      id, data_inicio, data_fim, status, funcionario_id, tipo,
       funcionarios ( nome_completo, departamento )
     `)
-    .eq('tipo', 'Férias')
-    // CORREÇÃO: Removido .eq('status', 'Aprovado') para mostrar tudo
-    .neq('status', 'Rejeitado') // Só não mostra rejeitados
+    // Filtra Férias OU Folgas Pessoais
+    .in('tipo', ['Férias', 'Folga Pessoal'])
+    // Inclui Pendentes e Aprovados (exclui apenas Rejeitados)
+    .neq('status', 'Rejeitado')
+    // Lógica de sobreposição de datas (Se começa, termina ou cruza o mês)
     .or(
       `data_inicio.gte.${dataInicioMes},data_inicio.lte.${dataFimMes},` +
       `data_fim.gte.${dataInicioMes},data_fim.lte.${dataFimMes},` +
@@ -148,44 +196,94 @@ export const getFeriasAprovadasParaCalendario = async (ano, mes, searchTerm = ''
   return data;
 };
 
-// --- 5. GESTÃO E AUXILIARES ---
+// ==============================================================================
+// 5. GESTÃO SEGURA E AUDITORIA
+// ==============================================================================
 
 export const updateStatusSolicitacao = async (id, status) => {
-  const { data, error } = await supabase.from('solicitacoes_ausencia').update({ status }).eq('id', id).select();
+  const { data, error } = await supabase
+    .from('solicitacoes_ausencia')
+    .update({ status })
+    .eq('id', id)
+    .select();
   if (error) throw error;
   return data[0];
 };
 
+// Exclusão Segura de Ausência
 export const deleteAusenciaSegura = async (id) => {
   const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status, anexo_path').eq('id', id).single();
+  
   if (!atual) throw new Error("Registro não encontrado.");
-  if (atual.status !== 'Pendente') throw new Error("SEGURANÇA: Não é permitido excluir registros já Aprovados.");
-  if (atual.anexo_path) await supabase.storage.from(ANEXOS_BUCKET).remove([atual.anexo_path]);
+  
+  if (atual.status !== 'Pendente') {
+    throw new Error("SEGURANÇA: Não é permitido excluir registros já Aprovados/Concluídos. Use um ajuste.");
+  }
+
+  if (atual.anexo_path) {
+    await supabase.storage.from(ANEXOS_BUCKET).remove([atual.anexo_path]);
+  }
+
   const { error } = await supabase.from('solicitacoes_ausencia').delete().eq('id', id);
   if (error) throw error;
   return true;
 };
 
+// Exclusão Segura de Crédito (Folga/Banco)
 export const deleteCreditoSeguro = async (id) => {
-  const ontem = new Date(); ontem.setHours(ontem.getHours() - 24);
-  const { data: atual } = await supabase.from('historico_creditos').select('created_at').eq('id', id).single();
-  if (!atual) throw new Error("Crédito não encontrado.");
-  if (new Date(atual.created_at) < ontem) throw new Error("AUDITORIA: Créditos antigos não podem ser excluídos.");
-  const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
-  if (error) throw error;
-  return true;
+  // 1. Tenta achar na tabela de créditos comuns
+  const { data: credito } = await supabase.from('historico_creditos').select('created_at').eq('id', id).maybeSingle();
+  
+  if (credito) {
+    const ontem = new Date(); ontem.setHours(ontem.getHours() - 24);
+    if (new Date(credito.created_at) < ontem) {
+      throw new Error("AUDITORIA: Créditos antigos não podem ser excluídos.");
+    }
+    const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+
+  // 2. Tenta achar na tabela de períodos aquisitivos
+  const { data: periodo } = await supabase.from('periodos_aquisitivos').select('created_at, status').eq('id', id).maybeSingle();
+  
+  if (periodo) {
+    if (periodo.status === 'Fechado') {
+      throw new Error("Não é possível excluir um período aquisitivo já fechado/gozado.");
+    }
+    const { error } = await supabase.from('periodos_aquisitivos').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+
+  throw new Error("Registro não encontrado para exclusão.");
 };
+
+// --- 6. AUXILIARES E LEITURA ---
 
 export const getAusenciaById = async (id) => {
   const { data, error } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
   if (error) throw error;
   return data;
 };
+
 export const getCreditoById = async (id) => {
-  const { data, error } = await supabase.from('historico_creditos').select('*').eq('id', id).single();
-  if (error) throw error;
+  let { data } = await supabase.from('historico_creditos').select('*').eq('id', id).maybeSingle();
+  if (!data) {
+    ({ data } = await supabase.from('periodos_aquisitivos').select('*').eq('id', id).maybeSingle());
+    if(data) {
+      data.tipo = 'Férias';
+      data.quantidade = data.dias_direito;
+      data.unidade = 'dias';
+      data.data_lancamento = data.inicio_periodo;
+      data.data_inicio = data.inicio_periodo;
+      data.data_fim = data.fim_periodo;
+      data.data_limite = data.limite_concessivo;
+    }
+  }
   return data;
 };
+
 export const updateAusencia = async (id, dados) => {
   const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status').eq('id', id).single();
   if (atual.status !== 'Pendente') throw new Error("Apenas solicitações pendentes podem ser editadas.");
@@ -193,22 +291,47 @@ export const updateAusencia = async (id, dados) => {
   if (error) throw error;
   return data[0];
 };
+
 export const updateCredito = async (id, dados) => {
-  const { data, error } = await supabase.from('historico_creditos').update(dados).eq('id', id).select();
-  if (error) throw error;
-  return data[0];
+  if (dados.tipo === 'Férias') {
+     const periodoPayload = {
+      inicio_periodo: dados.data_inicio,
+      fim_periodo: dados.data_fim,
+      limite_concessivo: dados.data_limite,
+      dias_direito: dados.quantidade
+    };
+    const { data, error } = await supabase.from('periodos_aquisitivos').update(periodoPayload).eq('id', id).select();
+    if (error) throw error;
+    return data[0];
+  } else {
+    const historicoPayload = {
+      tipo: dados.tipo,
+      quantidade: dados.quantidade,
+      unidade: dados.unidade,
+      motivo: dados.motivo,
+      data_lancamento: dados.data_inicio
+    };
+    const { data, error } = await supabase.from('historico_creditos').update(historicoPayload).eq('id', id).select();
+    if (error) throw error;
+    return data[0];
+  }
 };
+
 export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim) => {
   const { data } = await supabase.from('solicitacoes_ausencia').select('id').eq('funcionario_id', funcionarioId).neq('status', 'Rejeitado').or(`data_inicio.lte.${dataFim},data_fim.gte.${dataInicio}`);
   return data?.length > 0;
 };
+
 export const checkExistingFeriasNoAno = async (funcionarioId, ano) => {
   const inicioAno = `${ano}-01-01`;
   const fimAno = `${ano}-12-31`;
   const { data } = await supabase.from('solicitacoes_ausencia').select('id').eq('funcionario_id', funcionarioId).eq('tipo', 'Férias').neq('status', 'Rejeitado').gte('data_inicio', inicioAno).lte('data_inicio', fimAno);
   return data?.length > 0;
 };
+
+// Funções legadas mantidas
 export const getHistoricoAusencias = async () => { const { data } = await supabase.from('solicitacoes_ausencia').select('*'); return data; };
 export const getHistoricoCreditos = async () => { const { data } = await supabase.from('historico_creditos').select('*'); return data; };
 export const getTodasSolicitacoes = async () => { const { data } = await supabase.from('solicitacoes_ausencia').select('*, funcionarios(nome_completo, avatar_url, cargo)'); return data; };
 export const concluirSolicitacao = async (id) => updateStatusSolicitacao(id, 'Concluído');
+export const deleteSolicitacao = async (id) => deleteAusenciaSegura(id);
