@@ -1,7 +1,7 @@
 // src/components/Ferias/CalendarioFerias.jsx
 import React, { useMemo, useState, useEffect } from 'react';
 import useSWR from 'swr';
-import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast'; // Importante para o feedback de segurança
 import { generateCalendarGrid } from '../../utils/dateUtils';
 import { getFeriasAprovadasParaCalendario } from '../../services/ausenciaService';
 import { getFeriadosAno } from '../../services/feriadoService';
@@ -17,6 +17,7 @@ const dateToLocalISO = (dateStr) => {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 };
 
+// Lógica de posicionamento e design dos cards
 const calcularPosicaoEventos = (ferias, grid) => {
   const eventos = [];
   if (!ferias || ferias.length === 0) return eventos;
@@ -47,15 +48,20 @@ const calcularPosicaoEventos = (ferias, grid) => {
 
     let indexAtual = startIndex;
     
-    // Lógica de Cores
+    // --- LÓGICA DE CORES E STATUS (BLINDAGEM VISUAL) ---
     let colors;
     if (item.status === 'Pendente') {
-      colors = { bg: '#fff7ed', border: '#f97316', text: '#c2410c' }; // Laranja
+      // Laranja para Rascunho/Pendente
+      colors = { bg: '#fff7ed', border: '#f97316', text: '#c2410c' }; 
     } else if (item.tipo === 'Folga Pessoal') {
-      colors = { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' }; // Verde para Folga
+      // Verde Claro para Folgas
+      colors = { bg: '#f0fdf4', border: '#16a34a', text: '#15803d' }; 
     } else {
-      colors = getColorForString(item.funcionario_id); // Cor do usuário para Férias
+      // Cor Gerada pelo Nome para Férias Oficiais
+      colors = getColorForString(item.funcionario_id); 
     }
+
+    const nomeExibicao = item.funcionarios?.nome_completo || 'Desconhecido';
 
     while (indexAtual <= endIndex) {
       const semanaIndex = Math.floor(indexAtual / 7);
@@ -78,13 +84,12 @@ const calcularPosicaoEventos = (ferias, grid) => {
       eventos.push({
         id: `${item.id}-${indexAtual}`,
         realId: item.id,
-        // Adiciona o prefixo se for Folga para diferenciar
-        nome: item.tipo === 'Folga Pessoal' ? `Folga: ${item.funcionarios.nome_completo}` : item.funcionarios.nome_completo,
+        nome: item.tipo === 'Folga Pessoal' ? `Folga: ${nomeExibicao}` : nomeExibicao,
         top: `calc(${semanaIndex} * (100% / 6) + ${TOP_OFFSET + (trilho * CARD_HEIGHT)}px)`,
         left: `calc(${diaDaSemana} * (100% / 7))`,
         width: `calc(${diasNestaLinha} * (100% / 7))`,
         colors: colors,
-        status: item.status,
+        status: item.status, // Passa o status para controle de clique
         tipo: item.tipo
       });
       
@@ -95,10 +100,9 @@ const calcularPosicaoEventos = (ferias, grid) => {
   return eventos;
 };
 
-function CalendarioFerias({ data, searchTerm, departamentoFiltro }) {
+function CalendarioFerias({ data, searchTerm, departamentoFiltro, onEventClick }) {
   const ano = data.getFullYear();
   const mes = data.getMonth() + 1;
-  const navigate = useNavigate();
   const [feriados, setFeriados] = useState({});
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, text: '' });
 
@@ -108,17 +112,49 @@ function CalendarioFerias({ data, searchTerm, departamentoFiltro }) {
 
   const calendarGrid = generateCalendarGrid(data);
 
+  // Busca dados atualizados (SWR garante cache e revalidação)
   const { data: ferias, error, isLoading } = useSWR(
     ['ferias', ano, mes, searchTerm, departamentoFiltro], 
-    () => getFeriasAprovadasParaCalendario(ano, mes, searchTerm, departamentoFiltro)
+    () => getFeriasAprovadasParaCalendario(ano, mes, searchTerm, departamentoFiltro),
+    { revalidateOnFocus: true }
   );
 
   const eventosDoCalendario = useMemo(() => {
     return calcularPosicaoEventos(ferias, calendarGrid);
   }, [ferias, calendarGrid]);
 
-  const handleCardClick = (evento) => {
-    navigate('/ausencias', { state: { openModalForId: evento.realId } });
+  // --- LÓGICA DE SEGURANÇA NO CLIQUE ---
+  const handleCardClick = (e, evento) => {
+    e.stopPropagation();
+    
+    // REGRA DE BLINDAGEM:
+    // Apenas registros 'Pendente' podem ser editados diretamente no fluxo de trabalho rápido.
+    if (evento.status === 'Pendente') {
+      if (onEventClick) {
+        onEventClick(evento.realId);
+      }
+    } else {
+      // Se for Aprovado/Concluído, mostra alerta de segurança
+      toast(
+        (t) => (
+          <div style={{fontSize: '0.9rem'}}>
+            <b>Registro Consolidado <span role="img" aria-label="lock">🔒</span></b>
+            <div style={{marginTop:'4px', color:'#475569'}}>
+              Para alterar este registro oficial, utilize o módulo de <b>Ajustes e Correções</b> com justificativa.
+            </div>
+          </div>
+        ),
+        { 
+          duration: 5000,
+          position: 'top-center',
+          style: {
+            border: '1px solid #e2e8f0',
+            padding: '16px',
+            color: '#1e293b',
+          },
+        }
+      );
+    }
   };
 
   const handleHolidayHover = (e, name) => {
@@ -165,28 +201,45 @@ function CalendarioFerias({ data, searchTerm, departamentoFiltro }) {
         {isLoading && <div className="calendar-loading">Carregando agenda...</div>}
         {error && <div className="calendar-error">Não foi possível carregar os dados.</div>}
         
-        {eventosDoCalendario.map(evento => (
-          <div 
-            key={evento.id} 
-            className="vacation-card-wrapper"
-            style={{ top: evento.top, left: evento.left, width: evento.width }}
-            onClick={() => handleCardClick(evento)}
-            title={`${evento.nome} (${evento.tipo}) - ${evento.status}`}
-          >
+        {eventosDoCalendario.map(evento => {
+          // Define cursor baseado no status (Pendente = pointer, Aprovado = not-allowed/default)
+          const isEditable = evento.status === 'Pendente';
+          
+          return (
             <div 
-              className="vacation-card-inner"
-              style={{
-                backgroundColor: evento.colors.bg,
-                borderColor: evento.colors.border,
-                color: evento.colors.text,
-                // Estilo pontilhado se for Folga para diferenciar visualmente
-                borderStyle: evento.tipo === 'Folga Pessoal' ? 'dashed' : 'solid'
+              key={evento.id} 
+              className="vacation-card-wrapper"
+              style={{ 
+                top: evento.top, 
+                left: evento.left, 
+                width: evento.width,
+                cursor: isEditable ? 'pointer' : 'default',
+                zIndex: isEditable ? 10 : 5 // Pendentes ficam levemente acima
               }}
+              onClick={(e) => handleCardClick(e, evento)}
+              title={isEditable ? "Clique para editar" : "Registro Consolidado (Somente Leitura)"}
             >
-              {evento.nome}
+              <div 
+                className="vacation-card-inner"
+                style={{
+                  backgroundColor: evento.colors.bg,
+                  borderColor: evento.colors.border,
+                  color: evento.colors.text,
+                  borderStyle: evento.tipo === 'Folga Pessoal' ? 'dashed' : 'solid',
+                  // Opacidade reduzida para Pendentes para indicar "Rascunho"
+                  opacity: isEditable ? 0.85 : 1, 
+                  boxShadow: isEditable ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                {/* Indicador visual de Status */}
+                {isEditable && <span style={{marginRight:'4px', fontSize:'0.8em'}}>✏️</span>}
+                {!isEditable && <span style={{marginRight:'4px', fontSize:'0.7em', opacity:0.6}}>🔒</span>}
+                
+                {evento.nome}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {tooltip.visible && (

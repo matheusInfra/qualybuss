@@ -1,39 +1,56 @@
-import React, { useState, useMemo } from 'react';
+// src/components/Ausencias/PainelSaldos.jsx
+import React, { useMemo } from 'react';
 import useSWR from 'swr';
-import { getSaldosConsolidados } from '../../services/saldoService'; // Novo Service
+import { getSaldosConsolidados } from '../../services/saldoService';
+import { getMuralRecente } from '../../services/ausenciaService'; // <--- USAR ESTA FUNÇÃO
 import { getAvatarPublicUrl } from '../../services/funcionarioService';
-import { getHistoricoAusencias } from '../../services/ausenciaService'; // Ainda usamos para ver os últimos débitos
 import SaldoCard from './SaldoCard';
 import './PainelSaldos.css';
-import ModalAjusteSaldo from '../Modal/ModalAjusteSaldo';
-import ModalExtrato from '../Modal/ModalExtrato';
 
-function PainelSaldos() {
-  const [modalState, setModalState] = useState({ isOpen: false, funcionario: null });
-  const [extratoModal, setExtratoModal] = useState({ isOpen: false, funcionario: null });
+function PainelSaldos({ aoVerExtrato, aoAjustar }) { // Recebe props de navegação se existirem
+  // 1. Busca os saldos (View SQL)
+  const { data: dadosView, isLoading: loadingSaldos } = useSWR('getSaldosConsolidados', getSaldosConsolidados);
 
-  // 1. Busca os saldos já prontos da nossa View SQL
-  const { 
-    data: dadosView, 
-    error: errorSaldos, 
-    isLoading: isLoadingSaldos 
-  } = useSWR('getSaldosConsolidados', getSaldosConsolidados);
+  // 2. Busca TODAS as movimentações recentes (Créditos + Débitos + Períodos)
+  const { data: muralData } = useSWR('getMuralRecente', getMuralRecente);
 
-  // 2. Ainda buscamos ausências para mostrar a lista de "Últimos Débitos" no card
-  // (Idealmente, isso também viria de uma query otimizada no futuro)
-  const { data: ausencias } = useSWR('getHistoricoAusencias', getHistoricoAusencias);
+  // 3. Processa a lista unificada de movimentos para exibir nos cards
+  const movimentosPorFuncionario = useMemo(() => {
+    if (!muralData) return {};
+    
+    const { ausencias, creditos, periodos } = muralData;
+    const mapa = {};
 
-  // 3. Transformação dos dados da View para o formato que o SaldoCard espera
-  // A View retorna linhas soltas (João - Férias, João - Banco de Horas).
-  // Precisamos agrupar por funcionário.
+    const addMovimento = (item, tipo, desc) => {
+      if (!mapa[item.funcionario_id]) mapa[item.funcionario_id] = [];
+      mapa[item.funcionario_id].push({
+        id: item.id,
+        data: new Date(item.data_inicio || item.data_lancamento || item.inicio_periodo || item.created_at),
+        tipo: tipo, // 'entrada' ou 'saida'
+        descricao: desc || item.tipo,
+        status: item.status || 'Concluído'
+      });
+    };
+
+    ausencias.forEach(a => addMovimento(a, 'saida', a.tipo)); // Débito
+    creditos.forEach(c => addMovimento(c, 'entrada', `Crédito: ${c.tipo}`)); // Crédito
+    periodos.forEach(p => addMovimento(p, 'entrada', 'Novo Período Aquisitivo')); // Crédito
+
+    // Ordena
+    Object.keys(mapa).forEach(key => {
+      mapa[key].sort((a, b) => b.data - a.data);
+    });
+
+    return mapa;
+  }, [muralData]);
+
+  // 4. Agrupa os saldos por funcionário
   const funcionariosAgrupados = useMemo(() => {
     if (!dadosView) return [];
-
     const map = new Map();
 
     dadosView.forEach(row => {
-      if (!row.tipo_saldo) return; // Ignora se não tiver saldo nenhum
-
+      if (!row.tipo_saldo) return;
       if (!map.has(row.funcionario_id)) {
         map.set(row.funcionario_id, {
           id: row.funcionario_id,
@@ -43,65 +60,36 @@ function PainelSaldos() {
           saldos: {}
         });
       }
-      
       const func = map.get(row.funcionario_id);
       func.saldos[row.tipo_saldo] = row.saldo_final;
     });
-
     return Array.from(map.values());
   }, [dadosView]);
 
-  // Handlers de Modal (iguais ao original)
-  const handleAjustarSaldo = (funcionario) => setModalState({ isOpen: true, funcionario });
-  const handleCloseModal = () => setModalState({ isOpen: false, funcionario: null });
-  const handleVerExtrato = (funcionario) => setExtratoModal({ isOpen: true, funcionario });
-  const handleCloseExtrato = () => setExtratoModal({ isOpen: false, funcionario: null });
-
-  if (isLoadingSaldos) return <div className="painel-loading"><p>Carregando saldos...</p></div>;
-  if (errorSaldos) return <p className="error-message">Falha ao carregar saldos.</p>;
+  if (loadingSaldos) return <div className="painel-loading"><p>Calculando saldos...</p></div>;
 
   return (
     <div className="painel-saldos-container">
       <div className="saldos-grid">
-        {funcionariosAgrupados.map((func) => {
-          // Filtra os últimos débitos para este funcionário (apenas visual)
-          const debitosAprovados = ausencias
-            ? ausencias
-                .filter(d => d.funcionario_id === func.id && (d.status === 'Aprovado' || d.status === 'Concluído'))
-                .slice(0, 3)
-            : [];
-
-          return (
-            <SaldoCard 
-              key={func.id}
-              funcionario={func}
-              saldos={func.saldos}
-              ultimosDebitos={debitosAprovados}
-              getAvatarUrl={getAvatarPublicUrl}
-              onAjustar={handleAjustarSaldo} 
-              onVerExtrato={handleVerExtrato}
-            />
-          );
-        })}
+        {funcionariosAgrupados.map((func) => (
+          <SaldoCard 
+            key={func.id}
+            funcionario={func}
+            saldos={func.saldos}
+            // Passa a lista real de auditoria (últimos 3 movimentos)
+            ultimosMovimentos={movimentosPorFuncionario[func.id]?.slice(0, 3) || []} 
+            getAvatarUrl={getAvatarPublicUrl}
+            onAjustar={() => aoAjustar ? aoAjustar(func) : null} // Fallback
+            onVerExtrato={() => aoVerExtrato ? aoVerExtrato(func) : null}
+          />
+        ))}
         
         {funcionariosAgrupados.length === 0 && (
-           <p style={{gridColumn: '1/-1', textAlign: 'center', color: '#666'}}>
-             Nenhum saldo calculado ainda. Faça um lançamento para começar.
+           <p style={{gridColumn: '1/-1', textAlign: 'center', color: '#666', padding: '40px'}}>
+             Nenhum saldo calculado ainda.
            </p>
         )}
       </div>
-
-      <ModalAjusteSaldo
-        isOpen={modalState.isOpen}
-        onClose={handleCloseModal}
-        funcionario={modalState.funcionario}
-      />
-
-      <ModalExtrato 
-        isOpen={extratoModal.isOpen}
-        onClose={handleCloseExtrato}
-        funcionario={extratoModal.funcionario}
-      />
     </div>
   );
 }
