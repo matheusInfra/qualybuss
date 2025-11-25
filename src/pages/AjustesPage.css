@@ -1,0 +1,70 @@
+/* src/pages/AjustesPage.css */
+
+.ajustes-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.grid-ajustes {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Duas colunas iguais */
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .grid-ajustes {
+    grid-template-columns: 1fr; /* Empilha no mobile */
+  }
+}
+
+/* Card de Operação (Esquerda) */
+.card-operacao {
+  border: 1px solid #e2e8f0;
+  height: fit-content;
+}
+
+.lista-registros {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Estilo da barra de rolagem */
+.lista-registros::-webkit-scrollbar,
+.timeline-auditoria::-webkit-scrollbar {
+  width: 6px;
+}
+.lista-registros::-webkit-scrollbar-thumb,
+.timeline-auditoria::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.item-registro {
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+.item-registro:hover {
+  background-color: #f8fafc;
+  border-left-color: #3b82f6;
+}
+
+/* Card de Auditoria (Direita) */
+.card-auditoria {
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.log-item {
+  position: relative;
+  transition: transform 0.2s;
+}
+.log-item:hover {
+  transform: translateX(4px);
+}
+
+.diff-box {
+  background-color: #f1f5f9;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+}

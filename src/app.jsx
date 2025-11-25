@@ -8,7 +8,7 @@ import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import ErrorFallback from './components/ErrorBoundary/ErrorFallback';
-
+import AjustesPage from './pages/AjustesPage';
 // Páginas (Lazy Loading para performance)
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
@@ -125,6 +125,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<div className="loading">Carregando Histórico...</div>}>
                 <MovimentacoesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "AjustesPage",
+            element: (
+              <Suspense fallback={<div className="loading">Carregando Ajustes...</div>}>
+                <AjustesPage />
               </Suspense>
             ),
           },

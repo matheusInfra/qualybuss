@@ -1,190 +1,142 @@
 // src/pages/DashboardPage.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import useSWR from 'swr';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-// Contexto de empresa removido, pois o dashboard agora é global
-import { getDashboardKPIs, getAusenciasPorTipo, getProximasFerias } from '../services/dashboardService';
-import { getTodasMovimentacoes } from '../services/movimentacaoService';
-import { getAvatarPublicUrl } from '../services/funcionarioService';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabaseClient';
+import { getFuncionarios } from '../services/funcionarioService';
+import { runComplianceRadar } from '../utils/intelligenceRadar';
 import './DashboardPage.css';
 
-// Helper para formatar R$
-const formatCurrency = (value) => {
-  if (!value) return "R$ 0,00";
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+// Função de fetch genérico para o SWR usar no Supabase
+const fetcher = async (table) => {
+    const { data, error } = await supabase.from(table).select('*, funcionarios(nome_completo)');
+    if (error) throw error;
+    return data;
 };
 
-// Helper para formatar data
-const formatDataFerias = (dataStr) => {
-  if (!dataStr) return '--/--';
-  const data = new Date(dataStr.replace(/-/g, '/'));
-  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-};
-
-// --- 1. Componente: Os 4 KPIs Principais ---
-function KpiCards() {
-  // Busca global (sem ID na chave)
-  const { data: kpis, error, isLoading } = useSWR('dashboardKPIs', getDashboardKPIs);
-
-  if (isLoading) return <div className="kpi-grid"><div className="kpi-card loading"></div></div>;
-  if (error) return <p className="error-message">Erro ao carregar KPIs.</p>;
-
-  return (
-    <div className="kpi-grid">
-      <div className="kpi-card">
-        <span className="kpi-label">Total de Colaboradores</span>
-        <span className="kpi-value">{kpis?.total_colaboradores || 0}</span>
-      </div>
-      <div className="kpi-card">
-        <span className="kpi-label">Solicitações Pendentes</span>
-        <span className="kpi-value warning">{kpis?.pendentes || 0}</span>
-      </div>
-      <div className="kpi-card">
-        <span className="kpi-label">Ausentes Hoje</span>
-        <span className="kpi-value">{kpis?.ausentes_hoje || 0}</span>
-      </div>
-      <div className="kpi-card">
-        <span className="kpi-label">Folha de Pagamento (Mensal)</span>
-        <span className="kpi-value">{formatCurrency(kpis?.folha_pagamento)}</span>
-      </div>
-    </div>
-  );
-}
-
-// --- 2. Componente: Gráfico de Pizza ---
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-function AusenciasChart() {
-  const { data, error, isLoading } = useSWR('ausenciasPorTipo', getAusenciasPorTipo);
-
-  if (isLoading) return <div className="dashboard-widget loading"></div>;
-  
-  if (error || !data || data.length === 0) {
-    return (
-      <div className="dashboard-widget">
-        <h3>Ausências (Últ. 90 dias)</h3>
-        <div style={{height: '250px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999'}}>
-          Sem dados recentes.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="dashboard-widget">
-      <h3>Ausências (Últ. 90 dias)</h3>
-      <ResponsiveContainer width="100%" height={250}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="total"
-            nameKey="tipo"
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-            fill="#8884d8"
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// --- 3. Componente: Próximas Férias ---
-function ProximasFerias() {
-  const { data, error, isLoading } = useSWR('proximasFerias', getProximasFerias);
-
-  if (isLoading) return <div className="dashboard-widget loading"></div>;
-  if (error) return <div className="dashboard-widget"><p>Erro ao buscar férias.</p></div>;
-  
-  return (
-    <div className="dashboard-widget">
-      <h3>Próximas Férias (14 dias)</h3>
-      <div className="lista-widget">
-        {!data || data.length === 0 ? (
-          <p className="lista-empty">Nenhuma férias agendada.</p>
-        ) : (
-          data.map((item, idx) => {
-            const funcionario = item.funcionario_id; 
-            if (!funcionario) return null;
-
-            return (
-              <div key={`${item.data_inicio}-${idx}`} className="lista-item">
-                <img 
-                  src={funcionario.avatar_url ? getAvatarPublicUrl(funcionario.avatar_url) : 'https://placehold.co/100'} 
-                  alt={funcionario.nome_completo} 
-                  className="lista-avatar"
-                />
-                <div className="lista-info">
-                  <span className="lista-nome">{funcionario.nome_completo}</span>
-                  <span className="lista-detalhe">Início: {formatDataFerias(item.data_inicio)}</span>
-                </div>
-              </div>
-            )
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-// --- 4. Componente: Últimas Movimentações ---
-function UltimasMovimentacoes() {
-  // O service getTodasMovimentacoes já traz tudo (limitado a 50)
-  const { data, error, isLoading } = useSWR('todasMovimentacoes', getTodasMovimentacoes);
-
-  if (isLoading) return <div className="dashboard-widget loading"></div>;
-  if (error) return <div className="dashboard-widget"><p>Erro ao buscar movimentações.</p></div>;
-
-  return (
-    <div className="dashboard-widget">
-      <h3>Últimas Movimentações</h3>
-      <div className="lista-widget">
-        {!data || data.length === 0 ? (
-          <p className="lista-empty">Nenhuma movimentação recente.</p>
-        ) : (
-          data.map(mov => {
-            const funcionario = mov.id_funcionario; 
-            if (!funcionario) return null;
-            
-            return (
-              <div key={mov.id} className="lista-item">
-                <div className="lista-info">
-                  <span className="lista-nome">{mov.tipo}: {funcionario.nome_completo}</span>
-                  <span className="lista-detalhe">{mov.descricao}</span>
-                </div>
-                <span className="lista-data">{formatDataFerias(mov.data_movimentacao)}</span>
-              </div>
-            )
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-// --- Página Principal ---
 function DashboardPage() {
-  return (
-    <div className="dashboard-container">
-      <h1 className="dashboard-title">Dashboard</h1>
-      
-      <KpiCards />
+  const [alertas, setAlertas] = useState([]);
+  const navigate = useNavigate();
 
-      <div className="dashboard-grid">
-        <AusenciasChart />
-        <ProximasFerias />
-        <UltimasMovimentacoes />
+  // --- CARREGAMENTO DE DADOS ---
+  // 1. KPIs Rápidos (Mantendo o que você provavelmente já tinha)
+  const { data: kpis } = useSWR('get_dashboard_kpis', async () => {
+    const { data, error } = await supabase.rpc('get_dashboard_kpis');
+    if (error) return null; // ou throw
+    return data;
+  });
+
+  // 2. Dados para o Radar de Inteligência
+  const { data: funcionarios } = useSWR('funcionarios_radar', getFuncionarios);
+  const { data: periodos } = useSWR('periodos_aquisitivos', () => fetcher('periodos_aquisitivos'));
+  const { data: creditos } = useSWR('historico_creditos', () => fetcher('historico_creditos'));
+
+  // --- MOTOR DE INTELIGÊNCIA ---
+  useEffect(() => {
+    if (funcionarios && periodos && creditos) {
+      // Roda o algoritmo de compliance
+      const resultados = runComplianceRadar(funcionarios, periodos, creditos);
+      setAlertas(resultados);
+    }
+  }, [funcionarios, periodos, creditos]);
+
+  return (
+    <div className="dashboard-container fade-in">
+      <header className="dashboard-header mb-6">
+        <div>
+            <h1 className="dashboard-title">Visão Geral</h1>
+            <p className="text-gray-500 text-sm">Bem-vindo ao painel de controle QualyBuss.</p>
+        </div>
+        <div className="date-badge">
+            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </div>
+      </header>
+
+      {/* --- SEÇÃO 1: RADAR DE COMPLIANCE (NOVO) --- */}
+      {alertas.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center mb-4">
+            <span className="material-symbols-outlined text-yellow-600 mr-2">notifications_active</span>
+            <h2 className="text-lg font-bold text-gray-700">Atenção Necessária ({alertas.length})</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {alertas.map((alerta, idx) => (
+              <div 
+                key={idx} 
+                className={`p-4 rounded-lg border-l-4 shadow-sm bg-white transition-transform hover:scale-[1.02] cursor-pointer
+                  ${alerta.tipo === 'CRITICO' ? 'border-red-500' : 
+                    alerta.tipo === 'ALERTA' ? 'border-yellow-500' : 'border-blue-400'}`
+                }
+                onClick={() => navigate(alerta.rota)}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-bold text-sm text-gray-800">{alerta.titulo}</h4>
+                  {alerta.tipo === 'CRITICO' && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold uppercase">Crítico</span>}
+                </div>
+                <p className="text-xs text-gray-600 mb-3 leading-relaxed">{alerta.mensagem}</p>
+                <div className="flex justify-end">
+                    <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center">
+                    {alerta.acao} <span className="material-symbols-outlined text-[16px] ml-1">arrow_forward</span>
+                    </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* --- SEÇÃO 2: KPIs (Métricas Rápidas) --- */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="kpi-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div className="p-3 rounded-full bg-blue-50 text-blue-600 mr-4">
+                <span className="material-symbols-outlined">groups</span>
+            </div>
+            <div>
+                <span className="block text-gray-500 text-xs font-medium uppercase tracking-wider">Colaboradores</span>
+                <span className="text-2xl font-bold text-gray-800">{kpis?.total_colaboradores || 0}</span>
+            </div>
+        </div>
+
+        <div className="kpi-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div className="p-3 rounded-full bg-orange-50 text-orange-600 mr-4">
+                <span className="material-symbols-outlined">pending_actions</span>
+            </div>
+            <div>
+                <span className="block text-gray-500 text-xs font-medium uppercase tracking-wider">Pendências</span>
+                <span className="text-2xl font-bold text-gray-800">{kpis?.pendentes || 0}</span>
+            </div>
+        </div>
+
+        <div className="kpi-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div className="p-3 rounded-full bg-purple-50 text-purple-600 mr-4">
+                <span className="material-symbols-outlined">event_busy</span>
+            </div>
+            <div>
+                <span className="block text-gray-500 text-xs font-medium uppercase tracking-wider">Ausentes Hoje</span>
+                <span className="text-2xl font-bold text-gray-800">{kpis?.ausentes_hoje || 0}</span>
+            </div>
+        </div>
+
+        <div className="kpi-card bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center">
+            <div className="p-3 rounded-full bg-green-50 text-green-600 mr-4">
+                <span className="material-symbols-outlined">attach_money</span>
+            </div>
+            <div>
+                <span className="block text-gray-500 text-xs font-medium uppercase tracking-wider">Folha Estimada</span>
+                <span className="text-2xl font-bold text-gray-800">
+                    R$ {(kpis?.folha_pagamento || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+            </div>
+        </div>
+      </section>
+
+      {/* --- SEÇÃO 3: GRÁFICOS OU TABELAS RECENTES (Placeholder) --- */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center py-12 text-gray-400">
+         <span className="material-symbols-outlined text-4xl mb-2">bar_chart</span>
+         <p>Gráficos de desempenho e turnover virão aqui.</p>
       </div>
+
     </div>
   );
 }

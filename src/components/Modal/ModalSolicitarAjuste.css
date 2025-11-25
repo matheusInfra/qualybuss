@@ -1,0 +1,206 @@
+/* src/components/Modal/ModalSolicitarAjuste.css */
+
+/* --- ESTRUTURA BASE DO MODAL --- */
+/* (Assume que classes globais como modal-overlay e modal-content já existem ou são complementadas aqui) */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px); /* Efeito de desfoque no fundo */
+}
+
+.modal-content {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 95%;
+  max-width: 550px;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+/* --- CABEÇALHO DE ALERTA (WARNING) --- */
+.warning-header {
+  background: linear-gradient(to right, #fff7ed, #ffedd5);
+  border-bottom: 1px solid #fdba74;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.warning-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #9a3412; /* Tom laranja escuro/avermelhado */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: #9a3412;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.close-btn:hover {
+  opacity: 1;
+}
+
+/* --- CORPO DO MODAL --- */
+.modal-body {
+  padding: 24px;
+}
+
+.step-container {
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+/* --- FORMULÁRIOS --- */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: #1e293b;
+  background-color: #f8fafc;
+  transition: all 0.2s;
+  box-sizing: border-box; /* Garante que o padding não quebre o layout */
+}
+
+.form-group select:focus,
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #f97316; /* Foco laranja */
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* --- BOTÕES --- */
+.button-primary,
+.button-secondary {
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  border: none;
+}
+
+/* Botão Padrão (Continuar) */
+.button-primary {
+  background-color: #f97316;
+  color: white;
+}
+
+.button-primary:hover {
+  background-color: #ea580c;
+}
+
+.button-primary:disabled {
+  background-color: #fdba74;
+  cursor: not-allowed;
+}
+
+/* Botão de Perigo/Confirmação Final (Vermelho) */
+.bg-red-600 {
+  background-color: #dc2626 !important;
+}
+
+.bg-red-600:hover {
+  background-color: #b91c1c !important;
+}
+
+/* Botão Voltar/Cancelar */
+.button-secondary {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.button-secondary:hover {
+  background-color: #cbd5e1;
+  color: #1e293b;
+}
+
+/* --- GRID UTILITÁRIOS (Fallback se Tailwind não carregar) --- */
+.grid {
+  display: grid;
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.gap-4 {
+  gap: 16px;
+}
+
+.flex {
+  display: flex;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+/* --- ANIMAÇÕES --- */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
