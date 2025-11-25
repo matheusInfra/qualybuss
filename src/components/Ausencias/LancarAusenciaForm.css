@@ -1,208 +1,192 @@
-/* Container principal do formulário */
+/* src/components/Ausencias/LancarAusenciaForm.css */
+
+/* Container Limpo */
 .ausencia-form-container {
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  /* Removemos bordas e sombras aqui pois o Modal já as tem */
+  padding: 0; 
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-/* Conteúdo interno (com padding) */
 .ausencia-form-content {
-  padding: 24px;
+  padding: 32px;
+  overflow-y: auto;
+  flex: 1;
 }
 
-/* Grid para os campos */
+/* Títulos de Seção dentro do Form */
+.form-section-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 8px;
+  grid-column: 1 / -1; /* Ocupa toda a largura */
+}
+
+/* Grid Moderno */
 .ausencia-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Duas colunas */
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px; /* Espaçamento maior entre colunas */
 }
 
-/* Campo que ocupa a linha inteira */
 .ausencia-form-span-2 {
   grid-column: span 2;
 }
 
-/* Grupo (label + input) */
+/* Estilo dos Campos */
 .ausencia-form-group {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  position: relative;
 }
 
 .ausencia-form-group label {
-  margin-bottom: 6px;
-  font-size: 14px;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #4a5568; 
+  color: #334155;
 }
 
-/* Estilo dos Inputs, Selects e Textarea */
-.ausencia-form-group input[type="date"],
+.ausencia-form-group input,
 .ausencia-form-group select,
 .ausencia-form-group textarea {
   width: 100%;
-  padding: 10px 12px;
-  font-size: 15px;
-  border: 1px solid #e0e0e0; 
-  border-radius: 4px;
-  box-sizing: border-box; 
-  background-color: #f5f8fa; 
-  transition: border-color 0.2s, box-shadow 0.2s;
-  font-family: inherit; /* Garante que a fonte seja a mesma */
+  padding: 12px 16px; /* Inputs mais altos */
+  font-size: 0.95rem;
+  color: #1e293b;
+  background-color: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
 }
 
-.ausencia-form-group input[type="date"]:focus,
+.ausencia-form-group input:hover,
+.ausencia-form-group select:hover,
+.ausencia-form-group textarea:hover {
+  border-color: #cbd5e0;
+}
+
+.ausencia-form-group input:focus,
 .ausencia-form-group select:focus,
 .ausencia-form-group textarea:focus {
   outline: none;
-  border-color: #1a202c; 
-  background-color: #fff; 
-  box-shadow: 0 0 0 1px #1a202c;
+  border-color: #3b82f6; /* Azul foco */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* Ajuste para o ícone de calendário */
-.ausencia-form-group .input-with-icon {
+/* Ícones dentro dos inputs */
+.input-with-icon {
   position: relative;
 }
-.ausencia-form-group .input-icon {
+.input-with-icon input {
+  padding-left: 44px;
+}
+.input-with-icon .input-icon {
   position: absolute;
-  left: 10px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #777;
+  color: #64748b;
+  font-size: 20px;
   pointer-events: none;
-  font-size: 20px; /* Ajuste o tamanho do ícone */
-}
-.ausencia-form-group input[type="date"] {
-  padding-left: 40px; /* Espaço para o ícone */
 }
 
-/* Campo de Upload */
+/* Upload Area (Drag & Drop Style) */
 .ausencia-upload-label {
+  border: 2px dashed #cbd5e0;
+  border-radius: 12px;
+  background-color: #f8fafc;
+  height: 140px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 128px; /* 8rem */
-  background-color: #f5f8fa;
-  border: 2px dashed #e0e0e0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
-}
-.ausencia-upload-label:hover {
-  background-color: #f0f2f5;
-  border-color: #1a202c;
-}
-.ausencia-upload-label input[type="file"] {
-  display: none; /* Esconde o input real */
-}
-.ausencia-upload-text {
-  font-size: 14px;
-  color: #777;
-}
-.ausencia-upload-text .semibold {
-  font-weight: 600;
-  color: #1a202c;
-}
-.ausencia-upload-subtext {
-  font-size: 12px;
-  color: #999;
-}
-.ausencia-file-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #137fec; /* Cor primária */
-}
-
-/* Rodapé com botões */
-.ausencia-form-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #eee;
-  background-color: #fcfcfc;
-  border-radius: 0 0 8px 8px;
-}
-
-/* Estilo dos botões (reutilizando do FuncionarioForm) */
-.ausencia-form-footer .button-secondary,
-.ausencia-form-footer .button-primary {
-  padding: 10px 24px; 
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 4px;
-  border: 1px solid; 
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
 }
+.ausencia-upload-label:hover {
+  background-color: #f1f5f9;
+  border-color: #3b82f6;
+}
+.ausencia-file-name {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-.ausencia-form-footer .button-primary {
-  background-color: #28a745; /* Verde (Salvar) */
-  border-color: #28a745;
+/* Footer com ações */
+.ausencia-form-footer {
+  padding: 20px 32px;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-radius: 0 0 8px 8px;
+}
+
+.button-secondary {
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #cbd5e0;
+  color: #475569;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.button-secondary:hover { background: #f1f5f9; }
+
+.button-primary {
+  padding: 10px 24px;
+  background: #0f172a; /* Preto/Azul escuro moderno */
+  border: 1px solid #0f172a;
   color: white;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
 }
-.ausencia-form-footer .button-primary:hover {
-  background-color: #218838;
+.button-primary:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
 }
-.ausencia-form-footer .button-primary:disabled {
-  background-color: #a0aec0;
-  border-color: #a0aec0;
-}
-
-.ausencia-form-footer .button-secondary {
-  background-color: #fff;
-  border-color: #ccc; 
-  color: #333;
-}
-.ausencia-form-footer .button-secondary:hover {
-  background-color: #f8f9fa;
-}
-
-.ausencia-form-footer .button-icon {
-  font-size: 18px;
-  margin-right: 4px;
-  vertical-align: middle; /* Alinha o ícone com o texto */
+.button-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-/* --- APRIMORAMENTO 1: OVERLAY DE CARREGAMENTO --- */
-
-/* 1. O container do formulário precisa ser 'relative'
-   para que o overlay 'absolute' funcione dentro dele */
-.ausencia-form-container {
-  /* ... (outros estilos que já estão aqui) ... */
-  position: relative; /* <-- Adicione/Garanta que esta linha exista */
-}
-
-/* 2. O Overlay (fundo semi-transparente) */
+/* Overlay de Loading */
 .form-loading-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.75); /* Branco com 75% de opacidade */
-  border-radius: 8px; /* Para bater com as bordas do container */
+  inset: 0;
+  background: rgba(255,255,255,0.8);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 10; /* Para ficar por cima de tudo */
+  z-index: 50;
+  border-radius: 8px;
 }
-
-/* 3. O Spinner (a "rodinha") */
 .form-spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid #f3f3f3; /* Cinza claro */
-  border-top: 5px solid #137fec; /* Cor primária (azul) */
+  width: 40px; height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #0f172a;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
-
-/* 4. A Animação de giro */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
