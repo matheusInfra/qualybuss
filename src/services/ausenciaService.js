@@ -3,188 +3,229 @@ import { supabase } from './supabaseClient';
 
 const ANEXOS_BUCKET = 'anexos_ausencias';
 
-// --- UPLOAD E DOWNLOAD ---
-
+// --- 1. UPLOAD E ARQUIVOS ---
 export const uploadAnexoAusencia = async (file, funcionarioId) => {
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}.${fileExt}`;
   const filePath = `${funcionarioId}/${fileName}`;
-
-  const { error } = await supabase.storage
-    .from(ANEXOS_BUCKET)
-    .upload(filePath, file);
-
+  const { error } = await supabase.storage.from(ANEXOS_BUCKET).upload(filePath, file);
   if (error) throw error;
   return filePath;
 };
 
 export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
-  const { data, error } = await supabase.storage
-    .from(ANEXOS_BUCKET)
-    .createSignedUrl(pathStorage, 60);
-
+  const { data, error } = await supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(pathStorage, 60);
   if (error) throw error;
   return data.signedUrl;
 };
 
-// --- GESTÃO DE PERÍODOS (SALDO DE FÉRIAS) ---
+// --- 2. CRIAÇÃO E LANÇAMENTO (Débitos e Créditos) ---
 
-export const getPeriodosAquisitivos = async (funcionarioId) => {
-  const { data, error } = await supabase
-    .from('periodos_aquisitivos')
-    .select('*')
-    .eq('funcionario_id', funcionarioId)
-    .order('inicio_periodo', { ascending: true });
+// Lançar Ausência (Débito)
+export const createAusencia = async (dados) => {
+  // Verifica conflito apenas se for férias/folga
+  if (['Férias', 'Folga Pessoal'].includes(dados.tipo)) {
+    const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
+    if (temConflito) throw new Error("Já existe uma ausência registrada neste período.");
+  }
 
-  if (error) throw error;
-  return data;
-};
-
-export const updatePeriodoAquisitivo = async (id, dados) => {
-  const { data, error } = await supabase
-    .from('periodos_aquisitivos')
-    .update(dados)
-    .eq('id', id)
-    .select();
-
+  const { data, error } = await supabase.from('solicitacoes_ausencia').insert([dados]).select();
   if (error) throw error;
   return data[0];
 };
 
-// --- VALIDAÇÕES E SOLICITAÇÕES ---
+// Lançar Crédito (Banco de Horas / Direito de Férias Extra)
+export const createCreditoSaldo = async (dados) => {
+  const { data, error } = await supabase.from('historico_creditos').insert([dados]).select();
+  if (error) throw error;
+  return data[0];
+};
 
-export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, ignoreId = null) => {
-  let query = supabase
+// --- 3. BUSCAS OTIMIZADAS (Mural e Histórico) ---
+
+/**
+ * Busca OTIMIZADA para o Mural Inicial.
+ * Traz apenas registros de 30 dias atrás até 30 dias no futuro.
+ * Leve e rápido para carregamento inicial.
+ */
+export const getMuralRecente = async () => {
+  const hoje = new Date();
+  const trintaDiasAtras = new Date(hoje); trintaDiasAtras.setDate(hoje.getDate() - 30);
+  const trintaDiasFrente = new Date(hoje); trintaDiasFrente.setDate(hoje.getDate() + 30);
+
+  // Busca Ausências (Débitos) na janela
+  const { data: ausencias } = await supabase
+    .from('solicitacoes_ausencia')
+    .select('*, funcionarios(nome_completo, avatar_url, cargo)')
+    .gte('data_inicio', trintaDiasAtras.toISOString())
+    .lte('data_inicio', trintaDiasFrente.toISOString())
+    .order('created_at', { ascending: false });
+
+  // Busca Créditos na janela
+  const { data: creditos } = await supabase
+    .from('historico_creditos')
+    .select('*, funcionarios(nome_completo, avatar_url, cargo)')
+    .gte('data_lancamento', trintaDiasAtras.toISOString())
+    .lte('data_lancamento', trintaDiasFrente.toISOString())
+    .order('created_at', { ascending: false });
+
+  return { ausencias: ausencias || [], creditos: creditos || [] };
+};
+
+/**
+ * Busca AVANÇADA para a aba Histórico/Extrato.
+ * Permite filtrar por colaborador e intervalo de datas.
+ */
+export const getExtratoFiltrado = async ({ funcionarioId, dataInicio, dataFim }) => {
+  let queryAusencia = supabase
+    .from('solicitacoes_ausencia')
+    .select('*, funcionarios(nome_completo, avatar_url)')
+    .order('data_inicio', { ascending: false });
+
+  let queryCredito = supabase
+    .from('historico_creditos')
+    .select('*, funcionarios(nome_completo, avatar_url)')
+    .order('data_lancamento', { ascending: false });
+
+  if (funcionarioId) {
+    queryAusencia = queryAusencia.eq('funcionario_id', funcionarioId);
+    queryCredito = queryCredito.eq('funcionario_id', funcionarioId);
+  }
+  if (dataInicio) {
+    queryAusencia = queryAusencia.gte('data_inicio', dataInicio);
+    queryCredito = queryCredito.gte('data_lancamento', dataInicio);
+  }
+  if (dataFim) {
+    queryAusencia = queryAusencia.lte('data_inicio', dataFim);
+    queryCredito = queryCredito.lte('data_lancamento', dataFim);
+  }
+
+  const [resA, resC] = await Promise.all([queryAusencia, queryCredito]);
+  
+  if (resA.error) throw resA.error;
+  if (resC.error) throw resC.error;
+
+  return { ausencias: resA.data, creditos: resC.data };
+};
+
+// --- 4. GESTÃO SEGURA (Update/Delete com Travas) ---
+
+export const updateStatusSolicitacao = async (id, status) => {
+  const { data, error } = await supabase
+    .from('solicitacoes_ausencia')
+    .update({ status }) // Apenas status
+    .eq('id', id)
+    .select();
+  if (error) throw error;
+  return data[0];
+};
+
+/**
+ * TRAVA DE SEGURANÇA: Só permite excluir se for PENDENTE.
+ * Registros oficiais não podem ser apagados para manter auditoria.
+ */
+export const deleteAusenciaSegura = async (id) => {
+  // 1. Verifica o status atual antes de deletar
+  const { data: atual } = await supabase
+    .from('solicitacoes_ausencia')
+    .select('status, anexo_path')
+    .eq('id', id)
+    .single();
+
+  if (!atual) throw new Error("Registro não encontrado.");
+
+  if (atual.status !== 'Pendente') {
+    throw new Error("SEGURANÇA: Não é permitido excluir registros já Aprovados, Rejeitados ou Concluídos. Realize um lançamento de ajuste/estorno se necessário.");
+  }
+
+  // 2. Se tiver anexo, deleta
+  if (atual.anexo_path) {
+    await supabase.storage.from(ANEXOS_BUCKET).remove([atual.anexo_path]);
+  }
+
+  // 3. Deleta o registro
+  const { error } = await supabase.from('solicitacoes_ausencia').delete().eq('id', id);
+  if (error) throw error;
+  return true;
+};
+
+// Créditos entram direto como efetivados, então em tese não deveriam ser apagados.
+// Mas se foi erro de digitação imediato (criado hoje), podemos permitir (regra flexível).
+export const deleteCreditoSeguro = async (id) => {
+  // Regra: Só pode deletar crédito se foi criado nas últimas 24h (erro de digitação)
+  const ontem = new Date(); ontem.setHours(ontem.getHours() - 24);
+  
+  const { data: atual } = await supabase
+    .from('historico_creditos')
+    .select('created_at')
+    .eq('id', id)
+    .single();
+
+  if (!atual) throw new Error("Crédito não encontrado.");
+  
+  if (new Date(atual.created_at) < ontem) {
+    throw new Error("AUDITORIA: Créditos antigos não podem ser excluídos. Faça um lançamento de débito para corrigir o saldo.");
+  }
+
+  const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
+  if (error) throw error;
+  return true;
+};
+
+// Auxiliares
+export const getAusenciaById = async (id) => {
+  const { data, error } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
+  if (error) throw error;
+  return data;
+};
+export const getCreditoById = async (id) => {
+  const { data, error } = await supabase.from('historico_creditos').select('*').eq('id', id).single();
+  if (error) throw error;
+  return data;
+};
+export const updateAusencia = async (id, dados) => {
+  // Também bloqueia edição de aprovados
+  const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status').eq('id', id).single();
+  if (atual.status !== 'Pendente') throw new Error("Apenas solicitações pendentes podem ser editadas.");
+
+  const { data, error } = await supabase.from('solicitacoes_ausencia').update(dados).eq('id', id).select();
+  if (error) throw error;
+  return data[0];
+};
+export const updateCredito = async (id, dados) => {
+  const { data, error } = await supabase.from('historico_creditos').update(dados).eq('id', id).select();
+  if (error) throw error;
+  return data[0];
+};
+export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim) => {
+  const { data } = await supabase
     .from('solicitacoes_ausencia')
     .select('id')
     .eq('funcionario_id', funcionarioId)
     .neq('status', 'Rejeitado')
     .or(`data_inicio.lte.${dataFim},data_fim.gte.${dataInicio}`);
-
-  if (ignoreId) {
-    query = query.neq('id', ignoreId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  
-  return data.length > 0;
+  return data?.length > 0;
 };
-
-export const createSolicitacaoAusencia = async (dados) => {
-  const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
-  if (temConflito) {
-    throw new Error("Conflito detectado: Já existe uma ausência registrada neste período.");
-  }
-
-  const payload = {
-    funcionario_id: dados.funcionario_id,
-    empresa_id: dados.empresa_id,
-    tipo: dados.tipo,
-    categoria: dados.categoria,
-    data_inicio: dados.data_inicio,
-    data_fim: dados.data_fim,
-    motivo: dados.motivo || null,
-    anexo_path: dados.anexo_path || null,
-    status: 'Pendente',
-    periodo_aquisitivo_id: dados.periodo_aquisitivo_id || null,
-    quantidade: dados.quantidade || 0,
-    unidade: 'dias'
-  };
-
-  const { data, error } = await supabase
+export const checkExistingFeriasNoAno = async (funcionarioId, ano) => {
+  const inicioAno = `${ano}-01-01`;
+  const fimAno = `${ano}-12-31`;
+  const { data } = await supabase
     .from('solicitacoes_ausencia')
-    .insert([payload])
-    .select();
-
-  if (error) throw error;
-  return data[0];
+    .select('id')
+    .eq('funcionario_id', funcionarioId)
+    .eq('tipo', 'Férias')
+    .neq('status', 'Rejeitado')
+    .gte('data_inicio', inicioAno)
+    .lte('data_inicio', fimAno);
+  return data?.length > 0;
 };
-
-export const getTodasSolicitacoes = async () => {
-  const { data, error } = await supabase
-    .from('solicitacoes_ausencia')
-    .select(`
-      *,
-      funcionarios ( id, nome_completo, avatar_url, cargo )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data;
+// Mantido para compatibilidade com ModalExtrato antigo, mas o ideal é migrar para getExtratoFiltrado
+export const getHistoricoAusencias = async () => { 
+  const { data } = await supabase.from('solicitacoes_ausencia').select('*'); 
+  return data; 
 };
-
-export const updateStatusSolicitacao = async (id, status, motivoRejeicao = null) => {
-  const { data, error } = await supabase
-    .from('solicitacoes_ausencia')
-    .update({ 
-      status: status, 
-      motivo: motivoRejeicao ? motivoRejeicao : undefined 
-    })
-    .eq('id', id)
-    .select();
-
-  if (error) throw error;
-  return data[0];
+export const getHistoricoCreditos = async () => { 
+  const { data } = await supabase.from('historico_creditos').select('*'); 
+  return data; 
 };
-
-export const deleteSolicitacao = async (id) => {
-  const { error } = await supabase
-    .from('solicitacoes_ausencia')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-  return true;
-};
-
-// --- FUNÇÕES DO MÓDULO DE FÉRIAS (CALENDÁRIO) ---
-// Esta função estava faltando e causava o erro
-
-export const getFeriasAprovadasParaCalendario = async (ano, mes, searchTerm = '', departamento = 'Todos') => {
-  // Calcula o primeiro e último dia do mês para filtrar
-  const dataInicioMes = new Date(ano, mes - 1, 1).toISOString();
-  // O dia 0 do mês seguinte é o último dia do mês atual
-  const dataFimMes = new Date(ano, mes, 0).toISOString();
-
-  let query = supabase
-    .from('solicitacoes_ausencia')
-    .select(`
-      id,
-      data_inicio,
-      data_fim,
-      funcionario_id,
-      funcionarios ( nome_completo, departamento )
-    `)
-    .eq('tipo', 'Férias') // Filtra apenas férias
-    .eq('status', 'Aprovado') // Apenas aprovadas aparecem no calendário
-    // Lógica para pegar férias que começam, terminam ou atravessam o mês atual
-    .or(
-      `data_inicio.gte.${dataInicioMes},data_inicio.lte.${dataFimMes},` +
-      `data_fim.gte.${dataInicioMes},data_fim.lte.${dataFimMes},` +
-      `and(data_inicio.lt.${dataInicioMes},data_fim.gt.${dataFimMes})`
-    );
-
-  // Aplica filtros de busca visual (Nome e Departamento)
-  if (searchTerm) {
-    // Como o supabase js não faz filtro em tabela relacionada facilmente dessa forma no .or(),
-    // a filtragem por nome pode ser refinada no front-end ou exigiria uma query mais complexa.
-    // Por enquanto, mantemos simples ou assumimos que o filtro principal é no banco.
-    // Nota: Se der erro no filtro por nome dentro do objeto relacionado, remova esta linha.
-    // A maioria das versões suporta:
-    query = query.ilike('funcionarios.nome_completo', `%${searchTerm}%`);
-  }
-  
-  if (departamento && departamento !== 'Todos') {
-    query = query.eq('funcionarios.departamento', departamento);
-  }
-
-  const { data, error } = await query;
-  
-  if (error) {
-    console.error("Erro ao buscar férias para o calendário:", error);
-    throw error;
-  }
-  
-  return data;
-};
+export const concluirSolicitacao = async (id) => updateStatusSolicitacao(id, 'Concluído');
