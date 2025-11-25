@@ -147,7 +147,7 @@
   border: 1px solid #e2e8f0;
   width: 32px; height: 32px;
   border-radius: 6px;
-  display: flex; alignItems: center; justifyContent: center;
+  display: flex; align-items: center; justify-content: center;
   color: #64748b;
   cursor: pointer;
   transition: all 0.2s;
