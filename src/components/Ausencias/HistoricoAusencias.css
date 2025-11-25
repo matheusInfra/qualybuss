@@ -1,99 +1,184 @@
-.historico-container {
-  width: 100%;
-  overflow-x: auto; /* Para telas pequenas */
+/* src/components/Ausencias/HistoricoAusencias.css */
+
+.historico-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  padding: 24px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* --- BARRA DE FILTROS --- */
+.historico-filtros {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.filtro-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filtro-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.filtro-group input,
+.filtro-group select {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: #1e293b;
+  background-color: #fff;
+  transition: border-color 0.2s;
+}
+
+.filtro-group input:focus,
+.filtro-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.btn-buscar {
+  padding: 10px 24px;
+  background-color: #2563eb; /* Azul primário */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 42px; /* Alinha com os inputs */
+  transition: background-color 0.2s;
+}
+.btn-buscar:hover {
+  background-color: #1d4ed8;
+}
+.btn-buscar:disabled {
+  background-color: #93c5fd;
+  cursor: wait;
+}
+
+/* --- TABELA DE RESULTADOS --- */
+.tabela-container {
+  overflow-x: auto;
 }
 
 .historico-table {
   width: 100%;
-  border-collapse: collapse; /* Bordas unidas */
-  background-color: #fff;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  font-size: 14px;
-}
-
-.historico-table th,
-.historico-table td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f0f0f0;
+  border-collapse: collapse;
+  font-size: 0.9rem;
 }
 
 .historico-table th {
-  background-color: #f8f9fa;
+  text-align: left;
+  padding: 12px 16px;
+  background-color: #f8fafc;
+  color: #475569;
   font-weight: 600;
-  color: #4a5568;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
 }
 
-/* Célula do Colaborador (com avatar) */
-.colaborador-cell {
+.historico-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+/* Zebrado suave */
+.historico-table tr:nth-child(even) {
+  background-color: #fafafa;
+}
+.historico-table tr:hover {
+  background-color: #f0f9ff;
+}
+
+/* User Cell */
+.user-cell {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.colaborador-avatar {
+.avatar-mini {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
-  background-color: #f0f0f0;
-}
-.colaborador-nome {
-  font-weight: 600;
-  color: #2d3748;
 }
 
-/* "Pill" (pílula) para o tipo de ausência */
-.tipo-pill {
-  display: inline-block;
+/* Destaques de Valor */
+.text-green { color: #16a34a; font-weight: 600; }
+.text-red { color: #dc2626; font-weight: 500; }
+
+/* Linha de Crédito (Destaque sutil) */
+.row-credito {
+  border-left: 3px solid #22c55e;
+}
+
+/* Status Badges */
+.status-badge {
   padding: 4px 10px;
-  border-radius: 16px;
-  font-weight: 600;
-  font-size: 12px;
-  background-color: #f0f0f0;
-  color: #555;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
+.status-warning { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+.status-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.status-danger  { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.status-locked  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e0; }
 
-/* Cores específicas para cada tipo */
-.tipo-pill.ferias {
-  background-color: #e6f7ff;
-  color: #1890ff;
-}
-.tipo-pill.atestado {
-  background-color: #fff1f0;
-  color: #f5222d;
-}
-.tipo-pill.licenca {
-  background-color: #fffbe6;
-  color: #faad14;
-}
-
-/* Botão de Anexo */
-.anexo-button {
+/* Botão Anexo */
+.btn-icon-sm {
   background: none;
-  border: none;
-  color: #137fec; /* Cor primária */
+  border: 1px solid #e2e8f0;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  display: flex; alignItems: center; justifyContent: center;
+  color: #64748b;
   cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
+  transition: all 0.2s;
 }
-.anexo-button:hover {
-  text-decoration: underline;
+.btn-icon-sm:hover {
+  background: #fff;
+  color: #2563eb;
+  border-color: #2563eb;
 }
-.anexo-button .material-symbols-outlined {
+.btn-icon-sm .material-symbols-outlined {
   font-size: 18px;
 }
 
-/* Mensagem de "Vazio" */
-.historico-empty {
-  padding: 40px;
+/* Estado Vazio */
+.empty-state {
+  padding: 48px;
   text-align: center;
-  color: #777;
-  background-color: #fff;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  background: #f9fafb;
   border-radius: 8px;
-  border: 1px dashed #ddd;
+  border: 1px dashed #cbd5e0;
+}
+
+/* Responsividade dos Filtros */
+@media (max-width: 768px) {
+  .historico-filtros {
+    grid-template-columns: 1fr; /* Empilha tudo em mobile */
+    gap: 12px;
+  }
+  .btn-buscar {
+    width: 100%;
+  }
 }

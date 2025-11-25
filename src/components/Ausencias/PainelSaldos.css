@@ -2,192 +2,210 @@
 
 .painel-saldos-container {
   padding: 20px 0;
+  animation: fadeIn 0.4s ease-out;
 }
 
-/* Onde a grade de cards será renderizada */
 .saldos-grid {
   display: grid;
-  grid-template-columns: repeat(1, 1fr);
-  gap: 20px;
-}
-@media (min-width: 640px) {
-  .saldos-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (min-width: 1024px) {
-  .saldos-grid { grid-template-columns: repeat(3, 1fr); }
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
 }
 
-/* --- ESTILO BASE DO CARD --- */
-.saldo-card {
+/* --- CARD MODERNO --- */
+.saldo-card-modern {
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #ddd;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  transition: all 0.2s;
-}
-.saldo-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-/* CORES DE STATUS */
-.saldo-card.status-green { border-left: 5px solid #28a745; }
-.saldo-card.status-yellow { border-left: 5px solid #FFB800; }
-.saldo-card.status-red { border-left: 5px solid #E53E3E; }
-.status-pill-saldo {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 4px;
-  /* Estilização específica */
-  background: #f0f0f0;
-  color: #333;
+.saldo-card-modern:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e0;
 }
-.status-card.status-green .status-pill-saldo { background: #e6f7ff; color: #1890ff; }
-.status-card.status-red .status-pill-saldo { background: #fff1f0; color: #f5222d; }
+
+/* Borda superior colorida baseada no status */
+.saldo-card-modern.danger { border-top: 4px solid #ef4444; }
+.saldo-card-modern.warning { border-top: 4px solid #f59e0b; }
+.saldo-card-modern.success { border-top: 4px solid #22c55e; }
 
 /* HEADER */
-.card-header-saldo {
+.saldo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.saldo-profile {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.saldo-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px; /* Quadrado arredondado é mais moderno que círculo */
+  object-fit: cover;
+  background-color: #f1f5f9;
+}
+
+.saldo-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.saldo-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saldo-role {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.saldo-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 20px;
+}
+.saldo-badge.danger { background: #fef2f2; color: #ef4444; }
+.saldo-badge.warning { background: #fffbeb; color: #f59e0b; }
+.saldo-badge.success { background: #f0fdf4; color: #22c55e; }
+
+.saldo-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+  margin-bottom: 20px;
+}
+
+/* KPI GRID (NÚMEROS) */
+.saldo-kpi-grid {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-}
-.card-avatar-saldo {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-/* INFO */
-.card-info-saldo {
-  margin-bottom: 16px;
-}
-.card-nome-saldo {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #2d3748;
-  margin: 0;
-}
-.card-cargo-saldo {
-  font-size: 14px;
-  color: #718096;
-  margin: 4px 0 0 0;
-}
-
-/* BARRA DE PROGRESSO */
-.saldo-bar-container {
-  height: 8px;
-  background-color: #e0e0e0;
-  border-radius: 4px;
   margin-bottom: 20px;
-  overflow: hidden;
-}
-.saldo-bar-progress {
-  height: 100%;
-  border-radius: 4px;
-  /* A cor da barra será definida pelo JavaScript (statusColor) */
-  background-color: #28a745; /* Padrão */
-}
-.status-card.status-red .saldo-bar-progress { background-color: #E53E3E; }
-
-/* DETALHES E NÚMEROS */
-.saldo-details-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px 0;
-  border-top: 1px dashed #eee;
-  border-bottom: 1px dashed #eee;
-}
-.saldo-value-main {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a202c;
-}
-.saldo-item-detail.ferias .saldo-value-main { color: #135bec; }
-.saldo-item-detail.banco-horas .saldo-value-main { color: #28a745; }
-.saldo-label-main {
-  font-size: 12px;
-  color: #718096;
-  font-weight: 600;
-  display: block;
-  margin-top: 4px;
 }
 
-/* HISTÓRICO DE DEBITOS */
-.ultimos-debitos-section {
-  margin-top: 16px;
-  padding-bottom: 12px;
-  font-size: 14px;
-  flex-grow: 1;
-}
-.ultimos-debitos-section h4 {
-  margin: 0 0 8px 0;
-  font-weight: 600;
-  color: #4a5568;
-}
-.debitos-empty {
-  font-size: 13px;
-  color: #999;
-}
-.debito-item {
+.kpi-box {
   display: flex;
-  justify-content: space-between;
-  border-bottom: 1px dotted #f0f0f0;
-  padding: 4px 0;
-}
-.debito-tipo {
-  font-weight: 500;
-  color: #E53E3E;
+  flex-direction: column;
+  align-items: center; /* Centralizado para dar destaque */
+  flex: 1;
 }
 
-/* BOTÃO DE LANÇAMENTO (FUNDO) */
-.button-lancar-saldo {
-  width: 100%;
-  padding: 12px 0;
-  background-color: #2d3748;
-  color: white;
-  border: none;
-  border-radius: 8px;
+.kpi-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
   font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin-top: 16px;
-}
-.button-lancar-saldo:hover {
-  background-color: #1a202c;
-}
-
-/* src/components/Ausencias/PainelSaldos.css */
-
-/* ... (mantenha todos os estilos anteriores) ... */
-
-/* --- NOVO ESTILO: TOTAL CONSOLIDADO KPI --- */
-.total-consolidado-kpi {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 16px;
-  border: 1px solid #eee;
-}
-
-.consolidado-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #718096;
-  display: block;
   margin-bottom: 4px;
 }
 
-.consolidado-value {
-  font-size: 1.75rem; /* 28px */
-  font-weight: 700;
-  color: #1a202c;
-  line-height: 1.2;
+.kpi-value-group {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
 }
-/* --- FIM NOVO ESTILO --- */
+
+.kpi-number {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+.kpi-number.text-red { color: #ef4444; }
+
+.kpi-unit {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.kpi-separator {
+  width: 1px;
+  height: 40px;
+  background-color: #e2e8f0;
+  margin: 0 16px;
+}
+
+/* BARRA DE PROGRESSO */
+.saldo-progress-wrapper {
+  margin-bottom: 24px;
+}
+.saldo-progress-bg {
+  height: 6px;
+  background-color: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.saldo-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px;
+}
+.status-danger .saldo-progress-bar { background: #ef4444; }
+
+/* AÇÕES (BOTÕES) */
+.saldo-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: auto; /* Empurra pro fundo se o card crescer */
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.btn-action.outline {
+  background: transparent;
+  border: 1px solid #cbd5e0;
+  color: #475569;
+}
+.btn-action.outline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+.btn-action.primary {
+  background: #0f172a;
+  border: 1px solid #0f172a;
+  color: #fff;
+}
+.btn-action.primary:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -2px rgba(0,0,0,0.1);
+}
