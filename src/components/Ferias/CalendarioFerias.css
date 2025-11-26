@@ -1,210 +1,206 @@
 /* src/components/Ferias/CalendarioFerias.css */
 
-.calendar-container {
-  background-color: #fff;
-  border-radius: 0.75rem; /* 12px */
-  border: 1px solid #e0e0e0;
-  overflow: hidden; /* Para os cantos arredondados */
-  position: relative;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+/* --- CONTAINER PRINCIPAL --- */
+.calendario-container {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); /* Sombra suave e moderna */
+  border: 1px solid #e2e8f0;
+  font-family: 'Inter', sans-serif;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-/* --- 1. CABEÇALHO (Dom, Seg, Ter...) --- */
-.calendar-header-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  background-color: #f9fafb; /* Fundo levemente cinza para o header */
-}
-
-.calendar-header-cell {
-  text-align: center;
-  padding: 12px 0;
-  font-size: 0.875rem; /* 14px */
-  font-weight: 600;
-  color: #4a5568;
-  border-bottom: 1px solid #e0e0e0;
-}
-.calendar-header-cell:not(:last-child) {
-  border-right: 1px solid #e0e0e0;
-}
-
-/* --- 2. CORPO (Dias) --- */
-.calendar-body-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(6, 1fr); /* 6 linhas fixas para estabilidade */
-  height: calc(100vh - 280px); /* Altura dinâmica ajustada */
-  min-height: 600px;
-  position: relative; /* CRUCIAL para o posicionamento absoluto dos cards */
-}
-
-/* Animação de entrada suave */
-@keyframes fadeInCalendar {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.fade-in-grid {
-  animation: fadeInCalendar 0.4s ease-out;
-}
-
-/* Célula do Dia */
-.calendar-day-cell {
-  padding: 8px;
-  border-bottom: 1px solid #e0e0e0;
-  position: relative; /* Para posicionar o indicador de feriado */
-  transition: background-color 0.2s;
-}
-.calendar-day-cell:not(:nth-child(7n)) {
-  border-right: 1px solid #e0e0e0;
-}
-.calendar-day-cell:nth-last-child(-n+7) {
-  border-bottom: none;
-}
-
-/* Número do Dia */
-.day-header {
+/* --- CABEÇALHO (TÍTULO E LEGENDAS) --- */
+.calendario-header-info {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-}
-.day-number {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #2d3748;
-  z-index: 2; /* Fica acima de fundos */
-}
-
-/* Estados da Célula */
-.calendar-day-cell.other-month {
-  background-color: #fcfcfc;
-}
-.calendar-day-cell.other-month .day-number {
-  color: #cbd5e0;
-}
-
-.calendar-day-cell.today {
-  background-color: rgba(235, 248, 255, 0.5); /* Azul muito claro */
-}
-.calendar-day-cell.today .day-number {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background-color: #135bec;
-  color: white;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-wrap: wrap; /* Responsividade */
+  gap: 16px;
+}
+
+.calendario-header-info h3 {
+  margin: 0;
+  font-size: 1.25rem; /* ~20px */
   font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* --- 3. FERIADOS (Novo Visual) --- */
-
-/* Bolinha Animada */
-.holiday-indicator {
-  width: 8px;
-  height: 8px;
-  background-color: #e53e3e; /* Vermelho */
-  border-radius: 50%;
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  cursor: help;
-  z-index: 10;
-  box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
-  animation: pulseHoliday 2s infinite;
+/* --- LEGENDAS ESTILIZADAS --- */
+.legendas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-@keyframes pulseHoliday {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(229, 62, 62, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
-  }
-}
-
-/* Tooltip Flutuante */
-.holiday-tooltip {
-  position: fixed; /* Segue a tela, calculado via JS */
-  background-color: #1a202c; /* Fundo escuro */
-  color: #fff;
+/* Item da legenda (Badge) */
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background-color: #f8fafc;
   padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-  z-index: 9999; /* Acima de tudo */
-  pointer-events: none; /* Não interfere no clique */
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-  transform: translate(10px, 10px); /* Offset do mouse */
-  animation: fadeInTooltip 0.2s ease-out;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  cursor: default;
 }
 
-@keyframes fadeInTooltip {
-  from { opacity: 0; transform: translate(10px, 15px); }
-  to { opacity: 1; transform: translate(10px, 10px); }
+.legenda-item:hover {
+  background-color: #f1f5f9;
+  transform: translateY(-1px);
 }
 
-/* --- 4. CARDS DE FÉRIAS --- */
-
-.vacation-card-wrapper {
-  position: absolute;
-  padding: 1px 4px; /* Espaçamento horizontal entre cards */
-  cursor: pointer;
-  z-index: 5;
-  transition: transform 0.2s, z-index 0.2s;
+/* Bolinhas Coloridas (Dots) */
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8); /* Borda branca interna */
 }
-.vacation-card-wrapper:hover {
-  z-index: 20; /* Traz para frente no hover */
+
+/* Cores das Legendas */
+.dot.aprovado {
+  background-color: #10B981; /* Emerald 500 */
+  box-shadow: 0 0 0 2px #d1fae5; /* Anel externo suave */
+}
+
+.dot.pendente {
+  background-color: #F59E0B; /* Amber 500 */
+  box-shadow: 0 0 0 2px #fef3c7;
+}
+
+.dot.rejeitado {
+  background-color: #EF4444; /* Red 500 */
+  box-shadow: 0 0 0 2px #fee2e2;
+}
+
+/* --- CUSTOMIZAÇÃO DO CALENDÁRIO (React Big Calendar) --- */
+
+/* Fonte e estrutura */
+.rbc-calendar {
+  font-family: 'Inter', sans-serif !important;
+  color: #334155;
+}
+
+/* Cabeçalho dos dias (SEG, TER...) */
+.rbc-header {
+  padding: 12px 4px !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+  color: #64748b !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: none !important;
+  background-color: #f8fafc;
+}
+
+/* Células dos dias */
+.rbc-day-bg {
+  background-color: #ffffff;
+  transition: background-color 0.2s;
+}
+
+.rbc-day-bg:hover {
+  background-color: #f8fafc; /* Hover suave no dia */
+}
+
+/* Dia atual (Highlight) */
+.rbc-today {
+  background-color: #f0f9ff !important; /* Azul bem claro */
+}
+
+/* --- ESTILO DOS EVENTOS (CARDS DENTRO DO DIA) --- */
+.rbc-event {
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  margin-bottom: 4px !important;
+}
+
+/* Efeito ao passar o mouse no evento */
+.rbc-event:hover {
   transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12) !important;
+  z-index: 5;
 }
 
-.vacation-card-inner {
-  /* Altura fixa para cálculo de empilhamento */
-  height: 20px;
-  line-height: 20px;
-  
-  border-radius: 4px;
-  /* Borda lateral esquerda mais grossa para identidade visual */
-  border-left-width: 4px; 
-  border-left-style: solid;
-  
-  padding: 0 8px;
-  font-size: 0.75rem; /* 12px */
-  font-weight: 600;
-  
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-  /* Nota: Cores de fundo e texto são injetadas via style inline pelo JS */
+/* Remove outline feio ao focar */
+.rbc-event:focus {
+  outline: none;
 }
 
-/* --- 5. LOADING E ERROR --- */
-.calendar-loading,
-.calendar-error {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 16px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  z-index: 20;
+/* --- BOTÕES DE NAVEGAÇÃO (HOJE, ANTERIOR, PRÓXIMO) --- */
+.rbc-toolbar button {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 6px !important;
+  padding: 8px 16px !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  color: #475569 !important;
+  background-color: white !important;
+  transition: all 0.2s !important;
+  margin-right: 4px;
 }
-.calendar-error {
-  color: #e53e3e;
-  border: 1px solid #e53e3e;
+
+.rbc-toolbar button:hover {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
 }
-.calendar-loading {
-  color: #135bec;
+
+.rbc-toolbar button.rbc-active {
+  background-color: #2563eb !important; /* Azul primário */
+  color: white !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+/* Título do Mês (ex: Novembro 2023) */
+.rbc-toolbar-label {
+  font-size: 1.2rem !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  text-transform: capitalize;
+}
+
+/* --- TOOLTIP FLUTUANTE DO DIA (SELECIONADO) --- */
+/* Aumenta a visibilidade quando clica em "+2 mais" */
+.rbc-overlay {
+  z-index: 100 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 8px !important;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.rbc-overlay-header {
+  font-weight: 700 !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #eee !important;
+  margin-bottom: 8px !important;
+  padding-bottom: 4px !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }

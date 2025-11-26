@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { supabase } from '../services/supabaseClient';
 import ModalSolicitarAjuste from '../components/Modal/ModalSolicitarAjuste';
 import { toast } from 'react-hot-toast';
-import './AjustesPage.css'; // Vamos criar um CSS básico abaixo ou reutilize
+import './AjustesPage.css';
 
 function AjustesPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,43 +22,12 @@ function AjustesPage() {
     return data;
   });
 
-  // 2. Função para buscar registro oficial para corrigir
-  const handleBuscarRegistro = async (e) => {
-    e.preventDefault();
-    if (!searchTerm) return;
-    
-    const toastId = toast.loading('Buscando...');
-    
-    // Busca na tabela de ausências por protocolo (ID) ou tenta achar pelo nome do funcionário (mais complexo, aqui simplificado pelo ID ou data)
-    // Para simplificar UX, vamos buscar registros "Aprovados" recentes desse funcionário se for texto, ou ID direto.
-    
-    // ESTRATÉGIA DE BUSCA: Vamos buscar ausências Aprovadas que batam com o termo (supomos que seja o ID por enquanto para precisão, ou implementamos busca de nome depois)
-    // Nota: Para buscar por nome do funcionário precisaria de um join. Vamos manter simples: Busca por ID ou lista os últimos 10 aprovados para selecionar.
-    
-    const { data, error } = await supabase
-        .from('solicitacoes_ausencia')
-        .select(`*, funcionarios(nome_completo)`)
-        .eq('status', 'Aprovado')
-        .order('data_inicio', { ascending: false })
-        .limit(10); // Traz os últimos 10 aprovados para o usuário escolher
-
-    toast.dismiss(toastId);
-    
-    if (error || !data || data.length === 0) {
-      toast.error('Nenhum registro consolidado recente encontrado.');
-      return;
-    }
-    
-    // Abre um mini-modal de seleção ou seta o primeiro (aqui vamos simplificar mostrando uma lista filtrada na tela)
-    // Para este exemplo, vamos supor que o usuário clica num botão "Corrigir" numa lista abaixo.
-  };
-  
   // Lista de registros Aprovados (para o usuário selecionar qual corrigir)
   const { data: registrosRecentes } = useSWR('registros_aprovados', async () => {
      const { data } = await supabase
         .from('solicitacoes_ausencia')
         .select(`*, funcionarios(nome_completo, cargo)`)
-        .eq('status', 'Aprovado')
+        .eq('status', 'Aprovado') // Só permite corrigir o que já foi aprovado
         .order('created_at', { ascending: false })
         .limit(50);
      return data;
@@ -94,12 +63,15 @@ function AjustesPage() {
           </div>
 
           <div className="lista-registros overflow-y-auto" style={{ maxHeight: '400px' }}>
+            {registrosFiltrados?.length === 0 && <p className="text-gray-400 text-sm">Nenhum registro encontrado.</p>}
+            
             {registrosFiltrados?.map(reg => (
               <div key={reg.id} className="item-registro p-3 border mb-2 rounded hover:bg-gray-50 flex justify-between items-center">
                 <div>
                   <div className="font-bold text-sm">{reg.funcionarios?.nome_completo}</div>
                   <div className="text-xs text-gray-500">
-                    {new Date(reg.data_inicio).toLocaleDateString()} a {new Date(reg.data_fim).toLocaleDateString()}
+                    {/* Formatação segura de data */}
+                    {reg.data_inicio ? new Date(reg.data_inicio).toLocaleDateString() : 'N/A'} a {reg.data_fim ? new Date(reg.data_fim).toLocaleDateString() : 'N/A'}
                     <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">{reg.tipo}</span>
                   </div>
                 </div>
@@ -122,26 +94,30 @@ function AjustesPage() {
           <h2 className="text-lg font-semibold mb-4 text-gray-700">📜 Log de Auditoria (Últimas ações)</h2>
           
           <div className="timeline-auditoria overflow-y-auto" style={{ maxHeight: '450px' }}>
-            {auditoria?.map(log => {
-              const dadosAntigos = log.dados_anteriores;
-              const dadosNovos = log.dados_novos;
-              
-              return (
-                <div key={log.id} className="log-item mb-4 p-3 bg-white rounded border-l-4 border-blue-500 shadow-sm text-sm">
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>{new Date(log.created_at).toLocaleString()}</span>
-                    <span className="font-mono">{log.tipo_ajuste}</span>
+            {auditoria?.map(log => (
+              <div key={log.id} className="log-item mb-4 p-3 bg-white rounded border-l-4 border-blue-500 shadow-sm text-sm">
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>{new Date(log.created_at).toLocaleString()}</span>
+                  <span className="font-mono bg-blue-100 text-blue-800 px-1 rounded">{log.tipo_acao}</span>
+                </div>
+                
+                <div className="font-medium text-gray-800 mb-1 italic">
+                  "{log.justificativa || 'Sem justificativa'}"
+                </div>
+                
+                {/* CORREÇÃO DO ERRO AQUI: Exibimos as strings diretamente */}
+                <div className="diff-box bg-gray-100 p-2 rounded text-xs font-mono mt-2 border border-gray-200">
+                  <div className="text-red-500 flex items-start">
+                    <span className="mr-1">-</span> 
+                    {log.valor_anterior || 'N/A'}
                   </div>
-                  <div className="font-medium text-gray-800 mb-1">
-                    "{log.justificativa}"
-                  </div>
-                  <div className="diff-box bg-gray-100 p-2 rounded text-xs font-mono mt-2">
-                    <div className="text-red-500">- {new Date(dadosAntigos.data_inicio).toLocaleDateString()} ({dadosAntigos.tipo})</div>
-                    <div className="text-green-600">+ {new Date(dadosNovos.data_inicio).toLocaleDateString()} ({dadosNovos.tipo})</div>
+                  <div className="text-green-600 flex items-start mt-1">
+                    <span className="mr-1">+</span> 
+                    {log.valor_novo || 'N/A'}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
             {!auditoria?.length && <p className="text-center text-gray-400 mt-10">Nenhuma retificação registrada.</p>}
           </div>
         </div>

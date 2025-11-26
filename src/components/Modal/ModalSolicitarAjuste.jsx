@@ -35,7 +35,7 @@ function ModalSolicitarAjuste({ ausencia, onClose, onSuccess }) {
     try {
       // Chamada RPC (Remote Procedure Call) para o Backend Blindado
       // Essa função será criada no Passo 3
-      const { error } = await supabase.rpc('processar_ajuste_ausencia', {
+      const { error } = await supabase.rpc('processar_retificacao_ausencia', {
         p_ausencia_id: ausencia.id,
         p_tipo_ajuste: form.tipo_ajuste,
         p_justificativa: form.justificativa,

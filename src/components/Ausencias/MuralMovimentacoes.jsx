@@ -1,125 +1,81 @@
-import React, { useMemo } from 'react';
-import useSWR, { useSWRConfig } from 'swr';
-import { getMuralRecente, deleteAusenciaSegura, deleteCreditoSeguro } from '../../services/ausenciaService';
-import { toast } from 'react-hot-toast';
-import { getAvatarPublicUrl } from '../../services/funcionarioService';
+import React from 'react';
+import { getAvatarPublicUrl } from '../../services/funcionarioService'; // Reutilizando sua função de avatar
 import './MuralMovimentacoes.css';
 
-function MuralMovimentacoes({ onEditar }) {
-  const { mutate } = useSWRConfig();
-  const { data, isLoading } = useSWR('getMuralRecente', getMuralRecente);
-
-  const listaMural = useMemo(() => {
-    if (!data) return [];
-    const { ausencias, creditos, periodos } = data;
-    
-    // 1. Ausências (Dia a dia)
-    const listaAusencias = ausencias.map(a => ({ 
-      ...a, 
-      id_real: a.id,
-      tipo_item: 'debito', 
-      data_referencia: a.data_inicio,
-      ordem: a.created_at, // Ordena pelo momento da criação
-      titulo: a.tipo,
-      status: a.status 
-    }));
-
-    // 2. Créditos (Banco/Folga)
-    const listaCreditos = creditos.map(c => ({ 
-      ...c, 
-      id_real: c.id,
-      tipo_item: 'credito', 
-      data_referencia: c.data_lancamento, 
-      ordem: c.created_at,
-      titulo: `Crédito: ${c.tipo}`,
-      status: 'Concluído'
-    }));
-
-    // 3. Períodos (Direito de Férias)
-    const listaPeriodos = (periodos || []).map(p => ({
-      ...p,
-      id_real: p.id,
-      tipo_item: 'credito', // Comportamento de crédito
-      data_referencia: p.inicio_periodo,
-      ordem: p.created_at,
-      titulo: 'Novo Período Aquisitivo',
-      status: 'Ativo',
-      tipo: 'Férias',
-      quantidade: p.dias_direito,
-      unidade: 'dias'
-    }));
-
-    // Unifica e ordena pelo Created_At (o que acabei de fazer aparece em cima)
-    const lista = [...listaAusencias, ...listaCreditos, ...listaPeriodos];
-    return lista.sort((a, b) => new Date(b.ordem) - new Date(a.ordem));
-  }, [data]);
-
-  const handleDelete = async (item) => {
-    if (!window.confirm("Tem certeza que deseja excluir?")) return;
-    const toastId = toast.loading("Processando...");
-    try {
-      // Se for período ou crédito, usa a função de crédito seguro
-      if (item.tipo_item === 'credito' || item.titulo === 'Novo Período Aquisitivo') {
-        await deleteCreditoSeguro(item.id_real);
-      } else {
-        await deleteAusenciaSegura(item.id_real);
-      }
-      toast.success("Registro excluído.", { id: toastId });
-      // Atualiza tudo
-      mutate('getMuralRecente');
-      mutate('getSaldosConsolidados');
-      mutate(key => Array.isArray(key) && key[0] === 'ferias');
-    } catch (err) {
-      toast.error(err.message, { id: toastId });
-    }
+function MuralMovimentacoes({ movimentacoes = [] }) {
+  
+  // Função auxiliar para formatar datas (DD/MM/AAAA)
+  const formatData = (dataString) => {
+    if (!dataString) return '-';
+    // Corrige problema de fuso horário ao criar data simples
+    const date = new Date(dataString);
+    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   };
 
-  if (isLoading) return <div className="loading-state">Carregando mural...</div>;
+  // Função para calcular dias totais (opcional, mas útil)
+  const calcularDias = (inicio, fim) => {
+    const d1 = new Date(inicio);
+    const d2 = new Date(fim);
+    const diffTime = Math.abs(d2 - d1);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para incluir o dia inicial
+    return diffDays;
+  };
+
+  if (!movimentacoes || movimentacoes.length === 0) {
+    return <div className="mural-empty">Nenhuma ausência programada ou registrada.</div>;
+  }
 
   return (
     <div className="mural-grid">
-      {listaMural.length === 0 && <p className="empty-state">Nenhum lançamento recente.</p>}
-      
-      {listaMural.map(item => (
-        <div key={item.id_real} className={`mural-card ${item.status === 'Concluído' ? 'locked' : ''}`}>
-          <div className="card-header">
-             <span className={`pill ${item.status}`}>{item.status}</span>
-             
-             <div className="card-actions">
-               {(item.status === 'Pendente' || new Date(item.ordem) > new Date(Date.now() - 86400000)) && (
-                 <>
-                   {item.status === 'Pendente' && (
-                     <button onClick={() => onEditar(item.id_real, item.tipo_item)} title="Editar"><span className="material-symbols-outlined">edit</span></button>
-                   )}
-                   <button onClick={() => handleDelete(item)} title="Excluir Recente"><span className="material-symbols-outlined">delete</span></button>
-                 </>
-               )}
-               {item.status !== 'Pendente' && new Date(item.ordem) <= new Date(Date.now() - 86400000) && (
-                 <span className="material-symbols-outlined icon-lock" title="Registro consolidado">lock</span>
-               )}
-             </div>
-          </div>
+      {movimentacoes.map((item) => (
+        <div key={item.id} className="ausencia-card">
           
-          <div className="card-body">
+          {/* 1. Cabeçalho do Card: Avatar e Nome */}
+          <div className="card-header">
             <img 
-              src={getAvatarPublicUrl(item.funcionarios?.avatar_url) || `https://ui-avatars.com/api/?name=${item.funcionarios?.nome_completo}`} 
-              className="avatar" 
-              alt="Avatar"
+              src={item.funcionario?.avatar_url ? getAvatarPublicUrl(item.funcionario.avatar_url) : 'https://placehold.co/100'} 
+              alt="Avatar" 
+              className="card-avatar-small"
             />
-            <div>
-              <strong>{item.funcionarios?.nome_completo}</strong>
-              <p className="card-desc">{item.titulo}</p>
-              {item.quantidade > 0 && (
-                <span className="card-value">
-                  {item.tipo_item === 'credito' ? '+' : ''}{item.quantidade} {item.unidade}
-                </span>
-              )}
+            <div className="card-header-info">
+              <h4 className="funcionario-nome">{item.funcionario?.nome_completo || 'Colaborador'}</h4>
+              <span className="ausencia-tipo">{item.tipo || 'Ausência'}</span>
             </div>
           </div>
-          
-          <div className="card-footer">
-             <small>Ref: {new Date(item.data_referencia).toLocaleDateString('pt-BR')}</small>
+
+          {/* 2. Corpo do Card: Datas */}
+          <div className="card-body">
+            <div className="data-row">
+              <span className="label">Início:</span>
+              <span className="value">{formatData(item.data_inicio)}</span>
+            </div>
+            <div className="data-row">
+              <span className="label">Fim:</span>
+              <span className="value">{formatData(item.data_fim)}</span>
+            </div>
+            <div className="data-badge">
+              {calcularDias(item.data_inicio, item.data_fim)} dias
+            </div>
           </div>
+
+          {/* 3. Rodapé com Ícone de Informação (Tooltip) */}
+          <div className="card-footer">
+            <div className={`status-badge status-${(item.status || 'pendente').toLowerCase()}`}>
+              {item.status || 'Pendente'}
+            </div>
+
+            {/* A MÁGICA DO TOOLTIP ACONTECE AQUI */}
+            <div className="tooltip-container">
+              <span className="info-icon">ℹ️</span>
+              
+              {/* Esta div só aparece ao passar o mouse */}
+              <div className="tooltip-content">
+                <strong>Justificativa/Observação:</strong>
+                <p>{item.observacao || item.motivo || "Nenhuma observação informada."}</p>
+              </div>
+            </div>
+          </div>
+
         </div>
       ))}
     </div>
