@@ -10,7 +10,7 @@ import { EmpresaProvider } from './contexts/EmpresaContext';
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Pages - Importações Principais
+// Pages - Listagens
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import FuncionariosPage from './pages/FuncionariosPage';
@@ -21,10 +21,12 @@ import AjustesPage from './pages/AjustesPage';
 import ConfiguracoesPage from './pages/ConfiguracoesPage';
 import MovimentacoesPage from './pages/MovimentacoesPage';
 
-// Pages - Importações de Detalhes/Formulários (ESSENCIAIS PARA NÃO CAIR NO DASHBOARD)
-import FuncionarioForm from './pages/FuncionarioForm';       // Rota de Edição/Criação
-import DocumentoDetalhePage from './pages/DocumentoDetalhePage'; // Rota de Detalhe
+// Pages - Formulários e Detalhes
+// Certifique-se que o caminho do import está correto
+import FuncionarioForm from './pages/FuncionarioForm';
+import DocumentoDetalhePage from './pages/DocumentoDetalhePage';
 
+// CSS Resetado
 import './App.css';
 
 function App() {
@@ -42,28 +44,28 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 
+                {/* Redireciona raiz para dashboard */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
                 <Route path="/dashboard" element={<DashboardPage />} />
                 
-                {/* --- MÓDULO FUNCIONÁRIOS --- */}
+                {/* --- MÓDULO FUNCIONÁRIOS (Correção Aqui) --- */}
+                {/* 1. Lista de Funcionários */}
                 <Route path="/funcionarios" element={<FuncionariosPage />} />
-                {/* As rotas abaixo corrigem o erro de cair no dashboard ao clicar em 'Novo' ou 'Editar' */}
+                
+                {/* 2. Formulário de Novo Cadastro (Esta é a rota que faltava/falhava) */}
                 <Route path="/funcionarios/novo" element={<FuncionarioForm />} />
+                
+                {/* 3. Formulário de Edição (Recebe o ID) */}
                 <Route path="/funcionarios/editar/:id" element={<FuncionarioForm />} />
 
-                {/* --- MÓDULO AUSÊNCIAS --- */}
+                {/* --- OUTROS MÓDULOS --- */}
                 <Route path="/ausencias" element={<AusenciasPage />} />
-                
-                {/* --- MÓDULO MOVIMENTAÇÕES --- */}
                 <Route path="/movimentacoes" element={<MovimentacoesPage />} />
-                
-                {/* --- MÓDULO FÉRIAS --- */}
                 <Route path="/ferias" element={<FeriasPage />} />
                 
                 {/* --- MÓDULO DOCUMENTOS --- */}
                 <Route path="/documentos" element={<DocumentosPage />} />
-                {/* A rota abaixo corrige o erro de cair no dashboard ao clicar em um documento */}
                 <Route path="/documentos/:id" element={<DocumentoDetalhePage />} />
                 
                 <Route path="/ajustes" element={<AjustesPage />} />
@@ -72,7 +74,7 @@ function App() {
               </Route>
             </Route>
 
-            {/* Fallback - Redireciona qualquer rota desconhecida para o Dashboard */}
+            {/* Rota de Erro 404 - Volta para o dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
 
