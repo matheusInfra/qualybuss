@@ -21,12 +21,11 @@ import AjustesPage from './pages/AjustesPage';
 import ConfiguracoesPage from './pages/ConfiguracoesPage';
 import MovimentacoesPage from './pages/MovimentacoesPage';
 
-// Pages - Formulários e Detalhes
-// Certifique-se que o caminho do import está correto
-import FuncionarioForm from './pages/FuncionarioForm';
-import DocumentoDetalhePage from './pages/DocumentoDetalhePage';
+// Pages - Formulários e Detalhes (IMPORTANTE: Faltava importar o formulário)
+import FuncionarioForm from './pages/FuncionarioForm';       
+import DocumentoDetalhePage from './pages/DocumentoDetalhePage'; 
 
-// CSS Resetado
+// CSS
 import './App.css';
 
 function App() {
@@ -44,37 +43,43 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 
-                {/* Redireciona raiz para dashboard */}
+                {/* Redirecionamento da raiz */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
+                {/* Dashboard */}
                 <Route path="/dashboard" element={<DashboardPage />} />
                 
-                {/* --- MÓDULO FUNCIONÁRIOS (Correção Aqui) --- */}
-                {/* 1. Lista de Funcionários */}
+                {/* --- MÓDULO FUNCIONÁRIOS --- */}
+                {/* 1. A Lista Geral */}
                 <Route path="/funcionarios" element={<FuncionariosPage />} />
                 
-                {/* 2. Formulário de Novo Cadastro (Esta é a rota que faltava/falhava) */}
+                {/* 2. Rota para CRIAR NOVO (Esta é a que estava faltando e causava o erro) */}
                 <Route path="/funcionarios/novo" element={<FuncionarioForm />} />
                 
-                {/* 3. Formulário de Edição (Recebe o ID) */}
+                {/* 3. Rota para EDITAR (Recebendo o ID) */}
                 <Route path="/funcionarios/editar/:id" element={<FuncionarioForm />} />
 
-                {/* --- OUTROS MÓDULOS --- */}
+                {/* --- MÓDULO AUSÊNCIAS --- */}
                 <Route path="/ausencias" element={<AusenciasPage />} />
+                
+                {/* --- MÓDULO MOVIMENTAÇÕES --- */}
                 <Route path="/movimentacoes" element={<MovimentacoesPage />} />
+                
+                {/* --- MÓDULO FÉRIAS --- */}
                 <Route path="/ferias" element={<FeriasPage />} />
                 
                 {/* --- MÓDULO DOCUMENTOS --- */}
                 <Route path="/documentos" element={<DocumentosPage />} />
                 <Route path="/documentos/:id" element={<DocumentoDetalhePage />} />
                 
+                {/* Outros Módulos */}
                 <Route path="/ajustes" element={<AjustesPage />} />
                 <Route path="/configuracoes" element={<ConfiguracoesPage />} />
                 
               </Route>
             </Route>
 
-            {/* Rota de Erro 404 - Volta para o dashboard */}
+            {/* Fallback: Se não achar a rota, manda pro Dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
 
