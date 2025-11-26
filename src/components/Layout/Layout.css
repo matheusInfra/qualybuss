@@ -1,120 +1,176 @@
-/* Reseta básico para começar limpo */
-body, html, #root {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f4f7f6;
+/* Reset básico para o Layout */
+:root {
+  --sidebar-width: 260px;
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-dark: #1f2937;
+  --bg-light: #f3f4f6;
+  --text-light: #d1d5db;
+  --text-white: #ffffff;
+  --danger: #ef4444;
 }
 
-/* O container principal do aplicativo */
+/* Container Principal */
 .app-layout {
   display: flex;
-  height: 100vh; /* Ocupa 100% da altura da tela */
+  min-height: 100vh;
+  background-color: var(--bg-light);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* --- Estilos da Sidebar (Menu Esquerdo) --- */
+/* --- SIDEBAR (Barra Lateral Fixa) --- */
 .sidebar {
-  width: 250px; /* Largura fixa do menu */
-  background-color: #1a202c; /* Um cinza escuro/azulado */
-  color: white;
+  width: var(--sidebar-width);
+  background-color: var(--bg-dark);
+  color: var(--text-white);
   display: flex;
   flex-direction: column;
-  height: 100%;
+  position: fixed; /* Fixa na tela */
+  height: 100vh;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  transition: width 0.3s ease;
 }
 
+/* Cabeçalho da Sidebar */
 .sidebar-header {
-  padding: 20px;
+  padding: 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   text-align: center;
-  border-bottom: 1px solid #2d3748;
 }
 
-.sidebar-header h3 {
+.brand-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #60a5fa;
   margin: 0;
-  color: #a0aec0; /* Cor mais suave para o título */
+  letter-spacing: -0.5px;
 }
 
+.brand-subtitle {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Navegação */
 .sidebar-nav {
-  flex-grow: 1; /* Faz a navegação ocupar o espaço restante */
+  flex: 1;
+  padding: 24px 0;
+  overflow-y: auto;
 }
 
 .sidebar-nav ul {
   list-style: none;
   padding: 0;
-  margin: 20px 0;
+  margin: 0;
 }
 
-.sidebar-nav li {
-  padding: 10px 20px;
-}
-
-.sidebar-nav a {
-  text-decoration: none;
-  color: #cbd5e0; /* Cor do link */
-  font-size: 16px;
-  display: block;
-  transition: all 0.2s;
-}
-
-.sidebar-nav a:hover {
-  color: white;
-  background-color: #2d3748; /* Fundo no hover */
-  border-radius: 5px;
-}
-
-/* --- Estilos da Área de Conteúdo (Direita) --- */
-.content-area {
-  flex-grow: 1; /* Ocupa todo o espaço restante */
-  padding: 24px;
-  height: 100vh;
-  overflow-y: auto; /* Adiciona scroll se o conteúdo for maior que a tela */
-  box-sizing: border-box; /* Garante que o padding não quebre o layout */
-}
-
-/* ... Adicione no final do arquivo ... */
-
-.sidebar-footer {
-  padding: 20px;
-  border-top: 1px solid #2d3748;
-}
-
-.logout-button {
-  width: 100%;
-  padding: 10px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a202c; /* Cor escura do texto */
-  background-color: #a0aec0; /* Cor clara */
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.logout-button:hover {
-  background-color: #cbd5e0;
-  color: #1a202c;
-}
-
-.sidebar-footer {
-  padding: 20px;
-  border-top: 1px solid #2d3748;
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* Espaço entre o link e o botão */
-}
-
-.config-link {
+.nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #cbd5e0;
+  padding: 14px 24px;
+  color: var(--text-light);
   text-decoration: none;
-  padding: 10px;
-  border-radius: 5px;
-  transition: all 0.2s;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
 }
-.config-link:hover {
-  background-color: #2d3748;
+
+.nav-item:hover {
+  background-color: rgba(255,255,255,0.05);
+  color: var(--text-white);
+  padding-left: 28px; /* Efeito de slide */
+}
+
+.nav-item.active {
+  background-color: rgba(37, 99, 235, 0.15);
+  color: #60a5fa;
+  border-left-color: #60a5fa;
+}
+
+.nav-icon {
+  margin-right: 12px;
+  font-size: 1.25rem;
+  width: 24px;
+  text-align: center;
+}
+
+/* Rodapé da Sidebar */
+.sidebar-footer {
+  padding: 20px 24px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  background-color: rgba(0,0,0,0.2);
+}
+
+.user-info-mini {
+  margin-bottom: 16px;
+  padding: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+}
+
+.user-info-mini small {
+  display: block;
+  color: #9ca3af;
+  font-size: 0.7rem;
+}
+
+.user-email-truncate {
+  display: block;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-white);
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: var(--danger);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.btn-logout:hover {
+  background-color: var(--danger);
   color: white;
+  border-color: var(--danger);
+}
+
+/* --- ÁREA DE CONTEÚDO PRINCIPAL --- */
+.main-content {
+  margin-left: var(--sidebar-width); /* Empurra o conteúdo para não ficar embaixo da sidebar */
+  flex: 1;
+  padding: 32px;
+  width: calc(100% - var(--sidebar-width));
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* Responsividade Básica */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 0;
+    overflow: hidden;
+  }
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding: 16px;
+  }
+  /* Aqui você poderia adicionar um botão de menu hambúrguer futuramente */
 }

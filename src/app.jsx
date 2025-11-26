@@ -1,166 +1,65 @@
-import React, { Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+
+// Contexts
 import { AuthProvider } from './contexts/AuthContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
 
-// Layouts e Componentes de Proteção
+// Components
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
-import ErrorFallback from './components/ErrorBoundary/ErrorFallback';
-import AjustesPage from './pages/AjustesPage';
-// Páginas (Lazy Loading para performance)
-const LoginPage = React.lazy(() => import('./pages/LoginPage'));
-const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
-const FuncionariosPage = React.lazy(() => import('./pages/FuncionariosPage'));
-const FuncionarioForm = React.lazy(() => import('./pages/FuncionarioForm'));
-const AusenciasPage = React.lazy(() => import('./pages/AusenciasPage'));
-const FeriasPage = React.lazy(() => import('./pages/FeriasPage'));
-const DocumentosPage = React.lazy(() => import('./pages/DocumentosPage'));
-const DocumentoDetalhePage = React.lazy(() => import('./pages/DocumentoDetalhePage'));
-const MovimentacoesPage = React.lazy(() => import('./pages/MovimentacoesPage'));
-const ConfiguracoesPage = React.lazy(() => import('./pages/ConfiguracoesPage'));
 
-// --- DEFINIÇÃO DAS ROTAS ---
-const router = createBrowserRouter([
-  {
-    path: "/login",
-    element: (
-      <Suspense fallback={<div className="loading">Carregando...</div>}>
-        <LoginPage />
-      </Suspense>
-    ),
-  },
-  {
-    path: "/",
-    // Primeiro nível de proteção: Usuário deve estar LOGADO
-    element: (
-      <ErrorBoundary fallback={<ErrorFallback />}>
-        <ProtectedRoute />
-      </ErrorBoundary>
-    ),
-    children: [
-      {
-        path: "/",
-        // ESTRATÉGIA SINGLE-TENANT:
-        // Removemos o <RequireEmpresa>. O usuário logado acessa direto o Layout.
-        element: <Layout />,
-        children: [
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<div className="loading">Carregando Dashboard...</div>}>
-                <DashboardPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "funcionarios",
-            children: [
-              {
-                index: true,
-                element: (
-                  <Suspense fallback={<div className="loading">Carregando Colaboradores...</div>}>
-                    <FuncionariosPage />
-                  </Suspense>
-                ),
-              },
-              {
-                path: "novo",
-                element: (
-                  <Suspense fallback={<div className="loading">Carregando Formulário...</div>}>
-                    <FuncionarioForm />
-                  </Suspense>
-                ),
-              },
-              {
-                path: ":id",
-                element: (
-                  <Suspense fallback={<div className="loading">Carregando Ficha...</div>}>
-                    <FuncionarioForm />
-                  </Suspense>
-                ),
-              },
-            ],
-          },
-          {
-            path: "ausencias",
-            element: (
-              <Suspense fallback={<div className="loading">Carregando Ausências...</div>}>
-                <AusenciasPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "ferias",
-            element: (
-              <Suspense fallback={<div className="loading">Carregando Férias...</div>}>
-                <FeriasPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "documentos",
-            children: [
-              {
-                index: true,
-                element: (
-                  <Suspense fallback={<div className="loading">Carregando Documentos...</div>}>
-                    <DocumentosPage />
-                  </Suspense>
-                ),
-              },
-              {
-                path: ":id",
-                element: (
-                  <Suspense fallback={<div className="loading">Carregando Detalhes...</div>}>
-                    <DocumentoDetalhePage />
-                  </Suspense>
-                ),
-              },
-            ],
-          },
-          {
-            path: "movimentacoes",
-            element: (
-              <Suspense fallback={<div className="loading">Carregando Histórico...</div>}>
-                <MovimentacoesPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "AjustesPage",
-            element: (
-              <Suspense fallback={<div className="loading">Carregando Ajustes...</div>}>
-                <AjustesPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "configuracoes",
-            element: (
-              <Suspense fallback={<div className="loading">Carregando Configurações...</div>}>
-                <ConfiguracoesPage />
-              </Suspense>
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    path: "*",
-    element: <Navigate to="/" replace />,
-  },
-]);
+// Pages
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import FuncionariosPage from './pages/FuncionariosPage';
+import AusenciasPage from './pages/AusenciasPage';
+import FeriasPage from './pages/FeriasPage';
+import DocumentosPage from './pages/DocumentosPage';
+import AjustesPage from './pages/AjustesPage'; // Importação Adicionada
+import ConfiguracoesPage from './pages/ConfiguracoesPage';
+import MovimentacoesPage from './pages/MovimentacoesPage'; // Garantindo que todas as páginas existentes estejam aqui
+
+import './App.css';
 
 function App() {
   return (
-    <AuthProvider>
-      <EmpresaProvider>
-        <RouterProvider router={router} />
-      </EmpresaProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <EmpresaProvider>
+          <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+          
+          <Routes>
+            {/* Rota Pública */}
+            <Route path="/login" element={<LoginPage />} />
+            
+            {/* Rotas Protegidas com Layout da Aplicação */}
+            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              {/* Redirecionamento padrão */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Módulos do Sistema */}
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/funcionarios" element={<FuncionariosPage />} />
+              <Route path="/ausencias" element={<AusenciasPage />} />
+              <Route path="/movimentacoes" element={<MovimentacoesPage />} />
+              <Route path="/ferias" element={<FeriasPage />} />
+              <Route path="/documentos" element={<DocumentosPage />} />
+              
+              {/* Módulo de Ajustes (Novo) */}
+              <Route path="/ajustes" element={<AjustesPage />} />
+              
+              <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+            </Route>
+
+            {/* Rota de Fallback para 404 - Redireciona para dashboard */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+
+        </EmpresaProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
