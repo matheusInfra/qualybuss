@@ -1,6 +1,6 @@
 // src/pages/AusenciasPage.jsx
 import React, { useState } from 'react';
-import { Toaster } from 'react-hot-toast'; // Para garantir toasts nesta tela
+import { Toaster } from 'react-hot-toast';
 import './AusenciasPage.css';
 
 // Sub-componentes das Abas
@@ -8,16 +8,28 @@ import MuralMovimentacoes from '../components/Ausencias/MuralMovimentacoes';
 import HistoricoAusencias from '../components/Ausencias/HistoricoAusencias';
 import PainelSaldos from '../components/Ausencias/PainelSaldos';
 
-// Modais de Lançamento
+// Modais
 import ModalLancarMovimento from '../components/Modal/ModalLancarMovimento';
+import ModalAjusteSaldo from '../components/Modal/ModalAjusteSaldo'; // <--- IMPORTAÇÃO QUE FALTAVA
 
 function AusenciasPage() {
   const [activeTab, setActiveTab] = useState('mural');
-  const [modalAberto, setModalAberto] = useState(null); // 'novo_lancamento', 'editar_...'
+  
+  // Estados dos Modais
+  const [modalLancamento, setModalLancamento] = useState(null); // { tipo: 'novo' | 'editar', id, origem }
+  const [modalAjuste, setModalAjuste] = useState(null); // { isOpen: bool, funcionario: obj }
 
-  // Controle do Modal de Lançamento
-  const abrirNovoLancamento = () => setModalAberto({ tipo: 'novo' });
-  const fecharModal = () => setModalAberto(null);
+  // Handlers para Lançamento (Mural)
+  const abrirNovoLancamento = () => setModalLancamento({ tipo: 'novo' });
+  const fecharModalLancamento = () => setModalLancamento(null);
+
+  // Handlers para Ajuste (Saldos) <--- LÓGICA QUE FALTAVA
+  const abrirAjuste = (funcionario) => {
+    setModalAjuste({ isOpen: true, funcionario });
+  };
+  const fecharAjuste = () => {
+    setModalAjuste(null);
+  };
 
   return (
     <div className="ausencias-container">
@@ -60,7 +72,7 @@ function AusenciasPage() {
       <div className="ausencias-tab-content">
         {activeTab === 'mural' && (
           <MuralMovimentacoes 
-            onEditar={(id, tipo) => setModalAberto({ tipo: 'editar', id, origem: tipo })} 
+            onEditar={(id, tipo) => setModalLancamento({ tipo: 'editar', id, origem: tipo })} 
           />
         )}
         
@@ -70,18 +82,31 @@ function AusenciasPage() {
         
         {activeTab === 'saldos' && (
           <PainelSaldos 
-            aoVerExtrato={() => setActiveTab('historico')} // Link entre abas
+            aoVerExtrato={() => setActiveTab('historico')}
+            aoAjustar={abrirAjuste} // <--- PASSANDO A FUNÇÃO AQUI
           />
         )}
       </div>
 
-      {/* Modais Globais */}
+      {/* --- MODAIS --- */}
+      
+      {/* 1. Modal de Lançamento (Férias/Ausências) */}
       <ModalLancarMovimento
-        isOpen={!!modalAberto}
-        onClose={fecharModal}
-        idParaEditar={modalAberto?.id}
-        tipoInicial={modalAberto?.origem === 'credito' ? 'credito' : 'debito'}
+        isOpen={!!modalLancamento}
+        onClose={fecharModalLancamento}
+        idParaEditar={modalLancamento?.id}
+        tipoInicial={modalLancamento?.origem === 'credito' ? 'credito' : 'debito'}
       />
+
+      {/* 2. Modal de Ajuste Técnico (Saldos) - O MÓDULO NOVO */}
+      {modalAjuste && (
+        <ModalAjusteSaldo
+          isOpen={modalAjuste.isOpen}
+          onClose={fecharAjuste}
+          funcionario={modalAjuste.funcionario}
+        />
+      )}
+
     </div>
   );
 }
