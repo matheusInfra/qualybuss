@@ -13,25 +13,24 @@
 /* Container Principal */
 .app-layout {
   display: flex;
-  min-height: 100vh;
-  background-color: var(--bg-light);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  height: 100vh;        /* Altura total da viewport */
+  width: 100vw;         /* Largura total */
+  overflow: hidden;     /* Impede scroll na janela principal (o scroll será interno) */
+  background-color: #f4f6f8;
 }
 
 /* --- SIDEBAR (Barra Lateral Fixa) --- */
 .sidebar {
-  width: var(--sidebar-width);
-  background-color: var(--bg-dark);
-  color: var(--text-white);
-  display: flex;
+  width: 260px;         /* Largura fixa */
+  flex-shrink: 0;       /* IMPORTANTE: Não deixa o menu ser esmagado */
+  height: 100%;
+  overflow-y: auto;     /* Scroll interno se o menu for muito alto */
+  border-right: 1px solid #e0e0e0;
+  background-color: #fff;
+  z-index: 10;
+  transition: transform 0.3s ease;
+  display: flex;        /* Flex interno para rodapé ficar embaixo */
   flex-direction: column;
-  position: fixed; /* Fixa na tela */
-  height: 100vh;
-  left: 0;
-  top: 0;
-  z-index: 50;
-  box-shadow: 4px 0 10px rgba(0,0,0,0.1);
-  transition: width 0.3s ease;
 }
 
 /* Cabeçalho da Sidebar */
@@ -173,4 +172,34 @@
     padding: 16px;
   }
   /* Aqui você poderia adicionar um botão de menu hambúrguer futuramente */
+}
+
+.content-area {
+  flex: 1;              /* Ocupa todo o espaço que sobra (100% - 260px) */
+  height: 100%;
+  overflow-y: auto;     /* Scroll vertical APENAS no conteúdo */
+  overflow-x: auto;     /* Scroll horizontal se tiver tabelas largas */
+  padding: 24px;        /* Espaçamento interno */
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column; /* Em mobile, comportamento vertical */
+  }
+
+  .sidebar {
+    display: none; /* Em mobile real, você usaria um toggle de menu aqui */
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  }
+
+  .content-area {
+    padding: 16px;
+    width: 100%;
+  }
 }
