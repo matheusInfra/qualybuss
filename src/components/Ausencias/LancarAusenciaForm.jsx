@@ -1,242 +1,205 @@
-// src/components/Ausencias/LancarAusenciaForm.jsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
 import useSWR, { useSWRConfig } from 'swr';
 import { toast } from 'react-hot-toast';
+import { differenceInDays, parseISO } from 'date-fns';
 import { getFuncionarios } from '../../services/funcionarioService';
 import { 
-  createAusencia, 
+  createAusencia,  // <--- CORREÇÃO AQUI
   updateAusencia, 
   getAusenciaById, 
   uploadAnexoAusencia, 
-  checkExistingFeriasNoAno 
+  getPeriodosAquisitivos 
 } from '../../services/ausenciaService';
-import './LancarAusenciaForm.css';
+import './LancarAusenciaForm.css'; 
 
-const initialState = {
-  funcionario_id: '',
-  tipo: '',
-  data_inicio: '',
-  data_fim: '',
-  motivo: '',
-  status: 'Pendente',
-};
-
-function LancarAusenciaForm({ idParaEditar = null, onClose }) {
-  const [formData, setFormData] = useState(initialState);
-  const [anexoFile, setAnexoFile] = useState(null);
+function LancarAusenciaForm({ onClose, idParaEditar = null }) {
+  const { register, handleSubmit, watch, setValue, reset } = useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Hook para atualizar o cache global
+  const [periodos, setPeriodos] = useState([]);
+  const [saldoTotal, setSaldoTotal] = useState(0);
   const { mutate } = useSWRConfig();
-  
-  const isEditMode = Boolean(idParaEditar);
 
-  // Buscas de dados (SWR)
-  const { data: funcionarios, isLoading: loadingFunc } = useSWR(
-    'getFuncionarios', 
-    getFuncionarios, 
-    { revalidateOnFocus: false }
-  );
-  
-  const { data: dadosAusencia } = useSWR(
-    isEditMode ? ['ausencia', idParaEditar] : null, 
-    () => getAusenciaById(idParaEditar)
-  );
+  // Watchers
+  const selectedFuncionario = watch('funcionario_id');
+  const selectedTipo = watch('tipo');
+  const dataInicio = watch('data_inicio');
+  const dataFim = watch('data_fim');
 
-  // Preenche o formulário se for edição
+  const { data: funcionarios } = useSWR('getFuncionarios', getFuncionarios);
+
+  // 1. MODO EDIÇÃO: Carregar dados
   useEffect(() => {
-    if (dadosAusencia) {
-      setFormData({
-        ...dadosAusencia,
-        data_inicio: dadosAusencia.data_inicio?.split('T')[0] || '',
-        data_fim: dadosAusencia.data_fim?.split('T')[0] || '',
+    if (idParaEditar) {
+      const carregarDadosEdicao = async () => {
+        try {
+          const dados = await getAusenciaById(idParaEditar);
+          if (dados) {
+            reset({
+              funcionario_id: dados.funcionario_id,
+              tipo: dados.tipo,
+              data_inicio: dados.data_inicio,
+              data_fim: dados.data_fim,
+              motivo: dados.motivo,
+              empresa_id: dados.empresa_id
+            });
+            toast("Modo de Edição ativado", { icon: '✏️', duration: 2000 });
+          }
+        } catch (error) {
+          console.error(error);
+          toast.error("Erro ao carregar dados para edição");
+          onClose();
+        }
+      };
+      carregarDadosEdicao();
+    }
+  }, [idParaEditar, reset, onClose]);
+
+  // 2. Carrega saldo e empresa
+  useEffect(() => {
+    if (selectedFuncionario) {
+      getPeriodosAquisitivos(selectedFuncionario).then(data => {
+        setPeriodos(data || []);
+        const saldo = data
+          ?.filter(p => p.status === 'Aberto')
+          .reduce((acc, curr) => acc + Number(curr.saldo_atual), 0);
+        setSaldoTotal(saldo || 0);
+        
+        if (!idParaEditar) {
+            const func = funcionarios?.find(f => f.id === selectedFuncionario);
+            if (func) setValue('empresa_id', func.empresa_id);
+        }
       });
     }
-  }, [dadosAusencia]);
+  }, [selectedFuncionario, funcionarios, setValue, idParaEditar]);
 
-  const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  
-  const handleFile = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setAnexoFile(e.target.files[0]);
+  const diasCalculados = useMemo(() => {
+    if (dataInicio && dataFim) {
+      const diff = differenceInDays(parseISO(dataFim), parseISO(dataInicio)) + 1;
+      return diff > 0 ? diff : 0;
     }
-  };
+    return 0;
+  }, [dataInicio, dataFim]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // 1. Validação Básica
-    if (!formData.funcionario_id || !formData.tipo || !formData.data_inicio || !formData.data_fim) {
-      toast.error('Preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    // 2. Validação de Regra de Negócio (Férias duplicadas no ano)
-    if (formData.tipo === 'Férias' && !isEditMode) {
-      const ano = new Date(formData.data_inicio).getFullYear();
-      try {
-        const jaTem = await checkExistingFeriasNoAno(formData.funcionario_id, ano);
-        if (jaTem) {
-          toast.error(`Colaborador já possui férias lançadas em ${ano}.`);
-          return;
-        }
-      } catch (error) {
-        console.error(error);
-        // Não bloqueia se der erro na verificação, apenas avisa
-      }
-    }
-
+  const onSubmit = async (data) => {
     setIsSubmitting(true);
-    const toastId = toast.loading('Salvando lançamento...');
-
     try {
-      // 3. Upload do Anexo (se houver)
-      let anexoPath = formData.anexo_path;
-      if (anexoFile) {
-        anexoPath = await uploadAnexoAusencia(anexoFile, formData.funcionario_id);
+      // Validação de Saldo
+      if (data.tipo === 'Férias' && !idParaEditar) {
+         if (diasCalculados > saldoTotal) {
+             throw new Error(`Saldo insuficiente (${saldoTotal} dias).`);
+         }
       }
 
-      const payload = { ...formData, anexo_path: anexoPath };
+      // Upload de Anexo
+      let anexoPath = null;
+      if (data.anexo && data.anexo[0]) {
+        anexoPath = await uploadAnexoAusencia(data.anexo[0], data.funcionario_id);
+      }
+
+      // Categorização
+      let categoria = 'Geral';
+      if (data.tipo === 'Férias') categoria = 'Ferias';
+      else if (data.tipo.includes('Atestado') || data.tipo.includes('Licença')) categoria = 'Saude';
+      else if (data.tipo.includes('Pessoal')) categoria = 'Pessoal';
+
+      const payload = {
+        ...data,
+        quantidade: diasCalculados,
+        categoria,
+        ...(anexoPath ? { anexo_path: anexoPath } : {})
+      };
       
-      // 4. Salvar no Banco (Create ou Update)
-      if (isEditMode) {
+      delete payload.anexo;
+
+      if (idParaEditar) {
         await updateAusencia(idParaEditar, payload);
-        toast.success('Lançamento atualizado!', { id: toastId });
+        toast.success('Solicitação atualizada!');
       } else {
+        if (!anexoPath) payload.anexo_path = null; 
+        
+        // <--- CORREÇÃO AQUI: Usando createAusencia
         await createAusencia(payload);
-        toast.success('Lançamento registrado!', { id: toastId });
+        toast.success('Solicitação registrada!');
       }
-      
-      // 5. ATUALIZAÇÃO DE CACHE (CRUCIAL PARA AS TELAS ATUALIZAREM)
-      await Promise.all([
-        // Atualiza o Mural de Cards
-        mutate('getMuralRecente'),
-        // Atualiza a Tabela de Histórico
-        mutate('getHistoricoAusencias'),
-        // Atualiza o Painel de Saldos (caso afete dias gozados)
-        mutate('getSaldosConsolidados'),
-        // Atualiza qualquer busca de calendário (chave dinâmica)
-        mutate(key => Array.isArray(key) && key[0] === 'ferias'),
-        // Atualiza buscas de extrato filtrado
-        mutate(key => Array.isArray(key) && key[0] === 'extrato')
-      ]);
 
-      onClose(); // Fecha o modal
+      mutate('getTodasSolicitacoes'); 
+      onClose();
     } catch (err) {
-      toast.error(err.message, { id: toastId });
+      toast.error(err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="ausencia-form-container">
-      {isSubmitting && <div className="form-loading-overlay"><div className="form-spinner"></div></div>}
+    <div className="ausencia-form-container" style={{border:'none', boxShadow:'none', padding:0}}>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <div className="ausencia-form-grid">
+          
+          <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
+            <label>Colaborador *</label>
+            <select 
+                {...register('funcionario_id', { required: true })} 
+                disabled={!!idParaEditar} 
+                style={idParaEditar ? {backgroundColor: '#f1f5f9', cursor: 'not-allowed'} : {}}
+            >
+              <option value="">Selecione...</option>
+              {funcionarios?.map(f => <option key={f.id} value={f.id}>{f.nome_completo}</option>)}
+            </select>
+          </div>
 
-      <form onSubmit={handleSubmit} style={{display:'flex', flexDirection:'column', height:'100%'}}>
-        <div className="ausencia-form-content">
-          <div className="ausencia-form-grid">
-            
-            {/* Seção 1: Quem */}
-            <div className="form-section-title">Quem?</div>
-            <div className="ausencia-form-group">
-              <label>Colaborador *</label>
-              <select 
-                name="funcionario_id" 
-                value={formData.funcionario_id} 
-                onChange={handleChange} 
-                disabled={isEditMode || loadingFunc} 
-                required
-              >
-                <option value="">{loadingFunc ? 'Carregando...' : 'Selecione...'}</option>
-                {funcionarios?.map(f => (
-                  <option key={f.id} value={f.id}>{f.nome_completo}</option>
-                ))}
-              </select>
+          {selectedFuncionario && (
+            <div style={{gridColumn: 'span 2', background: '#f0f9ff', padding: '12px', borderRadius: '6px', border: '1px solid #bae6fd'}}>
+              <span style={{fontWeight: 600, color: '#0284c7'}}>Saldo de Férias Disponível: {saldoTotal} Dias</span>
             </div>
+          )}
 
-            <div className="ausencia-form-group">
-              <label>Status do Lançamento</label>
-              <select name="status" value={formData.status} onChange={handleChange} required>
-                <option value="Pendente">Pendente (Rascunho)</option>
-                <option value="Aprovado">Aprovado (Oficial)</option>
-                <option value="Rejeitado">Rejeitado</option>
-              </select>
-            </div>
+          <div className="ausencia-form-group">
+            <label>Tipo *</label>
+            <select {...register('tipo', { required: true })}>
+              <option value="Férias">Férias</option>
+              <option value="Atestado Médico">Atestado Médico</option>
+              <option value="Licença Paternidade/Maternidade">Licença Paternidade/Maternidade</option>
+              <option value="Folga Pessoal">Folga Pessoal</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
 
-            {/* Seção 2: O quê */}
-            <div className="form-section-title">O quê?</div>
-            <div className="ausencia-form-group ausencia-form-span-2">
-              <label>Motivo da Ausência *</label>
-              <select name="tipo" value={formData.tipo} onChange={handleChange} required>
-                <option value="">Selecione...</option>
-                <option value="Férias">Férias (Gozo)</option>
-                <option value="Atestado Médico">Atestado Médico</option>
-                <option value="Folga Pessoal">Folga Pessoal / Abono</option>
-                <option value="Licença Maternidade/Paternidade">Licença Maternidade/Paternidade</option>
-                <option value="Licença não remunerada">Licença não remunerada</option>
-                <option value="Compensação Banco">Compensação de Banco de Horas</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
+          <div className="ausencia-form-group">
+            <label>Início *</label>
+            <input type="date" {...register('data_inicio', { required: true })} />
+          </div>
+          
+          <div className="ausencia-form-group">
+            <label>Fim *</label>
+            <input type="date" {...register('data_fim', { required: true })} />
+          </div>
+          
+          <div className="ausencia-form-group">
+            <label>Duração</label>
+            <input value={`${diasCalculados} dias`} disabled style={{background: '#eee'}} />
+          </div>
 
-            {/* Seção 3: Quando */}
-            <div className="form-section-title">Quando?</div>
-            <div className="ausencia-form-group">
-              <label>Início *</label>
-              <div className="input-with-icon">
-                <span className="material-symbols-outlined input-icon">calendar_today</span>
-                <input type="date" name="data_inicio" value={formData.data_inicio} onChange={handleChange} required />
-              </div>
-            </div>
-            <div className="ausencia-form-group">
-              <label>Fim *</label>
-              <div className="input-with-icon">
-                <span className="material-symbols-outlined input-icon">event_busy</span>
-                <input type="date" name="data_fim" value={formData.data_fim} onChange={handleChange} required />
-              </div>
-            </div>
+          <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
+            <label>Anexo {selectedTipo?.includes('Atestado') && !idParaEditar && '*'}</label>
+            <input 
+              type="file" 
+              {...register('anexo', { required: (!idParaEditar && selectedTipo?.includes('Atestado')) })} 
+            />
+            {idParaEditar && <small style={{color:'#64748b', display:'block', marginTop:'4px'}}>Deixe vazio para manter o anexo atual.</small>}
+          </div>
 
-            {/* Seção 4: Comprovantes */}
-            <div className="form-section-title">Comprovantes</div>
-            <div className="ausencia-form-group ausencia-form-span-2">
-              <label className="ausencia-upload-label">
-                <span className="material-symbols-outlined" style={{fontSize:'32px', color:'#94a3b8'}}>cloud_upload</span>
-                <div style={{textAlign:'center', marginTop:'8px'}}>
-                  {anexoFile ? (
-                    <span className="ausencia-file-name">{anexoFile.name}</span>
-                  ) : formData.anexo_path ? (
-                    <span className="ausencia-file-name">Anexo Salvo (Clique para trocar)</span>
-                  ) : (
-                    <>
-                      <span style={{color:'#1e293b', fontWeight:600, fontSize:'0.9rem'}}>Clique para anexar</span>
-                      <span style={{display:'block', color:'#64748b', fontSize:'0.8rem'}}>PDF, JPG ou PNG (Máx 5MB)</span>
-                    </>
-                  )}
-                </div>
-                <input type="file" onChange={handleFile} style={{display:'none'}} accept=".pdf,.jpg,.jpeg,.png" />
-              </label>
-            </div>
-
-            <div className="ausencia-form-group ausencia-form-span-2">
-              <label>Observações</label>
-              <textarea 
-                name="motivo" 
-                rows="3" 
-                placeholder="Detalhes adicionais..." 
-                value={formData.motivo || ''} 
-                onChange={handleChange}
-              ></textarea>
-            </div>
-
+          <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
+            <label>Observações</label>
+            <textarea {...register('motivo')} rows="2"></textarea>
           </div>
         </div>
 
         <div className="ausencia-form-footer">
-          <button type="button" className="button-secondary" onClick={onClose} disabled={isSubmitting}>Cancelar</button>
+          <button type="button" className="button-secondary" onClick={onClose}>Cancelar</button>
           <button type="submit" className="button-primary" disabled={isSubmitting}>
-            <span className="material-symbols-outlined">save</span> Salvar Lançamento
+            {idParaEditar ? 'Salvar Alterações' : 'Registrar'}
           </button>
         </div>
       </form>

@@ -1,0 +1,117 @@
+.aniversariantes-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Para alinhar com outros cards */
+  max-height: 400px; /* Scroll se tiver muitos */
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.badge-count {
+  background: #fdf2f8;
+  color: #db2777;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.lista-aniversariantes {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-aniversariante {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.item-aniversariante:hover {
+  background: #f8fafc;
+}
+
+.avatar-wrapper img, .avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.info-aniversariante {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.info-aniversariante .nome {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.info-aniversariante .cargo {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.data-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff1f2;
+  color: #e11d48;
+  padding: 4px 8px;
+  border-radius: 6px;
+  min-width: 40px;
+}
+
+.data-badge .dia {
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.data-badge .mes-abrev {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.empty-state {
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 20px;
+}

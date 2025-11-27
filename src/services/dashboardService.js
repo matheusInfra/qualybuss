@@ -1,6 +1,7 @@
 // src/services/dashboardService.js
 import { supabase } from './supabaseClient';
 
+
 /**
  * Busca os 4 KPIs principais (Total, Pendentes, Ausentes, Folha)
  * Chama a função RPC 'get_dashboard_kpis' SEM parâmetros (modo global).
@@ -59,5 +60,13 @@ export const getProximasFerias = async () => {
     console.error("Erro ao buscar próximas férias:", error.message);
     throw error;
   }
+  return data;
+};
+
+export const getAniversariantesMes = async () => {
+  const { data, error } = await supabase
+    .rpc('get_aniversariantes_mes'); // Chama a função SQL
+  
+  if (error) throw error;
   return data;
 };

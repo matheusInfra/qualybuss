@@ -3,20 +3,18 @@ import useSWR from 'swr';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import SkeletonCard from '../components/SkeletonCard';
-import './DashboardPage.css'; // Importação do CSS específico
+import AniversariantesCard from '../components/Dashboard/AniversariantesCard'; // [NOVO] Importação
+import './DashboardPage.css';
 
 function DashboardPage() {
   const { user } = useAuth();
 
-  // 1. Fetch dos KPIs usando a função RPC 'get_dashboard_kpis'
-  // Essa função retorna um JSON: { total_colaboradores, pendentes, ausentes_hoje, folha_pagamento }
-  const { data: kpis, error: kpiError, isLoading: kpiLoading } = useSWR('dashboard_kpis', async () => {
+  const { data: kpis, isLoading: kpiLoading } = useSWR('dashboard_kpis', async () => {
     const { data, error } = await supabase.rpc('get_dashboard_kpis');
     if (error) throw error;
-    return data; // O retorno já é um objeto JSON direto
+    return data;
   });
 
-  // 2. Fetch das Ausências Recentes (Últimos 5 registros) para a tabela rápida
   const { data: ultimasAusencias, isLoading: listLoading } = useSWR('dashboard_latest_ausencias', async () => {
     const { data, error } = await supabase
       .from('solicitacoes_ausencia')
@@ -27,7 +25,6 @@ function DashboardPage() {
     return data;
   });
 
-  // Função auxiliar para formatar moeda
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   };
@@ -39,9 +36,8 @@ function DashboardPage() {
         <p>Aqui está o panorama geral da sua empresa hoje.</p>
       </header>
 
-      {/* --- GRID DE KPIS (Indicadores) --- */}
+      {/* --- GRID DE KPIS --- */}
       <div className="kpi-grid">
-        {/* Card 1: Total Colaboradores */}
         <div className="kpi-card blue">
           <div className="kpi-icon">👥</div>
           <div className="kpi-info">
@@ -50,7 +46,6 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 2: Ausentes Hoje */}
         <div className="kpi-card orange">
           <div className="kpi-icon">🏖️</div>
           <div className="kpi-info">
@@ -59,7 +54,6 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 3: Solicitações Pendentes */}
         <div className="kpi-card red">
           <div className="kpi-icon">⚠️</div>
           <div className="kpi-info">
@@ -68,7 +62,6 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 4: Folha Estimada */}
         <div className="kpi-card green">
           <div className="kpi-icon">💰</div>
           <div className="kpi-info">
@@ -78,14 +71,14 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* --- SEÇÃO INFERIOR: GRÁFICOS E LISTAS --- */}
+      {/* --- SEÇÃO INFERIOR --- */}
       <div className="dashboard-content-grid">
         
         {/* Coluna Esquerda: Últimas Solicitações */}
         <div className="content-card">
           <div className="card-header">
             <h3>Últimas Movimentações</h3>
-            <button className="btn-link">Ver todas</button>
+            <button className="btn-link" onClick={() => window.location.href='/ausencias'}>Ver todas</button>
           </div>
           <div className="table-responsive">
             <table className="simple-table">
@@ -121,25 +114,32 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Coluna Direita: Acesso Rápido / Dicas */}
-        <div className="content-card">
-          <div className="card-header">
-            <h3>Acesso Rápido</h3>
+        {/* Coluna Direita: Acesso Rápido + Aniversariantes */}
+        <div className="dashboard-right-col" style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+          
+          <div className="content-card">
+            <div className="card-header">
+              <h3>Acesso Rápido</h3>
+            </div>
+            <div className="quick-actions">
+              <button className="action-btn" onClick={() => window.location.href='/funcionarios'}>
+                <span>👤</span> Novo Colaborador
+              </button>
+              <button className="action-btn" onClick={() => window.location.href='/ausencias'}>
+                <span>📅</span> Lançar Férias
+              </button>
+              <button className="action-btn" onClick={() => window.location.href='/documentos'}>
+                <span>📁</span> Upload Doc
+              </button>
+              <button className="action-btn warning" onClick={() => window.location.href='/ajustes'}>
+                <span>🛠️</span> Ajustes
+              </button>
+            </div>
           </div>
-          <div className="quick-actions">
-            <button className="action-btn" onClick={() => window.location.href='/funcionarios'}>
-              <span>👤</span> Novo Funcionário
-            </button>
-            <button className="action-btn" onClick={() => window.location.href='/ausencias'}>
-              <span>📅</span> Lançar Férias
-            </button>
-            <button className="action-btn" onClick={() => window.location.href='/documentos'}>
-              <span>📁</span> Upload Documento
-            </button>
-            <button className="action-btn warning" onClick={() => window.location.href='/ajustes'}>
-              <span>🛠️</span> Correção / Ajuste
-            </button>
-          </div>
+
+          {/* [NOVO] Widget de Aniversariantes */}
+          <AniversariantesCard />
+
         </div>
 
       </div>
