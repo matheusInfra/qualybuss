@@ -1,210 +1,24 @@
-/* src/components/Ferias/CalendarioFerias.css */
-
-/* --- CONTAINER PRINCIPAL --- */
+/* Container do Calendário */
 .calendario-container {
-  background: #ffffff;
-  padding: 24px;
+  background: white;
+  padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); /* Sombra suave e moderna */
-  border: 1px solid #e2e8f0;
-  font-family: 'Inter', sans-serif;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-/* --- CABEÇALHO (TÍTULO E LEGENDAS) --- */
 .calendario-header-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f1f5f9;
-  flex-wrap: wrap; /* Responsividade */
-  gap: 16px;
 }
 
 .calendario-header-info h3 {
   margin: 0;
-  font-size: 1.25rem; /* ~20px */
-  font-weight: 700;
   color: #1e293b;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
-/* --- LEGENDAS ESTILIZADAS --- */
-.legendas {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* Item da legenda (Badge) */
-.legenda-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #475569;
-  background-color: #f8fafc;
-  padding: 6px 12px;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
-  cursor: default;
-}
-
-.legenda-item:hover {
-  background-color: #f1f5f9;
-  transform: translateY(-1px);
-}
-
-/* Bolinhas Coloridas (Dots) */
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8); /* Borda branca interna */
-}
-
-/* Cores das Legendas */
-.dot.aprovado {
-  background-color: #10B981; /* Emerald 500 */
-  box-shadow: 0 0 0 2px #d1fae5; /* Anel externo suave */
-}
-
-.dot.pendente {
-  background-color: #F59E0B; /* Amber 500 */
-  box-shadow: 0 0 0 2px #fef3c7;
-}
-
-.dot.rejeitado {
-  background-color: #EF4444; /* Red 500 */
-  box-shadow: 0 0 0 2px #fee2e2;
-}
-
-/* --- CUSTOMIZAÇÃO DO CALENDÁRIO (React Big Calendar) --- */
-
-/* Fonte e estrutura */
-.rbc-calendar {
-  font-family: 'Inter', sans-serif !important;
-  color: #334155;
-}
-
-/* Cabeçalho dos dias (SEG, TER...) */
-.rbc-header {
-  padding: 12px 4px !important;
-  font-weight: 600 !important;
-  font-size: 0.85rem !important;
-  color: #64748b !important;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: none !important;
-  background-color: #f8fafc;
-}
-
-/* Células dos dias */
-.rbc-day-bg {
-  background-color: #ffffff;
-  transition: background-color 0.2s;
-}
-
-.rbc-day-bg:hover {
-  background-color: #f8fafc; /* Hover suave no dia */
-}
-
-/* Dia atual (Highlight) */
-.rbc-today {
-  background-color: #f0f9ff !important; /* Azul bem claro */
-}
-
-/* --- ESTILO DOS EVENTOS (CARDS DENTRO DO DIA) --- */
-.rbc-event {
-  border-radius: 6px !important;
-  padding: 4px 8px !important;
-  font-size: 0.85rem !important;
-  font-weight: 500 !important;
-  border: none !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-  margin-bottom: 4px !important;
-}
-
-/* Efeito ao passar o mouse no evento */
-.rbc-event:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12) !important;
-  z-index: 5;
-}
-
-/* Remove outline feio ao focar */
-.rbc-event:focus {
-  outline: none;
-}
-
-/* --- BOTÕES DE NAVEGAÇÃO (HOJE, ANTERIOR, PRÓXIMO) --- */
-.rbc-toolbar button {
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 6px !important;
-  padding: 8px 16px !important;
-  font-size: 0.9rem !important;
-  font-weight: 500 !important;
-  color: #475569 !important;
-  background-color: white !important;
-  transition: all 0.2s !important;
-  margin-right: 4px;
-}
-
-.rbc-toolbar button:hover {
-  background-color: #f1f5f9 !important;
-  color: #1e293b !important;
-  border-color: #cbd5e1 !important;
-}
-
-.rbc-toolbar button.rbc-active {
-  background-color: #2563eb !important; /* Azul primário */
-  color: white !important;
-  border-color: #2563eb !important;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
-}
-
-/* Título do Mês (ex: Novembro 2023) */
-.rbc-toolbar-label {
-  font-size: 1.2rem !important;
-  font-weight: 700 !important;
-  color: #1e293b !important;
-  text-transform: capitalize;
-}
-
-/* --- TOOLTIP FLUTUANTE DO DIA (SELECIONADO) --- */
-/* Aumenta a visibilidade quando clica em "+2 mais" */
-.rbc-overlay {
-  z-index: 100 !important;
-  border-radius: 8px !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
-  border: 1px solid #e2e8f0 !important;
-  padding: 8px !important;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.rbc-overlay-header {
-  font-weight: 700 !important;
-  color: #334155 !important;
-  border-bottom: 1px solid #eee !important;
-  margin-bottom: 8px !important;
-  padding-bottom: 4px !important;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
+/* Legendas */
 .calendario-legenda {
   margin-top: 15px;
   display: flex;
@@ -240,4 +54,97 @@
 .dot-border.solid { border-style: solid; background: #cbd5e1; }
 .dot-border.dashed { border-style: dashed; background: transparent; }
 
-.legenda-divider { color: #cbd5e1; }
+/* --- NOVO: ESTILOS DO FERIADO ANIMADO --- */
+
+/* O container do evento customizado */
+.holiday-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  overflow: visible !important; /* Permite o tooltip sair da caixa */
+}
+
+/* A Bolinha (Dot) */
+.holiday-dot {
+  width: 24px;
+  height: 24px;
+  background-color: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fda4af;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: help;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.holiday-dot:hover {
+  transform: scale(1.1);
+  background-color: #f43f5e;
+  color: white;
+  border-color: #e11d48;
+}
+
+/* O Tooltip (A caixa que cresce/aparece) */
+.holiday-tooltip {
+  position: absolute;
+  bottom: 30px; /* Acima da bolinha */
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  width: max-content;
+  max-width: 200px;
+  text-align: center;
+  
+  /* Animação */
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+  pointer-events: none; /* Não atrapalha o mouse */
+}
+
+/* Seta do Tooltip */
+.holiday-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: white transparent transparent transparent;
+}
+
+/* Estado Hover: Mostra o tooltip */
+.holiday-wrapper:hover .holiday-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+  bottom: 35px; /* Sobe um pouquinho */
+}
+
+.tooltip-title {
+  display: block;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.tooltip-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+}
