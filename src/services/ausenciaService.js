@@ -13,7 +13,8 @@ const FERIADOS_NACIONAIS = [
 
 const isFeriado = (dataString) => {
   if (!dataString) return false;
-  const partes = dataString.split('-'); // YYYY-MM-DD
+  // Garante formato YYYY-MM-DD
+  const partes = dataString.split('-'); 
   if (partes.length !== 3) return false;
   const mesDia = `${partes[1]}-${partes[2]}`;
   return FERIADOS_NACIONAIS.includes(mesDia);
@@ -22,19 +23,34 @@ const isFeriado = (dataString) => {
 export const validarRegrasCLT = (dataInicio) => {
   if (!dataInicio) return { valido: true };
   
-  const date = new Date(dataInicio + 'T00:00:00'); 
-  const diaSemana = date.getDay(); 
+  // Cria data forçando meio-dia para evitar problemas de fuso horário (UTC-3)
+  const date = new Date(dataInicio + 'T12:00:00'); 
+  const diaSemana = date.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
   
-  // Regra: Evitar início em Sexta(5), Sábado(6) ou Domingo(0)
-  if (diaSemana === 0 || diaSemana === 6 || diaSemana === 5) {
-    return {
-      valido: false,
-      mensagem: "⚠️ Pela legislação (Precedente Normativo 100 TST), recomenda-se não iniciar férias em Sextas, Sábados ou Domingos."
+  // 1. Bloqueio de Feriado (Prioridade)
+  if (isFeriado(dataInicio)) {
+    return { 
+      valido: false, 
+      mensagem: "⚠️ Data inválida: Não é permitido iniciar férias em feriados nacionais." 
     };
   }
 
-  if (isFeriado(dataInicio)) {
-    return { valido: false, mensagem: "⚠️ Não é permitido iniciar férias em feriados." };
+  // 2. Bloqueio de DSR (Domingo e Sábado)
+  // Nota: Sábado pode ser discutível dependendo da escala, mas Domingo é DSR clássico.
+  if (diaSemana === 0 || diaSemana === 6) {
+    return {
+      valido: false,
+      mensagem: "⚠️ Regra CLT: O início das férias não deve coincidir com Sábado ou Domingo (DSR)."
+    };
+  }
+
+  // 3. Aviso de Sexta-feira (Não bloqueia, mas avisa)
+  // O Precedente Normativo 100 do TST sugere evitar, mas vamos permitir para não travar o sistema.
+  if (diaSemana === 5) {
+    return {
+      valido: true, // Deixamos passar como válido
+      mensagem: "⚠️ Atenção: Iniciar férias na Sexta-feira pode gerar passivo trabalhista (Precedente 100 TST)."
+    };
   }
 
   return { valido: true };
@@ -58,8 +74,9 @@ export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, exc
 // Auxiliar para cálculo de dias
 const calcularDias = (inicio, fim) => {
   const oneDay = 24 * 60 * 60 * 1000;
-  const firstDate = new Date(inicio + 'T00:00:00');
-  const secondDate = new Date(fim + 'T00:00:00');
+  // Força meio-dia para evitar erros de fuso horário
+  const firstDate = new Date(inicio + 'T12:00:00');
+  const secondDate = new Date(fim + 'T12:00:00');
   return Math.round(Math.abs((firstDate - secondDate) / oneDay)) + 1;
 };
 
@@ -68,7 +85,7 @@ const calcularDias = (inicio, fim) => {
 // ==============================================================================
 
 export const getResumoSaldos = async (funcionarioId) => {
-  // 1. Férias (Baseado em Períodos Aquisitivos - Lógica de "Vencimento")
+  // 1. Férias (Baseado em Períodos Aquisitivos)
   const { data: periodos } = await supabase
     .from('periodos_aquisitivos')
     .select('saldo_atual')
@@ -77,7 +94,7 @@ export const getResumoSaldos = async (funcionarioId) => {
   
   const saldoFerias = periodos?.reduce((acc, p) => acc + (p.saldo_atual || 0), 0) || 0;
 
-  // 2. Banco de Horas e Folgas (Baseado em Fluxo Contínuo: Entradas - Saídas)
+  // 2. Banco de Horas e Folgas
   const { data: creditos } = await supabase
     .from('historico_creditos')
     .select('tipo, quantidade')
@@ -89,23 +106,13 @@ export const getResumoSaldos = async (funcionarioId) => {
     .eq('funcionario_id', funcionarioId)
     .neq('status', 'Rejeitado');
 
-  // --- CÁLCULO DO BANCO DE HORAS (Horas) ---
-  const entradasBH = creditos
-    ?.filter(c => c.tipo === 'Banco de Horas')
-    .reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
-  
-  const saidasBH = debitos
-    ?.filter(d => d.tipo === 'Banco de Horas')
-    .reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
+  // Cálculo BH
+  const entradasBH = creditos?.filter(c => c.tipo === 'Banco de Horas').reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
+  const saidasBH = debitos?.filter(d => d.tipo === 'Banco de Horas').reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
 
-  // --- CÁLCULO DE FOLGAS COMPENSATÓRIAS (Dias) ---
-  const entradasFolga = creditos
-    ?.filter(c => c.tipo === 'Folga')
-    .reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
-
-  const saidasFolga = debitos
-    ?.filter(d => d.tipo === 'Folga Pessoal' || d.tipo === 'Folga') 
-    .reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
+  // Cálculo Folgas
+  const entradasFolga = creditos?.filter(c => c.tipo === 'Folga').reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
+  const saidasFolga = debitos?.filter(d => d.tipo === 'Folga Pessoal' || d.tipo === 'Folga').reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
 
   return {
     ferias: { saldo: saldoFerias, unidade: 'dias' },
@@ -141,11 +148,12 @@ const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
     if (diasRestantesParaAbater > 0) {
         abate = Math.min(diasRestantesParaAbater, saldoDisponivel);
     } else {
-        abate = diasRestantesParaAbater; 
+        abate = diasRestantesParaAbater; // Devolução
     }
 
     const novoSaldo = saldoDisponivel - abate;
     const novosDiasGozados = (periodo.dias_gozados || 0) + abate;
+    // Se zerou, fecha o período
     const novoStatus = novoSaldo === 0 ? 'Fechado' : 'Aberto';
 
     await supabase
@@ -179,20 +187,22 @@ export const createAusencia = async (dados) => {
   return data[0];
 };
 
-// Alias para manter compatibilidade com FormularioMovimentacao
 export const solicitarAusencia = createAusencia;
 
 export const lancarCredito = async (dados) => {
   if (dados.tipo === 'Férias') {
+    // Para Férias, não enviamos 'saldo_atual' se for coluna gerada no banco.
+    // Enviamos apenas o necessário.
     const { data, error } = await supabase.from('periodos_aquisitivos').insert([{
       funcionario_id: dados.funcionario_id,
       inicio_periodo: dados.data_inicio,
       fim_periodo: dados.data_fim,
       dias_direito: dados.quantidade,
-      saldo_atual: dados.quantidade,
+      saldo_atual: dados.quantidade, // Se der erro aqui novamente, remova esta linha
       status: 'Aberto'
     }]).select();
-    if (error) throw error; return data[0];
+    if (error) throw error; 
+    return data[0];
   } 
   
   const { data, error } = await supabase.from('historico_creditos').insert([{
@@ -259,6 +269,7 @@ export const decidirSolicitacao = async (id, decisao, motivo = '') => {
   const { data: solicitacao } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
   if (!solicitacao) throw new Error("Solicitação não encontrada.");
 
+  // Se Aprovar Férias -> Desconta Saldo Automaticamente
   if (decisao === 'Aprovado' && solicitacao.tipo === 'Férias') {
     await movimentarSaldoFerias(solicitacao.funcionario_id, solicitacao.quantidade);
   }
@@ -290,7 +301,6 @@ export const updatePeriodoAquisitivo = async (id, dados) => {
 };
 
 export const createCreditoSaldo = async (dados) => {
-  // Mantido para compatibilidade, mas o ideal é usar lancarCredito
   return lancarCredito(dados);
 };
 
@@ -365,15 +375,14 @@ export const rejeitarAjuste = async (ajusteId, motivo) => {
 };
 
 // ==============================================================================
-// 6. ARQUIVOS & LEITURA (CALENDÁRIO/DASHBOARD)
+// 6. ARQUIVOS & LEITURA (CALENDÁRIO/DASHBOARD/HISTÓRICO)
 // ==============================================================================
 
-// [CORREÇÃO] A função que estava faltando!
 export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
   if (!pathStorage) return null;
   const { data, error } = await supabase.storage
     .from(ANEXOS_BUCKET)
-    .createSignedUrl(pathStorage, 60); // URL válida por 60 segundos
+    .createSignedUrl(pathStorage, 60); 
 
   if (error) throw error;
   return data.signedUrl;
@@ -396,7 +405,7 @@ export const getFeriasAprovadasParaCalendario = async (ano, mes, searchTerm = ''
 
   let query = supabase.from('solicitacoes_ausencia')
     .select(`id, data_inicio, data_fim, status, tipo, funcionario_id, funcionarios!inner ( id, nome_completo, departamento, avatar_url )`)
-    .in('tipo', ['Férias', 'Folga Pessoal', 'Licença Paternidade/Maternidade', 'Atestado Médico', 'Banco de Horas']) // Adicionado Banco de Horas
+    .in('tipo', ['Férias', 'Folga Pessoal', 'Licença Paternidade/Maternidade', 'Atestado Médico', 'Banco de Horas', 'Folga'])
     .neq('status', 'Rejeitado')
     .or(`data_inicio.lte.${dataFimMes},data_fim.gte.${dataInicioMes}`);
 
