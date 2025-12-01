@@ -5,11 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [
     react({
-      // Esta linha corrige o aviso "outdated JSX transform"
+      // Esta configuração força o compilador moderno, removendo o aviso
       jsxRuntime: 'automatic', 
     })
   ],
   server: {
-    host: true,
+    host: true, // Garante que funcione em ambientes de rede/container
   },
 })

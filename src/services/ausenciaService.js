@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient';
 const ANEXOS_BUCKET = 'anexos_ausencias';
 
 // ==============================================================================
-// 0. INTELIGÊNCIA DE NEGÓCIO & VALIDAÇÕES
+// 0. INTELIGÊNCIA DE NEGÓCIO & VALIDAÇÕES (CLT & CONFLITOS)
 // ==============================================================================
 
 const FERIADOS_NACIONAIS = [
@@ -13,8 +13,7 @@ const FERIADOS_NACIONAIS = [
 
 const isFeriado = (dataString) => {
   if (!dataString) return false;
-  // Garante formato YYYY-MM-DD
-  const partes = dataString.split('-'); 
+  const partes = dataString.split('-'); // YYYY-MM-DD
   if (partes.length !== 3) return false;
   const mesDia = `${partes[1]}-${partes[2]}`;
   return FERIADOS_NACIONAIS.includes(mesDia);
@@ -23,34 +22,22 @@ const isFeriado = (dataString) => {
 export const validarRegrasCLT = (dataInicio) => {
   if (!dataInicio) return { valido: true };
   
-  // Cria data forçando meio-dia para evitar problemas de fuso horário (UTC-3)
-  const date = new Date(dataInicio + 'T12:00:00'); 
-  const diaSemana = date.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+  // Cria data forçando meio-dia para evitar problemas de fuso horário
+  const [ano, mes, dia] = dataInicio.split('-').map(Number);
+  const date = new Date(ano, mes - 1, dia); 
   
-  // 1. Bloqueio de Feriado (Prioridade)
-  if (isFeriado(dataInicio)) {
-    return { 
-      valido: false, 
-      mensagem: "⚠️ Data inválida: Não é permitido iniciar férias em feriados nacionais." 
-    };
-  }
-
-  // 2. Bloqueio de DSR (Domingo e Sábado)
-  // Nota: Sábado pode ser discutível dependendo da escala, mas Domingo é DSR clássico.
-  if (diaSemana === 0 || diaSemana === 6) {
+  const diaSemana = date.getDay(); // 0=Dom, 6=Sab
+  
+  // Regra: Evitar início em Sexta(5), Sábado(6) ou Domingo(0)
+  if (diaSemana === 0 || diaSemana === 6 || diaSemana === 5) {
     return {
       valido: false,
-      mensagem: "⚠️ Regra CLT: O início das férias não deve coincidir com Sábado ou Domingo (DSR)."
+      mensagem: "⚠️ Pela legislação (Precedente Normativo 100 TST), recomenda-se não iniciar férias em Sextas, Sábados ou Domingos."
     };
   }
 
-  // 3. Aviso de Sexta-feira (Não bloqueia, mas avisa)
-  // O Precedente Normativo 100 do TST sugere evitar, mas vamos permitir para não travar o sistema.
-  if (diaSemana === 5) {
-    return {
-      valido: true, // Deixamos passar como válido
-      mensagem: "⚠️ Atenção: Iniciar férias na Sexta-feira pode gerar passivo trabalhista (Precedente 100 TST)."
-    };
+  if (isFeriado(dataInicio)) {
+    return { valido: false, mensagem: "⚠️ Não é permitido iniciar férias em feriados nacionais." };
   }
 
   return { valido: true };
@@ -74,18 +61,25 @@ export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, exc
 // Auxiliar para cálculo de dias
 const calcularDias = (inicio, fim) => {
   const oneDay = 24 * 60 * 60 * 1000;
-  // Força meio-dia para evitar erros de fuso horário
-  const firstDate = new Date(inicio + 'T12:00:00');
-  const secondDate = new Date(fim + 'T12:00:00');
+  const [aAno, aMes, aDia] = inicio.split('-').map(Number);
+  const [bAno, bMes, bDia] = fim.split('-').map(Number);
+  
+  const firstDate = new Date(aAno, aMes - 1, aDia);
+  const secondDate = new Date(bAno, bMes - 1, bDia);
+  
   return Math.round(Math.abs((firstDate - secondDate) / oneDay)) + 1;
 };
 
 // ==============================================================================
-// 1. GESTÃO DE SALDO (O "BANCO" DE DIAS)
+// 1. GESTÃO DE SALDO E CONTABILIDADE (BANCO DE HORAS, FÉRIAS, FOLGAS)
 // ==============================================================================
 
+/**
+ * Retorna o saldo consolidado de todos os "potes" de tempo do colaborador.
+ * Calcula em tempo real: (Total Créditos - Total Usado).
+ */
 export const getResumoSaldos = async (funcionarioId) => {
-  // 1. Férias (Baseado em Períodos Aquisitivos)
+  // 1. Férias (Baseado em Períodos Aquisitivos - Lógica de "Vencimento")
   const { data: periodos } = await supabase
     .from('periodos_aquisitivos')
     .select('saldo_atual')
@@ -94,7 +88,7 @@ export const getResumoSaldos = async (funcionarioId) => {
   
   const saldoFerias = periodos?.reduce((acc, p) => acc + (p.saldo_atual || 0), 0) || 0;
 
-  // 2. Banco de Horas e Folgas
+  // 2. Banco de Horas e Folgas (Baseado em Fluxo Contínuo: Entradas - Saídas)
   const { data: creditos } = await supabase
     .from('historico_creditos')
     .select('tipo, quantidade')
@@ -106,13 +100,23 @@ export const getResumoSaldos = async (funcionarioId) => {
     .eq('funcionario_id', funcionarioId)
     .neq('status', 'Rejeitado');
 
-  // Cálculo BH
-  const entradasBH = creditos?.filter(c => c.tipo === 'Banco de Horas').reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
-  const saidasBH = debitos?.filter(d => d.tipo === 'Banco de Horas').reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
+  // --- CÁLCULO DO BANCO DE HORAS (Horas) ---
+  const entradasBH = creditos
+    ?.filter(c => c.tipo === 'Banco de Horas')
+    .reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
+  
+  const saidasBH = debitos
+    ?.filter(d => d.tipo === 'Banco de Horas')
+    .reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
 
-  // Cálculo Folgas
-  const entradasFolga = creditos?.filter(c => c.tipo === 'Folga').reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
-  const saidasFolga = debitos?.filter(d => d.tipo === 'Folga Pessoal' || d.tipo === 'Folga').reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
+  // --- CÁLCULO DE FOLGAS COMPENSATÓRIAS (Dias) ---
+  const entradasFolga = creditos
+    ?.filter(c => c.tipo === 'Folga')
+    .reduce((acc, c) => acc + Number(c.quantidade), 0) || 0;
+
+  const saidasFolga = debitos
+    ?.filter(d => d.tipo === 'Folga Pessoal' || d.tipo === 'Folga') 
+    .reduce((acc, d) => acc + Number(d.quantidade), 0) || 0;
 
   return {
     ferias: { saldo: saldoFerias, unidade: 'dias' },
@@ -121,6 +125,11 @@ export const getResumoSaldos = async (funcionarioId) => {
   };
 };
 
+/**
+ * Consome ou devolve dias do período aquisitivo de Férias mais antigo em aberto.
+ * @param {string} funcionarioId 
+ * @param {number} diasQtd (Positivo = Consumir / Negativo = Devolver)
+ */
 const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
   if (diasQtd === 0) return;
 
@@ -146,19 +155,26 @@ const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
     let abate = 0;
 
     if (diasRestantesParaAbater > 0) {
+        // Consumo
         abate = Math.min(diasRestantesParaAbater, saldoDisponivel);
     } else {
-        abate = diasRestantesParaAbater; // Devolução
+        // Devolução
+        abate = diasRestantesParaAbater; 
     }
 
-    const novoSaldo = saldoDisponivel - abate;
     const novosDiasGozados = (periodo.dias_gozados || 0) + abate;
-    // Se zerou, fecha o período
-    const novoStatus = novoSaldo === 0 ? 'Fechado' : 'Aberto';
-
+    // O banco recalcula saldo_atual automaticamente se for gerado, 
+    // mas se precisarmos atualizar o status:
+    
+    // Verificação de segurança: Se abate == saldoDisponivel, o saldo vai zerar.
+    const vaiZerar = (saldoDisponivel - abate) <= 0;
+    
     await supabase
       .from('periodos_aquisitivos')
-      .update({ saldo_atual: novoSaldo, dias_gozados: novosDiasGozados, status: novoStatus })
+      .update({ 
+        dias_gozados: novosDiasGozados,
+        status: vaiZerar ? 'Fechado' : 'Aberto'
+      })
       .eq('id', periodo.id);
 
     diasRestantesParaAbater -= abate;
@@ -170,9 +186,10 @@ const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
 };
 
 // ==============================================================================
-// 2. CRIAÇÃO, EDIÇÃO E EXCLUSÃO (CRUD)
+// 2. CRIAÇÃO UNIFICADA (CRÉDITO E DÉBITO) - SOLICITAÇÃO E LANÇAMENTO
 // ==============================================================================
 
+// Lança um DÉBITO (Saída: Férias, Folga, Atestado)
 export const createAusencia = async (dados) => {
   const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
   if (temConflito) throw new Error("Conflito: Já existe uma ausência neste período.");
@@ -187,24 +204,26 @@ export const createAusencia = async (dados) => {
   return data[0];
 };
 
+// Alias para manter compatibilidade com o novo FormularioMovimentacao
 export const solicitarAusencia = createAusencia;
 
+// Lança um CRÉDITO (Entrada: Novo Período Aquisitivo, Hora Extra, Banco)
 export const lancarCredito = async (dados) => {
+  // Lançamento de Período Aquisitivo (Novo Crédito de Férias)
   if (dados.tipo === 'Férias') {
-    // Para Férias, não enviamos 'saldo_atual' se for coluna gerada no banco.
-    // Enviamos apenas o necessário.
+    // REMOVIDO saldo_atual do insert para evitar erro 400 (Coluna Gerada)
     const { data, error } = await supabase.from('periodos_aquisitivos').insert([{
       funcionario_id: dados.funcionario_id,
       inicio_periodo: dados.data_inicio,
-      fim_periodo: dados.data_fim,
-      dias_direito: dados.quantidade,
-      saldo_atual: dados.quantidade, // Se der erro aqui novamente, remova esta linha
+      fim_periodo: dados.data_fim, // Obrigatório para Férias
+      dias_direito: dados.quantidade, // Obrigatório para Férias
       status: 'Aberto'
     }]).select();
     if (error) throw error; 
     return data[0];
   } 
   
+  // Outros Créditos (Banco de Horas, Folga)
   const { data, error } = await supabase.from('historico_creditos').insert([{
     funcionario_id: dados.funcionario_id,
     tipo: dados.tipo,
@@ -217,6 +236,10 @@ export const lancarCredito = async (dados) => {
   if (error) throw error; 
   return data[0];
 };
+
+// ==============================================================================
+// 3. EDIÇÃO E EXCLUSÃO
+// ==============================================================================
 
 export const updateAusencia = async (id, dados) => {
   const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status, funcionario_id').eq('id', id).single();
@@ -249,7 +272,7 @@ export const deleteAusenciaSegura = async (id) => {
 };
 
 // ==============================================================================
-// 3. FLUXO DE APROVAÇÃO (MESA DE DECISÃO)
+// 4. FLUXO DE APROVAÇÃO (MESA DE DECISÃO)
 // ==============================================================================
 
 export const getSolicitacoesPendentes = async () => {
@@ -285,7 +308,7 @@ export const decidirSolicitacao = async (id, decisao, motivo = '') => {
 };
 
 // ==============================================================================
-// 4. CRÉDITOS E SALDOS (MANUTENÇÃO)
+// 5. CRÉDITOS E SALDOS (MANUTENÇÃO)
 // ==============================================================================
 
 export const getPeriodosAquisitivos = async (funcionarioId) => {
@@ -330,7 +353,7 @@ export const deleteCreditoSeguro = async (id) => {
 };
 
 // ==============================================================================
-// 5. AJUSTES E AUDITORIA
+// 6. AJUSTES E AUDITORIA (CONTROLE DE RETIFICAÇÕES)
 // ==============================================================================
 
 export const solicitarAjuste = async (payload) => {
@@ -351,6 +374,7 @@ export const getAjustesPendentes = async () => {
 export const aprovarAjuste = async (ajusteId, dadosNovos, ausenciaId) => {
   const { data: original } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', ausenciaId).single();
   
+  // Recálculo financeiro de saldo no ajuste (Férias)
   if (original.tipo === 'Férias' && dadosNovos.tipo === 'Férias') {
     const diasAntigos = original.quantidade || calcularDias(original.data_inicio, original.data_fim);
     const diasNovos = calcularDias(dadosNovos.data_inicio, dadosNovos.data_fim);
@@ -375,7 +399,7 @@ export const rejeitarAjuste = async (ajusteId, motivo) => {
 };
 
 // ==============================================================================
-// 6. ARQUIVOS & LEITURA (CALENDÁRIO/DASHBOARD/HISTÓRICO)
+// 7. ARQUIVOS & LEITURA (CALENDÁRIO/DASHBOARD/HISTÓRICO)
 // ==============================================================================
 
 export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
