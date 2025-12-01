@@ -7,7 +7,7 @@ import { getFuncionarios } from '../../services/funcionarioService';
 import { 
   createAusencia, 
   updateAusencia, 
-  getAusenciaById, 
+  getAusenciaById, // Agora importado corretamente
   uploadAnexoAusencia, 
   getPeriodosAquisitivos 
 } from '../../services/ausenciaService';
@@ -19,7 +19,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
   const [saldoTotal, setSaldoTotal] = useState(0);
   const { mutate } = useSWRConfig();
 
-  // Watchers
   const selectedFuncionario = watch('funcionario_id');
   const selectedTipo = watch('tipo');
   const dataInicio = watch('data_inicio');
@@ -27,7 +26,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
 
   const { data: funcionarios } = useSWR('getFuncionarios', getFuncionarios);
 
-  // 1. MODO EDIÇÃO: Carregar dados
   useEffect(() => {
     if (idParaEditar) {
       getAusenciaById(idParaEditar).then(dados => {
@@ -46,7 +44,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     }
   }, [idParaEditar, reset]);
 
-  // 2. Carrega saldo
   useEffect(() => {
     if (selectedFuncionario) {
       getPeriodosAquisitivos(selectedFuncionario).then(data => {
@@ -63,7 +60,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     }
   }, [selectedFuncionario, funcionarios, setValue, idParaEditar]);
 
-  // 3. Cálculos Inteligentes e UX
   const stats = useMemo(() => {
     if (!dataInicio || !dataFim) return null;
     
@@ -71,8 +67,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     const end = parseISO(dataFim);
     const dias = differenceInDays(end, start) + 1;
     
-    // Regra Visual: Alerta de Início
-    const diaSemana = getDay(start); // 0=Dom
+    const diaSemana = getDay(start);
     const inicioRuim = (selectedTipo === 'Férias' && (diaSemana === 0 || diaSemana === 5 || diaSemana === 6));
     
     const dataRetorno = addDays(end, 1);
@@ -115,7 +110,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
       } else {
         if (!anexoPath) payload.anexo_path = null;
         await createAusencia(payload);
-        toast.success('Solicitação registrada!');
+        toast.success('Lançamento registrado!');
       }
 
       mutate('getTodasSolicitacoes'); 
@@ -140,7 +135,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
             </select>
           </div>
 
-          {/* BARRA DE PROGRESSO DO SALDO */}
           {selectedFuncionario && selectedTipo === 'Férias' && (
             <div style={{gridColumn: 'span 2', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0'}}>
               <div style={{display:'flex', justifyContent:'space-between', marginBottom:'6px', fontSize:'0.85rem', color:'#475569'}}>
@@ -180,7 +174,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
             <input value={stats?.dias ? `${stats.dias} dias` : '-'} disabled style={{background: '#f1f5f9'}} />
           </div>
 
-          {/* ALERTAS INTELIGENTES */}
           {stats?.inicioRuim && (
              <div style={{gridColumn: 'span 2', padding: '10px', background: '#fff7ed', borderLeft: '4px solid #f97316', color: '#9a3412', fontSize: '0.85rem', borderRadius: '4px'}}>
                ⚠️ <strong>Atenção:</strong> Evite iniciar férias em sextas-feiras ou fins de semana.

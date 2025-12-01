@@ -2,30 +2,36 @@ import React, { useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { toast } from 'react-hot-toast';
 import { getSolicitacoesPendentes, decidirSolicitacao } from '../../services/ausenciaService';
+import ModalConfirmacao from '../Modal/ModalConfirmacao'; // Requer o componente ModalConfirmacao
 import './AprovacaoPendencias.css'; 
 
 function AprovacaoPendencias() {
   const { data: pendencias, isLoading } = useSWR('getSolicitacoesPendentes', getSolicitacoesPendentes);
   const { mutate } = useSWRConfig();
   const [processando, setProcessando] = useState(null);
+  
+  // Estado para controlar o modal de confirmação
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, item: null, action: null });
 
-  const handleDecisao = async (item, decisao) => {
-    // Confirmação para desconto de saldo
-    if (decisao === 'Aprovado' && item.tipo === 'Férias') {
-      if (!window.confirm(`ATENÇÃO: Aprovar esta solicitação descontará automaticamente ${item.quantidade} dias do saldo de férias. Confirmar?`)) {
-        return;
-      }
-    }
+  const abrirConfirmacao = (item, action) => {
+    setConfirmModal({ isOpen: true, item, action });
+  };
 
-    if (decisao === 'Rejeitado') {
-      const motivo = prompt("Motivo da rejeição (opcional):");
-      if (motivo === null) return;
-    }
-
+  const handleConfirmarAcao = async () => {
+    const { item, action } = confirmModal;
+    setConfirmModal({ ...confirmModal, isOpen: false }); 
     setProcessando(item.id);
+
     try {
-      await decidirSolicitacao(item.id, decisao);
-      toast.success(`Solicitação ${decisao.toLowerCase()} com sucesso!`);
+      // (Opcional) Logica de motivo de rejeição poderia entrar aqui via prompt ou modal específico
+      let motivo = '';
+      if (action === 'Rejeitado') {
+         // motivo = prompt("Motivo opcional:");
+      }
+
+      await decidirSolicitacao(item.id, action, motivo);
+      toast.success(action === 'Aprovado' ? "Solicitação Aprovada!" : "Solicitação Rejeitada.");
+      
       mutate('getSolicitacoesPendentes');
       mutate('getMuralRecente'); 
     } catch (error) {
@@ -35,12 +41,12 @@ function AprovacaoPendencias() {
     }
   };
 
-  if (isLoading) return <div className="loading-state">Carregando pendências...</div>;
+  if (isLoading) return <div className="loading-container"><div className="spinner"></div> Carregando pendências...</div>;
 
   if (!pendencias || pendencias.length === 0) {
     return (
       <div className="empty-state-aprovacao">
-        <span style={{fontSize: '3rem'}}>🎉</span>
+        <span className="material-symbols-outlined icon-empty">check_circle</span>
         <h3>Tudo limpo!</h3>
         <p>Você zerou a fila de aprovações.</p>
       </div>
@@ -53,8 +59,12 @@ function AprovacaoPendencias() {
         {pendencias.map((item) => (
           <div key={item.id} className="pendencia-card">
             <div className="pendencia-header">
-              <span className={`tag-tipo ${item.tipo === 'Férias' ? 'ferias' : 'outros'}`}>{item.tipo}</span>
-              <span className="pendencia-data">{new Date(item.created_at).toLocaleDateString()}</span>
+              <span className={`tag-tipo ${item.tipo === 'Férias' ? 'ferias' : 'outros'}`}>
+                {item.tipo === 'Férias' && '🏖️ '}
+                {item.tipo.includes('Atestado') && '🤒 '}
+                {item.tipo}
+              </span>
+              <span className="pendencia-data">Criado em {new Date(item.created_at).toLocaleDateString()}</span>
             </div>
             
             <div className="pendencia-user">
@@ -63,44 +73,76 @@ function AprovacaoPendencias() {
               ) : (
                   <div className="avatar-placeholder">{item.funcionarios?.nome_completo?.charAt(0)}</div>
               )}
-              <div>
+              <div className="user-details">
                 <strong>{item.funcionarios?.nome_completo}</strong>
-                <small>{item.funcionarios?.cargo}</small>
+                <small>{item.funcionarios?.cargo || 'Colaborador'}</small>
               </div>
             </div>
 
             <div className="pendencia-detalhes">
-              <div className="data-range">
-                <span>{new Date(item.data_inicio).toLocaleDateString()}</span>
-                <span className="arrow">➜</span>
-                <span>{new Date(item.data_fim).toLocaleDateString()}</span>
+              <div className="data-block">
+                <span className="label">Início</span>
+                <span className="value">{new Date(item.data_inicio).toLocaleDateString()}</span>
               </div>
-              <div className="dias-count">
+              <div className="data-arrow">
+                <span className="material-symbols-outlined">arrow_right_alt</span>
+              </div>
+              <div className="data-block">
+                <span className="label">Fim</span>
+                <span className="value">{new Date(item.data_fim).toLocaleDateString()}</span>
+              </div>
+              <div className="dias-badge">
                 {item.quantidade} dias
               </div>
             </div>
 
-            {item.motivo && <p className="pendencia-motivo">"{item.motivo}"</p>}
+            {item.motivo && (
+              <div className="pendencia-motivo">
+                <span className="label">Motivo:</span>
+                <p>"{item.motivo}"</p>
+              </div>
+            )}
+
+            {item.anexo_path && (
+               <div className="pendencia-anexo">
+                 <span className="material-symbols-outlined">attach_file</span>
+                 <small>Documento Anexado</small>
+               </div>
+            )}
 
             <div className="pendencia-actions">
               <button 
                 className="btn-reject" 
-                onClick={() => handleDecisao(item, 'Rejeitado')}
+                onClick={() => abrirConfirmacao(item, 'Rejeitado')}
                 disabled={!!processando}
               >
                 Rejeitar
               </button>
               <button 
                 className="btn-approve" 
-                onClick={() => handleDecisao(item, 'Aprovado')}
+                onClick={() => abrirConfirmacao(item, 'Aprovado')}
                 disabled={!!processando}
               >
-                {processando === item.id ? 'Processando...' : 'Aprovar'}
+                {processando === item.id ? '...' : 'Aprovar'}
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      <ModalConfirmacao 
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.action === 'Aprovado' ? "Aprovar Solicitação?" : "Rejeitar Solicitação?"}
+        message={
+          confirmModal.action === 'Aprovado' && confirmModal.item?.tipo === 'Férias'
+            ? `ATENÇÃO: Isso descontará automaticamente ${confirmModal.item.quantidade} dias do saldo de férias do colaborador. Deseja continuar?`
+            : "Tem certeza que deseja processar esta ação?"
+        }
+        confirmLabel={confirmModal.action === 'Aprovado' ? "Sim, Aprovar" : "Sim, Rejeitar"}
+        variant={confirmModal.action === 'Aprovado' ? 'primary' : 'danger'}
+        onConfirm={handleConfirmarAcao}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+      />
     </div>
   );
 }

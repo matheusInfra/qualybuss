@@ -1,31 +1,36 @@
 import React from 'react';
 import './ModalConfirmacao.css';
 
-function ModalConfirmacao({ isOpen, onClose, onConfirm, title, children }) {
-  // Se não estiver aberto, não renderiza nada
-  if (!isOpen) {
-    return null;
-  }
-
-  // Impede que o clique no modal feche o modal (propagaçao)
-  const handleModalClick = (e) => {
-    e.stopPropagation();
-  };
+function ModalConfirmacao({ 
+  isOpen, 
+  title = "Confirmação", 
+  message = "Deseja prosseguir?", 
+  confirmLabel = "Confirmar", 
+  cancelLabel = "Cancelar", 
+  onConfirm, 
+  onCancel,
+  variant = 'primary' 
+}) {
+  if (!isOpen) return null;
 
   return (
-    // O 'fundo' escuro que fecha o modal ao clicar
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={handleModalClick}>
-        <h2 className="modal-title">{title}</h2>
-        <div className="modal-body">
-          {children}
+    <div className="modal-overlay-confirm" onClick={onCancel}>
+      <div className="modal-card-confirm" onClick={e => e.stopPropagation()}>
+        <div className={`modal-icon-confirm ${variant}`}>
+          {variant === 'danger' && <span className="material-symbols-outlined">warning</span>}
+          {variant === 'warning' && <span className="material-symbols-outlined">info</span>}
+          {variant === 'primary' && <span className="material-symbols-outlined">help</span>}
         </div>
-        <div className="modal-footer">
-          <button onClick={onClose} className="modal-button-secondary">
-            Cancelar
+        
+        <h3 className="modal-title-confirm">{title}</h3>
+        <p className="modal-message-confirm">{message}</p>
+        
+        <div className="modal-actions-confirm">
+          <button className="btn-cancel-confirm" onClick={onCancel}>
+            {cancelLabel}
           </button>
-          <button onClick={onConfirm} className="modal-button-danger">
-            Confirmar Exclusão
+          <button className={`btn-action-confirm ${variant}`} onClick={onConfirm}>
+            {confirmLabel}
           </button>
         </div>
       </div>

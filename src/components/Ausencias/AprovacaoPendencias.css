@@ -1,153 +1,200 @@
 .aprovacao-container {
   padding: 10px 0;
+  animation: fadeIn 0.4s ease;
 }
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #64748b;
+  padding: 40px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .empty-state-aprovacao {
   text-align: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px dashed #e2e8f0;
   color: #64748b;
 }
 
-.icon-check {
-  font-size: 3rem;
+.icon-empty {
+  font-size: 4rem;
+  color: #10b981;
   margin-bottom: 16px;
 }
 
-.section-title {
-  font-size: 1.2rem;
-  color: #1e293b;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.section-title .badge {
-  background: #ef4444;
-  color: white;
-  font-size: 0.8rem;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.lista-pendencias {
+.pendencias-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
 }
 
-.card-pendencia {
+.pendencia-card {
   background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  transition: transform 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
 }
 
-.card-pendencia:hover {
-  transform: translateY(-2px);
+.pendencia-card:hover {
+  transform: translateY(-4px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: #e2e8f0;
 }
 
 .pendencia-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 16px;
 }
 
-.user-info {
+.tag-tipo {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.tag-tipo.ferias {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.pendencia-data {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.pendencia-user {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.avatar, .avatar-placeholder {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+.avatar-small, .avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   object-fit: cover;
 }
 
 .avatar-placeholder {
-  background: #f1f5f9;
+  background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 700;
   color: #64748b;
+  font-size: 1.2rem;
+  border: 1px solid #e2e8f0;
 }
 
-.user-info h4 {
-  margin: 0;
-  font-size: 1rem;
-  color: #0f172a;
-}
-
-.user-info .cargo {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.tag-tipo {
-  background: #eff6ff;
-  color: #2563eb;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.pendencia-body {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #f8fafc;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.data-box {
+.user-details {
   display: flex;
   flex-direction: column;
 }
 
-.data-box .label {
-  font-size: 0.7rem;
+.user-details strong {
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.user-details small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.pendencia-detalhes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.data-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.data-block .label {
+  font-size: 0.65rem;
   color: #94a3b8;
   text-transform: uppercase;
+  font-weight: 600;
 }
 
-.data-box strong {
+.data-block .value {
   color: #334155;
-  font-size: 0.95rem;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
-.arrow {
+.data-arrow {
   color: #cbd5e1;
 }
 
-.duracao-badge {
-  background: #fff;
+.dias-badge {
+  background: white;
   border: 1px solid #e2e8f0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
   color: #475569;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
 }
 
 .pendencia-motivo {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #475569;
+  background: #fffbeb;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 3px solid #f59e0b;
+}
+
+.pendencia-motivo .label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.pendencia-motivo p {
+  margin: 0;
   font-style: italic;
-  margin-bottom: 16px;
-  padding: 0 4px;
 }
 
 .pendencia-anexo {
@@ -160,31 +207,49 @@
 }
 
 .pendencia-actions {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+  margin-top: auto;
 }
 
-.btn-aprovar, .btn-rejeitar {
-  flex: 1;
+.btn-reject {
+  background: white;
+  border: 1px solid #fecaca;
+  color: #dc2626;
   padding: 10px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reject:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.btn-approve {
+  background: #10b981;
   border: none;
-  transition: opacity 0.2s;
-}
-
-.btn-aprovar {
-  background: #22c55e;
   color: white;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
 }
 
-.btn-rejeitar {
-  background: #fff1f2;
-  color: #e11d48;
-  border: 1px solid #fecaca;
+.btn-approve:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3);
 }
 
-.btn-aprovar:hover { background: #16a34a; }
-.btn-rejeitar:hover { background: #fee2e2; }
+.btn-approve:disabled, .btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

@@ -67,15 +67,9 @@ const calcularDias = (inicio, fim) => {
 // 1. GESTÃO DE SALDO (O "BANCO" DE DIAS)
 // ==============================================================================
 
-/**
- * Consome ou devolve dias do período aquisitivo mais antigo em aberto.
- * @param {string} funcionarioId 
- * @param {number} diasQtd (Positivo = Consumir / Negativo = Devolver)
- */
 const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
   if (diasQtd === 0) return;
 
-  // Busca períodos abertos (FIFO - First In, First Out)
   const { data: periodos } = await supabase
     .from('periodos_aquisitivos')
     .select('*')
@@ -98,10 +92,8 @@ const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
     let abate = 0;
 
     if (diasRestantesParaAbater > 0) {
-        // Consumo
         abate = Math.min(diasRestantesParaAbater, saldoDisponivel);
     } else {
-        // Devolução
         abate = diasRestantesParaAbater; 
     }
 
@@ -123,8 +115,21 @@ const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
 };
 
 // ==============================================================================
-// 2. CRIAÇÃO E EDIÇÃO DE AUSÊNCIAS
+// 2. CRIAÇÃO, LEITURA E EDIÇÃO DE AUSÊNCIAS
 // ==============================================================================
+
+// [CORREÇÃO] Esta é a função que estava faltando no seu erro!
+export const getAusenciaById = async (id) => {
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from('solicitacoes_ausencia')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  return data;
+};
 
 export const createAusencia = async (dados) => {
   const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
@@ -191,7 +196,6 @@ export const decidirSolicitacao = async (id, decisao, motivo = '') => {
   const { data: solicitacao } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
   if (!solicitacao) throw new Error("Solicitação não encontrada.");
 
-  // Se Aprovar Férias -> Desconta Saldo
   if (decisao === 'Aprovado' && solicitacao.tipo === 'Férias') {
     await movimentarSaldoFerias(solicitacao.funcionario_id, solicitacao.quantidade);
   }
@@ -207,13 +211,19 @@ export const decidirSolicitacao = async (id, decisao, motivo = '') => {
 };
 
 // ==============================================================================
-// 4. CRÉDITOS E SALDOS (MANUTENÇÃO)
+// 4. CRÉDITOS E SALDOS
 // ==============================================================================
 
 export const getPeriodosAquisitivos = async (funcionarioId) => {
   const { data, error } = await supabase.from('periodos_aquisitivos').select('*').eq('funcionario_id', funcionarioId).order('inicio_periodo', { ascending: true });
   if (error) throw error;
   return data;
+};
+
+export const updatePeriodoAquisitivo = async (id, dados) => {
+  const { data, error } = await supabase.from('periodos_aquisitivos').update(dados).eq('id', id).select();
+  if (error) throw error;
+  return data[0];
 };
 
 export const createCreditoSaldo = async (dados) => {
@@ -259,14 +269,14 @@ export const updateCredito = async (id, dados) => {
   }
 };
 
-export const updatePeriodoAquisitivo = async (id, dados) => {
-  const { data, error } = await supabase.from('periodos_aquisitivos').update(dados).eq('id', id).select();
+export const deleteCreditoSeguro = async (id) => {
+  const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
   if (error) throw error;
-  return data[0];
+  return true;
 };
 
 // ==============================================================================
-// 5. AJUSTES E AUDITORIA (CONTROLE DE RETIFICAÇÕES)
+// 5. AJUSTES E AUDITORIA
 // ==============================================================================
 
 export const solicitarAjuste = async (payload) => {
@@ -287,7 +297,6 @@ export const getAjustesPendentes = async () => {
 export const aprovarAjuste = async (ajusteId, dadosNovos, ausenciaId) => {
   const { data: original } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', ausenciaId).single();
   
-  // Recálculo financeiro de saldo no ajuste
   if (original.tipo === 'Férias' && dadosNovos.tipo === 'Férias') {
     const diasAntigos = original.quantidade || calcularDias(original.data_inicio, original.data_fim);
     const diasNovos = calcularDias(dadosNovos.data_inicio, dadosNovos.data_fim);
@@ -361,9 +370,19 @@ export const getMuralRecente = async () => {
   return { ausencias: resA.data || [], creditos: resC.data || [], periodos: resP.data || [] };
 };
 
-// Auxiliares
-export const getAusenciaById = async (id) => { const { data } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single(); return data; };
-export const updateStatusSolicitacao = async (id, status) => { const { data } = await supabase.from('solicitacoes_ausencia').update({ status }).eq('id', id).select(); return data[0]; };
+export const updateStatusSolicitacao = async (id, status) => {
+  const { data, error } = await supabase.from('solicitacoes_ausencia').update({ status }).eq('id', id).select();
+  if (error) throw error;
+  return data[0];
+};
+
 export const uploadAnexoAusencia = async (file, funcionarioId) => { const path = `${funcionarioId}/${Date.now()}.${file.name.split('.').pop()}`; await supabase.storage.from(ANEXOS_BUCKET).upload(path, file); return path; };
 export const getAnexoAusenciaDownloadUrl = async (path) => { const { data } = await supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(path, 60); return data.signedUrl; };
-export const deleteCreditoSeguro = async (id) => { await supabase.from('historico_creditos').delete().eq('id', id); return true; };
+export const getAniversariantesMes = async () => { const { data, error } = await supabase.rpc('get_aniversariantes_mes'); if (error) throw error; return data; };
+
+// Funções legadas (compatibilidade)
+export const getHistoricoAusencias = async () => { const { data } = await supabase.from('solicitacoes_ausencia').select('*'); return data; };
+export const getHistoricoCreditos = async () => { const { data } = await supabase.from('historico_creditos').select('*'); return data; };
+export const getTodasSolicitacoes = async () => { const { data } = await supabase.from('solicitacoes_ausencia').select('*, funcionarios(nome_completo, avatar_url, cargo)'); return data; };
+export const concluirSolicitacao = async (id) => updateStatusSolicitacao(id, 'Concluído');
+export const deleteSolicitacao = async (id) => deleteAusenciaSegura(id);

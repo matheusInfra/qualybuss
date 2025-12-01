@@ -17,8 +17,7 @@ import ModalLancarMovimento from '../components/Modal/ModalLancarMovimento';
 import ModalAjusteSaldo from '../components/Modal/ModalAjusteSaldo';
 
 function AusenciasPage() {
-  // Aba padrão 'aprovacao' para focar na decisão
-  const [activeTab, setActiveTab] = useState('aprovacao');
+  const [activeTab, setActiveTab] = useState('aprovacao'); // Foco inicial na Aprovação
   
   const [muralData, setMuralData] = useState([]);
   const [isLoadingMural, setIsLoadingMural] = useState(true);
@@ -26,6 +25,7 @@ function AusenciasPage() {
   const [modalLancamento, setModalLancamento] = useState(null); 
   const [modalAjuste, setModalAjuste] = useState(null); 
 
+  // Carrega dados do mural apenas quando a aba é selecionada
   useEffect(() => {
     if (activeTab === 'mural') {
         carregarDadosMural();
@@ -69,7 +69,7 @@ function AusenciasPage() {
   const abrirNovoLancamento = () => setModalLancamento({ tipo: 'novo' });
   const fecharModalLancamento = () => {
     setModalLancamento(null);
-    carregarDadosMural(); 
+    if (activeTab === 'mural') carregarDadosMural(); 
   };
 
   const abrirAjuste = (funcionario) => {
@@ -109,16 +109,16 @@ function AusenciasPage() {
           Mural Recente
         </button>
         <button 
-          className={activeTab === 'historico' ? 'active' : ''} 
-          onClick={() => setActiveTab('historico')}
-        >
-          Histórico & Auditoria
-        </button>
-        <button 
           className={activeTab === 'saldos' ? 'active' : ''} 
           onClick={() => setActiveTab('saldos')}
         >
           Gestão de Saldos
+        </button>
+        <button 
+          className={activeTab === 'historico' ? 'active' : ''} 
+          onClick={() => setActiveTab('historico')}
+        >
+          Histórico & Auditoria
         </button>
       </div>
 

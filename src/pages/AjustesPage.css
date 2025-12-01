@@ -1,186 +1,269 @@
-/* Container principal igual ao do Dashboard para manter consistência */
+/* Container */
 .ajustes-container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 8px;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
 }
 
-.ajustes-container header {
-  margin-bottom: 32px;
-}
-
-.ajustes-container h1 {
+.ajustes-header h1 {
   font-size: 1.8rem;
-  color: #111827;
-  margin-bottom: 8px;
+  color: #1e293b;
+  margin-bottom: 4px;
 }
 
-.ajustes-container p {
-  color: #6b7280;
-  font-size: 1rem;
+.ajustes-header p {
+  color: #64748b;
+  margin-bottom: 24px;
 }
 
-/* Grid de duas colunas */
-.grid-ajustes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: start; /* Alinha o topo dos cards */
-}
-
-@media (max-width: 1024px) {
-  .grid-ajustes {
-    grid-template-columns: 1fr; /* Empilha em telas menores */
-  }
-}
-
-/* Estilo dos Cards (Reutilizando padrão visual do Dashboard) */
-.card-operacao,
-.card-auditoria {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  padding: 24px;
+/* Tabs */
+.ajustes-tabs {
   display: flex;
-  flex-direction: column;
-  height: 100%;
+  gap: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 24px;
 }
 
-.card-operacao h2,
-.card-auditoria h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f3f4f6;
+.ajustes-tabs button {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* Caixa de Busca */
-.search-box {
-  margin-bottom: 20px;
+.ajustes-tabs button.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
 }
 
-.search-box input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
+.badge-count {
+  background: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Cards de Ajuste */
+.cards-ajustes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+}
+
+.card-ajuste {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.ajuste-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ajuste-tipo-tag {
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ajuste-data {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.ajuste-user {
+  font-size: 1.1rem;
+  color: #1e293b;
+  margin-bottom: 16px;
+}
+
+/* Diff Visual */
+.ajuste-diff {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  padding: 12px;
   border-radius: 8px;
-  font-size: 0.95rem;
-  transition: border-color 0.2s;
+  margin-bottom: 16px;
+}
+
+.diff-col {
+  flex: 1;
+}
+
+.diff-col label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.diff-val {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.diff-col.old .diff-val { color: #ef4444; text-decoration: line-through; }
+.diff-col.new .diff-val { color: #10b981; }
+
+.diff-icon {
+  margin: 0 10px;
+  color: #cbd5e1;
+}
+
+.ajuste-justificativa {
+  font-style: italic;
+  color: #475569;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  padding-left: 10px;
+  border-left: 3px solid #cbd5e1;
+}
+
+/* Botões do Card */
+.ajuste-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-ajuste-reject {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-ajuste-approve {
+  background: #f59e0b; /* Laranja para atenção */
+  border: none;
+  color: white;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.btn-ajuste-approve:hover { background: #d97706; }
+.btn-ajuste-reject:hover { background: #f1f5f9; color: #ef4444; }
+
+/* Lista Clean para Nova Solicitação */
+.search-bar-ajustes {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  gap: 10px;
+  color: #64748b;
+}
+
+.search-bar-ajustes input {
+  border: none;
   outline: none;
+  width: 100%;
+  font-size: 1rem;
 }
 
-.search-box input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-/* Lista de Registros (Scroll) */
-.lista-registros,
-.timeline-auditoria {
-  max-height: 500px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-/* Custom Scrollbar */
-.lista-registros::-webkit-scrollbar,
-.timeline-auditoria::-webkit-scrollbar {
-  width: 6px;
-}
-.lista-registros::-webkit-scrollbar-thumb,
-.timeline-auditoria::-webkit-scrollbar-thumb {
-  background-color: #d1d5db;
-  border-radius: 4px;
-}
-
-/* Item de Registro para Ajuste */
-.item-registro {
+.registro-item {
+  background: white;
+  padding: 16px;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border: 1px solid #f3f4f6;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  transition: all 0.2s;
-  background-color: #fff;
+  transition: background 0.2s;
 }
 
-.item-registro:hover {
-  border-color: #bfdbfe;
-  background-color: #eff6ff;
-  transform: translateX(2px);
-}
+.registro-item:hover { background: #f8fafc; }
 
-.item-registro .font-bold {
-  color: #1f2937;
-  font-size: 0.95rem;
-}
+.reg-info h4 { margin: 0 0 4px 0; color: #1e293b; font-size: 0.95rem; }
+.reg-info span { color: #64748b; font-size: 0.85rem; }
 
-.item-registro .text-xs {
-  color: #6b7280;
-  margin-top: 4px;
-}
-
-.btn-corrigir {
-  background-color: #fff;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+.btn-solicitar-ajuste {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #2563eb;
   padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-corrigir:hover {
-  background-color: #dc2626;
-  color: white;
-  border-color: #dc2626;
-}
-
-/* Timeline de Auditoria */
-.log-item {
-  background-color: #f9fafb;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-  border-left: 4px solid #2563eb; /* Azul padrão */
-  border-top: 1px solid #e5e7eb;
-  border-right: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.log-item .font-medium {
-  color: #111827;
   font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.diff-box {
-  margin-top: 12px;
-  background-color: white; /* Contraste dentro do card cinza */
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-  font-family: 'Monaco', 'Consolas', monospace;
   font-size: 0.85rem;
+  cursor: pointer;
 }
 
-.diff-box .text-red-500 {
-  color: #dc2626;
-  margin-bottom: 4px;
-  display: block;
+.btn-solicitar-ajuste:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
-.diff-box .text-green-600 {
-  color: #16a34a;
-  display: block;
+/* Tabela Auditoria */
+.table-wrapper {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
 }
+
+.table-auditoria {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-auditoria th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.table-auditoria td {
+  padding: 12px 16px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.badge-audit {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+}
+
+.empty-state-ajustes {
+  text-align: center;
+  padding: 60px;
+  color: #94a3b8;
+}
+
+.empty-state-ajustes span { font-size: 48px; color: #cbd5e1; margin-bottom: 10px; display: block; }
