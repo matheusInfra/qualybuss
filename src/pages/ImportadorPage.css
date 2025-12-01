@@ -1,0 +1,177 @@
+/* src/pages/ImportadorPage.css */
+
+/* Container Principal */
+.importador-container {
+  max-width: 800px;
+  margin: 40px auto;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+.importador-container h1 {
+  color: #1e293b;
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.importador-container p {
+  color: #64748b;
+  margin-bottom: 32px;
+}
+
+/* Área de Dropzone */
+.dropzone-area {
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  background-color: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.dropzone-area:hover {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.upload-label span.material-symbols-outlined {
+  font-size: 48px;
+  color: #3b82f6;
+  margin-bottom: 16px;
+}
+
+.dropzone-area input {
+  display: none;
+}
+
+/* --- TELA DE REVISÃO --- */
+.importador-review {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.review-header h2 { margin: 0; color: #1e293b; }
+
+.review-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+/* CARDS DE REVISÃO */
+.review-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s;
+}
+
+.review-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Colors */
+.review-card.success { border-top: 4px solid #10b981; }
+.review-card.warning { border-top: 4px solid #f59e0b; }
+
+.card-top {
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.page-badge { font-size: 0.75rem; font-weight: 700; color: #64748b; }
+.competencia-badge { 
+  font-size: 0.75rem; 
+  font-weight: 600; 
+  background: #e0f2fe; 
+  color: #0284c7; 
+  padding: 2px 8px; 
+  border-radius: 10px; 
+}
+
+.card-preview {
+  background: #e2e8f0;
+  height: 200px;
+  overflow: hidden;
+  position: relative;
+}
+
+.card-controls {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alert-box {
+  background: #fffbeb;
+  color: #b45309;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: 500;
+  border: 1px solid #fcd34d;
+}
+
+.success-box {
+  background: #f0fdf4;
+  color: #15803d;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid #bbf7d0;
+}
+
+.card-controls select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+/* Tela de Sucesso */
+.success-container {
+  text-align: center;
+  padding: 60px 20px;
+  color: #1e293b;
+}
+.big-icon {
+  font-size: 80px;
+  color: #10b981;
+  margin-bottom: 20px;
+}

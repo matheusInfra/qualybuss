@@ -1,4 +1,3 @@
-// src/components/Layout/Sidebar.jsx
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,15 +6,17 @@ import './Layout.css';
 function Sidebar() {
   const { signOut, user } = useAuth();
 
+  // Atualizado para usar Material Symbols em todos os itens para consistência visual
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/funcionarios', label: 'Funcionários', icon: '👥' },
-    { path: '/ausencias', label: 'Ausências', icon: '🕒' },
-    { path: '/ferias', label: 'Férias', icon: '🏖️' },
-    { path: '/movimentacoes', label: 'Movimentações', icon: '📈' },
-    { path: '/documentos', label: 'Documentos', icon: '📁' },
-    { path: '/ajustes', label: 'Ajustes', icon: '🛠️' },
-    { path: '/configuracoes', label: 'Configurações', icon: '⚙️' },
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/funcionarios', label: 'Funcionários', icon: 'group' },
+    { path: '/ausencias', label: 'Ausências', icon: 'event_busy' },
+    { path: '/ferias', label: 'Férias', icon: 'beach_access' },
+    { path: '/movimentacoes', label: 'Movimentações', icon: 'trending_up' },
+    { path: '/documentos', label: 'Documentos', icon: 'folder' },
+    { path: '/importador', label: 'Importar Holerites', icon: 'cloud_upload' }, // Novo item
+    { path: '/ajustes', label: 'Ajustes', icon: 'build' },
+    { path: '/configuracoes', label: 'Configurações', icon: 'settings' },
   ];
 
   return (
@@ -46,7 +47,13 @@ function Sidebar() {
                   transition: 'all 0.2s'
                 })}
               >
-                <span style={{ marginRight: '12px', fontSize: '1.2rem' }}>{item.icon}</span>
+                {/* Ícone agora usa a classe correta do Material Symbols */}
+                <span 
+                  className="material-symbols-outlined" 
+                  style={{ marginRight: '12px', fontSize: '1.3rem' }}
+                >
+                  {item.icon}
+                </span>
                 <span>{item.label}</span>
               </NavLink>
             </li>
@@ -75,11 +82,16 @@ function Sidebar() {
             cursor: 'pointer',
             color: '#c53030',
             fontWeight: '600',
-            transition: 'background 0.2s'
+            transition: 'background 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
           }}
           onMouseOver={(e) => e.currentTarget.style.background = '#feb2b2'}
           onMouseOut={(e) => e.currentTarget.style.background = '#fff5f5'}
         >
+          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>logout</span>
           Sair do Sistema
         </button>
       </div>

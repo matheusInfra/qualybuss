@@ -5,7 +5,7 @@ import { Toaster } from 'react-hot-toast';
 // Contexts
 import { AuthProvider } from './contexts/AuthContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
-
+import ImportadorPage from './pages/ImportadorPage';
 // Components
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -71,7 +71,7 @@ function App() {
                 {/* --- MÓDULO DOCUMENTOS --- */}
                 <Route path="/documentos" element={<DocumentosPage />} />
                 <Route path="/documentos/:id" element={<DocumentoDetalhePage />} />
-                
+                <Route path="/importador" element={<ImportadorPage />} />
                 {/* Outros Módulos */}
                 <Route path="/ajustes" element={<AjustesPage />} />
                 <Route path="/configuracoes" element={<ConfiguracoesPage />} />
