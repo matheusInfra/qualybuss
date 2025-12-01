@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { getFuncionarios } from '../services/funcionarioService';
 import FuncionarioCard from '../components/FuncionarioCard';
-import { useNavigate } from 'react-router-dom';
-import ModalDesligamento from '../components/Modal/ModalDesligamento'; // Certifique-se de ter este componente criado
+// 1. Importamos o Link para navegação segura
+import { Link, useNavigate } from 'react-router-dom';
+import ModalDesligamento from '../components/Modal/ModalDesligamento';
 import './FuncionariosPage.css';
 
 function FuncionariosPage() {
@@ -12,7 +13,6 @@ function FuncionariosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Ativo'); // 'Ativo', 'Inativo', 'Todos'
   
-  // Estado para controlar qual funcionário está sendo desligado
   const [funcionarioParaDesligar, setFuncionarioParaDesligar] = useState(null);
 
   const { data: funcionarios, error, isLoading } = useSWR('getFuncionarios', getFuncionarios);
@@ -39,10 +39,12 @@ function FuncionariosPage() {
           <h1>Colaboradores</h1>
           <p>Gerencie o quadro de funcionários da empresa.</p>
         </div>
-        <button className="btn-novo" onClick={() => navigate('/funcionarios/novo')}>
+        {/* 2. CORREÇÃO: Usamos Link em vez de button+onClick */}
+        {/* Isso previne o comportamento de redirecionamento errático */}
+        <Link to="/funcionarios/novo" className="btn-novo link-button">
           <span className="material-symbols-outlined">add</span>
           Novo Colaborador
-        </button>
+        </Link>
       </div>
 
       <div className="filters-bar">
@@ -90,15 +92,13 @@ function FuncionariosPage() {
                 
                 <FuncionarioCard 
                   funcionario={func} 
-                  // Ao clicar no card, vai para edição/detalhes
-                  onEdit={() => navigate(`/funcionarios/${func.id}`)}
+                  onEdit={() => navigate(`/funcionarios/editar/${func.id}`)}
                 />
                 
-                {/* Barra de Ações do Card */}
                 <div className="card-actions-footer">
                   <button 
                     className="btn-editar"
-                    onClick={() => navigate(`/funcionarios/${func.id}`)}
+                    onClick={() => navigate(`/funcionarios/editar/${func.id}`)}
                   >
                     <span className="material-symbols-outlined">edit</span> Editar
                   </button>
@@ -122,7 +122,6 @@ function FuncionariosPage() {
         </div>
       )}
 
-      {/* Modal de Desligamento */}
       {funcionarioParaDesligar && (
         <ModalDesligamento 
           funcionario={funcionarioParaDesligar}

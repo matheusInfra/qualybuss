@@ -73,15 +73,16 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* --- ÁREA DE GRÁFICOS (NOVO) --- */}
+      {/* --- ÁREA DE GRÁFICOS --- */}
       <div className="charts-section">
         
         {/* Gráfico 1: Evolução da Folha */}
         <div className="chart-card">
           <h3>📈 Evolução da Folha Salarial</h3>
-          <div style={{ width: '100%', height: 250 }}>
+          {/* CORREÇÃO: minWidth: 0 adicionado para corrigir erro do Recharts em Flexbox */}
+          <div style={{ width: '100%', height: 250, minWidth: 0 }}>
             {historico && historico.length > 0 ? (
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={historico}>
                   <defs>
                     <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
@@ -104,9 +105,10 @@ function DashboardPage() {
         {/* Gráfico 2: Evolução do Quadro */}
         <div className="chart-card">
           <h3>👥 Evolução do Quadro</h3>
-          <div style={{ width: '100%', height: 250 }}>
+          {/* CORREÇÃO: minWidth: 0 adicionado aqui também */}
+          <div style={{ width: '100%', height: 250, minWidth: 0 }}>
             {historico && historico.length > 0 ? (
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={historico}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />

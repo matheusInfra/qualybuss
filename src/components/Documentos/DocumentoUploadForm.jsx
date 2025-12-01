@@ -4,9 +4,19 @@ import { useSWRConfig } from 'swr';
 import { uploadDocumento, createDocumentoRegistro } from '../../services/documentoService';
 import './Documentos.css';
 
+// --- DEFINIÇÃO DAS CATEGORIAS PADRÃO ---
+const CATEGORIAS_FIXAS = [
+  "Admissão e Contratuais",
+  "Saúde e Segurança (SST)",
+  "Folha e Ponto",
+  "Afastamentos e Licenças",
+  "Jurídico e Disciplinar",
+  "Outros"
+];
+
 const initialState = {
   nome_arquivo: '',
-  categoria: '',
+  categoria: CATEGORIAS_FIXAS[0], // Começa selecionando a primeira
   data_documento: '',
 };
 
@@ -15,7 +25,6 @@ function DocumentoUploadForm({ funcionarioId }) {
   const [file, setFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Precisamos do 'mutate' para este aprimoramento
   const { mutate } = useSWRConfig();
 
   const handleChange = (e) => {
@@ -27,6 +36,7 @@ function DocumentoUploadForm({ funcionarioId }) {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
+      // Se o nome ainda estiver vazio, preenche com o nome do arquivo
       if (formData.nome_arquivo === '') {
         setFormData(prev => ({ ...prev, nome_arquivo: selectedFile.name }));
       }
@@ -35,7 +45,6 @@ function DocumentoUploadForm({ funcionarioId }) {
     }
   };
   
-  // Função para limpar o formulário
   const handleCancel = () => {
     setFormData(initialState);
     setFile(null);
@@ -43,7 +52,6 @@ function DocumentoUploadForm({ funcionarioId }) {
     if (fileInput) fileInput.value = null;
   };
 
-  // --- FUNÇÃO DE SUBMIT ATUALIZADA ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file || !formData.nome_arquivo || !formData.categoria) {
@@ -51,14 +59,13 @@ function DocumentoUploadForm({ funcionarioId }) {
       return;
     }
     
-    // ATIVA O OVERLAY
     setIsSubmitting(true);
     
     try {
-      // 1. Enviar o arquivo
+      // 1. Upload físico
       const pathStorage = await uploadDocumento(file, funcionarioId);
       
-      // 2. Salvar o registro no banco
+      // 2. Registro no banco
       const dadosRegistro = {
         funcionario_id: funcionarioId,
         nome_arquivo: formData.nome_arquivo,
@@ -67,35 +74,24 @@ function DocumentoUploadForm({ funcionarioId }) {
         data_documento: formData.data_documento || null,
       };
       
-      // 3. RECEBE o novo documento de volta do banco
       const novoDocumento = await createDocumentoRegistro(dadosRegistro);
       
-      // --- APRIMORAMENTO 2: ATUALIZAÇÃO INSTANTÂNEA ---
-      // 4. Injeta o novo documento no cache do SWR
+      // 3. Atualização otimista da lista
       const cacheKey = ['documentos', funcionarioId];
       mutate(cacheKey, (dadosAntigos = []) => {
-        // Retorna um novo array com o item novo no topo, seguido dos antigos
         return [novoDocumento, ...dadosAntigos];
-      }, { 
-        // 'revalidate: false' diz ao SWR: "Não precisa buscar de novo,
-        // confie nos dados que eu te dei."
-        revalidate: false 
-      });
-      // --- FIM DO APRIMORAMENTO ---
+      }, { revalidate: false });
       
-      // 5. Sucesso e Limpeza
-      toast.success('Documento salvo com sucesso!');
-      handleCancel(); // Limpa o formulário
+      toast.success('Documento salvo na pasta correta!');
+      handleCancel();
 
     } catch (err) {
       toast.error(`Erro ao salvar: ${err.message}`);
     } finally {
-      // DESATIVA O OVERLAY
       setIsSubmitting(false);
     }
   };
 
-  // --- JSX (Não muda nada aqui) ---
   return (
     <div className="doc-upload-form">
 
@@ -108,7 +104,7 @@ function DocumentoUploadForm({ funcionarioId }) {
       <form onSubmit={handleSubmit}>
         <div className="doc-upload-grid">
           
-          {/* Upload */}
+          {/* Área de Upload */}
           <div className="doc-form-group doc-upload-span-2">
             <label htmlFor="doc-dropzone-file">Arquivo *</label>
             <label className="doc-upload-label" htmlFor="doc-dropzone-file">
@@ -127,7 +123,7 @@ function DocumentoUploadForm({ funcionarioId }) {
             </label>
           </div>
           
-          {/* Nome do Arquivo */}
+          {/* Nome do Documento */}
           <div className="doc-form-group">
             <label htmlFor="doc-nome">Nome do Documento *</label>
             <input 
@@ -142,24 +138,26 @@ function DocumentoUploadForm({ funcionarioId }) {
             />
           </div>
 
-          {/* Categoria (A "Pasta") */}
+          {/* SELEÇÃO DE CATEGORIA (Agora é um Select) */}
           <div className="doc-form-group">
-            <label htmlFor="doc-categoria">Categoria (Pasta) *</label>
-            <input 
+            <label htmlFor="doc-categoria">Pasta / Categoria *</label>
+            <select 
               id="doc-categoria"
               name="categoria"
-              type="text" 
-              placeholder="Ex: Contratual, Pessoal, ASO"
               value={formData.categoria}
               onChange={handleChange}
               disabled={isSubmitting}
               required
-            />
+            >
+              {CATEGORIAS_FIXAS.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Data do Documento */}
+          {/* Data Opcional */}
           <div className="doc-form-group">
-            <label htmlFor="doc-data">Data do Documento (Opcional)</label>
+            <label htmlFor="doc-data">Data de Referência</label>
             <input 
               id="doc-data"
               name="data_documento"
@@ -174,7 +172,7 @@ function DocumentoUploadForm({ funcionarioId }) {
         <div className="doc-upload-footer">
           <button type="submit" className="doc-button-primary" disabled={isSubmitting}>
             <span className="material-symbols-outlined">save</span>
-            {isSubmitting ? 'Salvando...' : 'Salvar Documento'}
+            {isSubmitting ? 'Arquivando...' : 'Salvar Documento'}
           </button>
         </div>
       </form>

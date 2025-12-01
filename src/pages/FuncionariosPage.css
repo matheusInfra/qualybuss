@@ -28,6 +28,7 @@
   font-size: 1rem;
 }
 
+/* Botão Novo (Adaptado para funcionar com Link) */
 .btn-novo {
   background-color: #2563eb;
   color: white;
@@ -39,6 +40,12 @@
   cursor: pointer;
   transition: background 0.2s;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  
+  /* Flex para alinhar ícone */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none; /* Remove sublinhado do Link */
 }
 
 .btn-novo:hover {
@@ -46,7 +53,7 @@
   transform: translateY(-1px);
 }
 
-/* Barra de Filtros e Abas */
+/* --- CORREÇÃO DO PROBLEMA DE SOBREPOSIÇÃO --- */
 .filters-bar {
   display: flex;
   justify-content: space-between;
@@ -54,12 +61,16 @@
   margin-bottom: 32px;
   gap: 16px;
   flex-wrap: wrap;
+  
+  /* Garante que a barra de filtros fique ACIMA dos cards */
+  position: relative;
+  z-index: 10;
 }
 
 .search-input-wrapper {
   position: relative;
   flex: 1;
-  min-width: 300px;
+  min-width: 220px;
 }
 
 .search-input-wrapper span {
@@ -72,13 +83,14 @@
 }
 
 .search-input-wrapper input {
-  width: 100%;
+  width: 92%;
   padding: 12px 12px 12px 40px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   font-size: 1rem;
   outline: none;
   transition: border-color 0.2s;
+  background-color: #fff; /* Fundo opaco para não ver através */
 }
 
 .search-input-wrapper input:focus {
@@ -86,13 +98,17 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* Abas de Status (Ativos/Desligados) */
+/* Abas de Status */
 .status-tabs {
   display: flex;
   background: #f1f5f9;
   padding: 4px;
   border-radius: 10px;
   gap: 4px;
+  
+  /* Ajuste para mobile */
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .status-tabs button {
@@ -105,6 +121,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap; /* Impede quebra de texto dentro do botão */
 }
 
 .status-tabs button:hover {
@@ -123,6 +140,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
+  
+  /* Z-index menor que o filtro */
+  position: relative;
+  z-index: 1;
 }
 
 .empty-grid {
@@ -141,7 +162,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   background: white;
-  overflow: hidden; /* Para o footer não vazar */
+  overflow: hidden; 
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
@@ -153,6 +174,8 @@
   transform: translateY(-4px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   border-color: #cbd5e1;
+  /* Garante que o card em hover não cubra o filtro se rolar a página */
+  z-index: 2; 
 }
 
 /* Estilo visual para inativos */
@@ -174,7 +197,7 @@
   border-top: 1px solid #f1f5f9;
   padding: 10px 16px;
   display: flex;
-  justify-content: space-between; /* Editar na esq, Desligar na dir */
+  justify-content: space-between; 
   align-items: center;
   background: #ffffff;
 }

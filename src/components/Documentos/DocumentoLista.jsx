@@ -5,14 +5,24 @@ import { getDocumentosPorFuncionario, getDocumentoDownloadUrl, deleteDocumento }
 import ModalConfirmacao from '../Modal/ModalConfirmacao';
 import './Documentos.css';
 
-// ... (helpers formatarData, GetIconeArquivo, agruparPorCategoria não mudam) ...
-// Helper para formatar data
+// --- ÍCONES PARA CADA TIPO DE PASTA ---
+const ICONES_CATEGORIA = {
+  "Admissão e Contratuais": "folder_shared",
+  "Saúde e Segurança (SST)": "medical_services",
+  "Folha e Ponto": "receipt_long",
+  "Afastamentos e Licenças": "sick",
+  "Jurídico e Disciplinar": "gavel",
+  "Outros": "folder_open"
+};
+
+// Helper Data
 const formatarData = (dataStr) => {
   if (!dataStr) return 'Data de upload';
   const data = new Date(dataStr.replace(/-/g, '/'));
-  return `Documento de ${data.toLocaleDateString('pt-BR')}`;
+  return `Ref: ${data.toLocaleDateString('pt-BR')}`;
 };
-// Helper para ícone
+
+// Helper Ícone do Arquivo (PDF/Imagem)
 const GetIconeArquivo = ({ nomeArquivo }) => {
   const ext = nomeArquivo.split('.').pop().toLowerCase();
   if (['pdf'].includes(ext)) {
@@ -23,10 +33,11 @@ const GetIconeArquivo = ({ nomeArquivo }) => {
   }
   return <span className="material-symbols-outlined doc-icon">description</span>;
 };
-// Helper para agrupar por "pasta" (categoria)
+
+// Helper Agrupamento
 const agruparPorCategoria = (documentos) => {
   return documentos.reduce((acc, doc) => {
-    const categoria = doc.categoria || 'Geral';
+    const categoria = doc.categoria || 'Outros';
     if (!acc[categoria]) {
       acc[categoria] = [];
     }
@@ -35,13 +46,12 @@ const agruparPorCategoria = (documentos) => {
   }, {});
 };
 
-
 function DocumentoLista({ funcionarioId }) {
   const { mutate } = useSWRConfig();
   const [modalState, setModalState] = React.useState({ isOpen: false, doc: null });
 
-  // 1. Busca os documentos usando SWR
   const swrKey = ['documentos', funcionarioId];
+  
   const { 
     data: documentos, 
     error, 
@@ -49,28 +59,22 @@ function DocumentoLista({ funcionarioId }) {
   } = useSWR(
     swrKey, 
     () => getDocumentosPorFuncionario(funcionarioId),
-    {
-      // --- ESTA É A CORREÇÃO PARA O LOOP ---
-      // Atende ao seu pedido de não sobrecarregar
-      shouldRetryOnError: false
-    }
+    { shouldRetryOnError: false }
   );
 
-  // 2. Handlers de Ação (Download e Delete)
   const handleDownload = async (pathStorage, nomeArquivo) => {
-    toast.loading('Gerando link de download...');
+    const toastId = toast.loading('Gerando link...');
     try {
       const url = await getDocumentoDownloadUrl(pathStorage);
-      toast.dismiss();
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', nomeArquivo);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.dismiss(toastId);
     } catch (err) {
-      toast.dismiss();
-      toast.error(`Erro ao baixar: ${err.message}`);
+      toast.error(`Erro: ${err.message}`, { id: toastId });
     }
   };
 
@@ -80,86 +84,91 @@ function DocumentoLista({ funcionarioId }) {
 
   const handleConfirmDelete = async () => {
     if (!modalState.doc) return;
-    toast.loading('Excluindo documento...');
+    const toastId = toast.loading('Excluindo...');
+    
     try {
       await deleteDocumento(modalState.doc.id, modalState.doc.path_storage);
       
-      // Mutação Otimista
       mutate(swrKey, (docsAtuais) => {
         return docsAtuais.filter(d => d.id !== modalState.doc.id);
       }, { revalidate: false }); 
 
-      toast.dismiss();
-      toast.success('Documento excluído!');
+      toast.success('Documento excluído!', { id: toastId });
       
     } catch (err) {
-      toast.dismiss();
-      toast.error(`Erro ao excluir: ${err.message}`);
+      toast.error(`Erro: ${err.message}`, { id: toastId });
     } finally {
       setModalState({ isOpen: false, doc: null });
     }
   };
 
-  // 3. Renderização
-  if (isLoading) return <p>Carregando documentos...</p>;
-  if (error) {
-    // Agora o erro para aqui e não fica em loop
-    return <p className="error-message">Erro ao buscar documentos: {error.message}</p>;
-  }
-  if (documentos.length === 0) {
+  if (isLoading) return <div className="loading-state">Carregando documentos...</div>;
+  if (error) return <p className="error-message">Erro ao buscar documentos.</p>;
+  if (!documentos || documentos.length === 0) {
     return <div className="doc-list-empty"><p>Nenhum documento salvo para este colaborador.</p></div>;
   }
   
-  // 4. Agrupa por categoria
   const documentosAgrupados = agruparPorCategoria(documentos);
+  // Ordena as categorias (fixas primeiro, depois outras se houver lixo no banco)
   const categorias = Object.keys(documentosAgrupados).sort();
 
   return (
     <div className="doc-list-container">
       {categorias.map(categoria => (
         <div key={categoria} className="doc-category-group">
-          <h2 className="doc-category-header">{categoria}</h2>
           
-          {documentosAgrupados[categoria].map(doc => (
-            <div key={doc.id} className="doc-item">
-              <div className="doc-info">
-                <GetIconeArquivo nomeArquivo={doc.nome_arquivo} />
-                <div className="doc-details">
-                  <span className="doc-name">{doc.nome_arquivo}</span>
-                  <span className="doc-date">{formatarData(doc.data_documento)}</span>
+          {/* CABEÇALHO DA PASTA COM ÍCONE */}
+          <h2 className="doc-category-header" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+            <span className="material-symbols-outlined" style={{color:'#137fec'}}>
+              {ICONES_CATEGORIA[categoria] || 'folder'}
+            </span>
+            {categoria}
+            <span style={{fontSize:'0.8rem', color:'#999', fontWeight:'normal'}}>
+              ({documentosAgrupados[categoria].length})
+            </span>
+          </h2>
+          
+          <div className="doc-grid-items">
+            {documentosAgrupados[categoria].map(doc => (
+              <div key={doc.id} className="doc-item">
+                <div className="doc-info">
+                  <GetIconeArquivo nomeArquivo={doc.nome_arquivo} />
+                  <div className="doc-details">
+                    <span className="doc-name">{doc.nome_arquivo}</span>
+                    <span className="doc-date">{formatarData(doc.data_documento)}</span>
+                  </div>
+                </div>
+                
+                <div className="doc-actions">
+                  <button 
+                    className="doc-action-button"
+                    title="Baixar"
+                    onClick={() => handleDownload(doc.path_storage, doc.nome_arquivo)}
+                  >
+                    <span className="material-symbols-outlined">download</span>
+                  </button>
+                  <button 
+                    className="doc-action-button delete"
+                    title="Excluir"
+                    onClick={() => handleDeleteClick(doc)}
+                  >
+                    <span className="material-symbols-outlined">delete</span>
+                  </button>
                 </div>
               </div>
-              
-              <div className="doc-actions">
-                <button 
-                  className="doc-action-button"
-                  title="Baixar"
-                  onClick={() => handleDownload(doc.path_storage, doc.nome_arquivo)}
-                >
-                  <span className="material-symbols-outlined">download</span>
-                </button>
-                <button 
-                  className="doc-action-button delete"
-                  title="Excluir"
-                  onClick={() => handleDeleteClick(doc)}
-                >
-                  <span className="material-symbols-outlined">delete</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ))}
       
-      {/* 5. Modal de Confirmação */}
       <ModalConfirmacao
         isOpen={modalState.isOpen}
         onClose={() => setModalState({ isOpen: false, doc: null })}
         onConfirm={handleConfirmDelete}
         title="Confirmar Exclusão"
+        variant="danger"
       >
-        <p>Você tem certeza que deseja excluir o documento <strong>{modalState.doc?.nome_arquivo}</strong>?</p>
-        <p>Esta ação não pode ser desfeita.</p>
+        <p>Você tem certeza que deseja excluir <strong>{modalState.doc?.nome_arquivo}</strong>?</p>
       </ModalConfirmacao>
     </div>
   );
