@@ -1,12 +1,15 @@
 // src/pages/MovimentacoesPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { toast } from 'react-hot-toast';
 
 // Services
 import { getFuncionarios } from '../services/funcionarioService';
-import { getEmpresas } from '../services/empresaService'; // Certifique-se que existe ou crie
+import { getEmpresas } from '../services/empresaService';
 import { createMovimentacao, getTodasMovimentacoes } from '../services/movimentacaoService';
+
+// Componentes
+import ModalReajusteMassa from '../components/Modal/ModalReajusteMassa'; // Certifique-se de ter este componente
 
 // Estilos
 import '../components/Ausencias/LancarAusenciaForm.css';
@@ -29,7 +32,6 @@ const initialState = {
   departamento_novo: ''
 };
 
-// Componente Interno de Histórico
 function HistoricoMovimentacoes() {
   const cacheKey = 'todasMovimentacoes';
   const { data: movimentacoes, error, isLoading } = useSWR(cacheKey, getTodasMovimentacoes);
@@ -57,11 +59,10 @@ function HistoricoMovimentacoes() {
           {movimentacoes.map(mov => {
             const func = mov.funcionarios; 
             
-            // Renderização condicional da descrição da mudança na tabela
             let detalhes = mov.descricao;
             if (mov.tipo === 'Promoção' || mov.tipo.includes('Cargo')) {
                detalhes = `${mov.cargo_anterior || '?'} ➝ ${mov.cargo_novo || '?'}`;
-            } else if (mov.tipo.includes('Salarial')) {
+            } else if (mov.tipo.includes('Salarial') || mov.tipo.includes('Reajuste')) {
                detalhes = `${formatCurrency(mov.salario_anterior)} ➝ ${formatCurrency(mov.salario_novo)}`;
             } else if (mov.tipo === 'Transferência') {
                detalhes = `${mov.departamento_anterior || 'Dep. Antigo'} ➝ ${mov.departamento_novo || 'Novo'}`;
@@ -97,17 +98,18 @@ function HistoricoMovimentacoes() {
 function MovimentacoesPage() {
   const [formData, setFormData] = useState(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isModalReajusteOpen, setIsModalReajusteOpen] = useState(false);
   const { mutate } = useSWRConfig();
 
   // Data Fetching
   const { data: funcionarios, isLoading: isLoadingFunc } = useSWR('getFuncionarios', getFuncionarios);
-  const { data: empresas } = useSWR('getEmpresas', getEmpresas); // Para o select de empresas
+  const { data: empresas } = useSWR('getEmpresas', getEmpresas); 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Auto-preencher dados atuais ao selecionar o colaborador
+    // Auto-preencher dados atuais
     if (name === 'id_funcionario') {
         const func = funcionarios?.find(f => f.id === value);
         if (func) {
@@ -116,7 +118,7 @@ function MovimentacoesPage() {
                 cargo_anterior: func.cargo || '',
                 salario_anterior: func.salario_bruto || '',
                 departamento_anterior: func.departamento || '',
-                empresa_anterior: func.empresa_id || '' // Assume que func tem empresa_id
+                empresa_anterior: func.empresa_id || ''
             }));
         }
     }
@@ -132,15 +134,14 @@ function MovimentacoesPage() {
     setIsSubmitting(true);
     
     try {
-      // Limpa campos vazios para null para não sujar o banco
       const novosDados = { ...formData };
+      // Limpa campos vazios
       Object.keys(novosDados).forEach(key => {
         if (novosDados[key] === '') novosDados[key] = null;
       });
       
       await createMovimentacao(novosDados);
 
-      // Sincronização
       mutate('todasMovimentacoes');
       mutate('getFuncionarios');
       mutate('dashboard_kpis');
@@ -155,11 +156,9 @@ function MovimentacoesPage() {
     }
   };
 
-  // --- RENDERIZAÇÃO CONDICIONAL DOS CAMPOS ---
+  // Renderização Condicional
   const renderCamposDinamicos = () => {
     const tipo = formData.tipo;
-
-    // 1. CAMPOS DE CARGO (Promoção, Reclassificação)
     if (['Promoção', 'Reclassificação', 'Outro'].includes(tipo)) {
       return (
         <>
@@ -179,7 +178,6 @@ function MovimentacoesPage() {
 
   const renderCamposSalario = () => {
     const tipo = formData.tipo;
-    // 2. CAMPOS DE SALÁRIO (Ajuste, Promoção, Mérito)
     if (['Ajuste Salarial', 'Promoção', 'Mérito'].includes(tipo)) {
       return (
         <>
@@ -199,7 +197,6 @@ function MovimentacoesPage() {
 
   const renderCamposTransferencia = () => {
     const tipo = formData.tipo;
-    // 3. CAMPOS DE TRANSFERÊNCIA (Empresa, Departamento)
     if (['Transferência'].includes(tipo)) {
       return (
         <>
@@ -214,7 +211,6 @@ function MovimentacoesPage() {
 
           <div className="ausencia-form-group">
             <label>Empresa Atual</label>
-            {/* Exibe ID ou busca nome se possível, aqui simplificado */}
             <input type="text" value={empresas?.find(e => e.id === formData.empresa_anterior)?.nome_fantasia || 'Atual'} disabled className="input-disabled" />
           </div>
           <div className="ausencia-form-group">
@@ -234,15 +230,27 @@ function MovimentacoesPage() {
 
   return (
     <div className="ausencias-container">
-      <h1>Gestão de Movimentações</h1>
-      <p>Registre alterações contratuais. O cadastro será atualizado automaticamente.</p>
+      <div className="ausencias-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <div>
+          <h1 className="page-title">Gestão de Movimentações</h1>
+          <p className="page-subtitle">Registre promoções, alterações e transferências.</p>
+        </div>
+        
+        <button 
+          className="button-primary" 
+          style={{background: '#7c3aed', borderColor: '#6d28d9'}}
+          onClick={() => setIsModalReajusteOpen(true)}
+        >
+          <span className="material-symbols-outlined" style={{marginRight: 5, fontSize: 18}}>group_add</span>
+          Reajuste em Massa / Dissídio
+        </button>
+      </div>
 
       <div className="ausencia-form-container" style={{marginBottom: '32px'}}>
         <form onSubmit={handleSubmit}>
           <div className="ausencia-form-content">
             <div className="ausencia-form-grid" style={{gridTemplateColumns: 'repeat(4, 1fr)'}}>
               
-              {/* HEADER DO FORMULÁRIO (SEMPRE VISÍVEL) */}
               <div className="ausencia-form-group ausencia-form-span-2">
                 <label>Colaborador *</label>
                 <select 
@@ -280,7 +288,6 @@ function MovimentacoesPage() {
                 <input type="text" name="descricao" placeholder="Ex: Promoção por mérito..." value={formData.descricao} onChange={handleChange} required />
               </div>
 
-              {/* CAMPOS DINÂMICOS */}
               <div style={{gridColumn: 'span 4', borderTop: '1px dashed #e2e8f0', margin: '10px 0'}}></div>
               
               {renderCamposTransferencia()}
@@ -299,6 +306,11 @@ function MovimentacoesPage() {
 
       <h2 style={{fontSize: '1.2rem', color: '#1e293b', marginBottom: '16px'}}>Histórico de Alterações</h2>
       <HistoricoMovimentacoes />
+
+      {/* Modal de Reajuste em Massa */}
+      {isModalReajusteOpen && (
+        <ModalReajusteMassa onClose={() => setIsModalReajusteOpen(false)} />
+      )}
     </div>
   );
 }

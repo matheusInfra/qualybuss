@@ -19,7 +19,7 @@ export const getMovimentacoesPorFuncionario = async (funcionarioId) => {
 };
 
 /**
- * Busca TODAS as movimentações recentes (com join para pegar nomes e avatares)
+ * Busca TODAS as movimentações recentes (com join para pegar nomes)
  */
 export const getTodasMovimentacoes = async () => {
   const { data, error } = await supabase
@@ -40,7 +40,7 @@ export const getTodasMovimentacoes = async () => {
 
 /**
  * Cria um novo registro de movimentação E atualiza o cadastro do funcionário.
- * Agora suporta Transferência de Empresa e Departamento.
+ * Suporta alterações de Cargo, Salário, Departamento e Empresa.
  */
 export const createMovimentacao = async (dadosMovimentacao) => {
   // 1. Grava o registro histórico
@@ -56,30 +56,29 @@ export const createMovimentacao = async (dadosMovimentacao) => {
   }
 
   // 2. ATUALIZAÇÃO SINCRONIZADA DO FUNCIONÁRIO
-  // Monta o objeto de update dinamicamente
   const updates = {};
   
-  // Mudança de Cargo
+  // Cargo
   if (dadosMovimentacao.cargo_novo) {
     updates.cargo = dadosMovimentacao.cargo_novo;
   }
   
-  // Mudança de Salário
+  // Salário
   if (dadosMovimentacao.salario_novo) {
     updates.salario_bruto = parseFloat(dadosMovimentacao.salario_novo);
   }
 
-  // Mudança de Departamento (Novo)
+  // Departamento
   if (dadosMovimentacao.departamento_novo) {
     updates.departamento = dadosMovimentacao.departamento_novo;
   }
 
-  // Mudança de Empresa (Novo)
+  // Empresa
   if (dadosMovimentacao.empresa_nova) {
     updates.empresa_id = dadosMovimentacao.empresa_nova;
   }
 
-  // Se detectou alterações relevantes, executa o update no cadastro
+  // Executa update se houver mudanças
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await supabase
       .from('funcionarios')
@@ -95,59 +94,86 @@ export const createMovimentacao = async (dadosMovimentacao) => {
   return movData;
 };
 
-// src/services/movimentacaoService.js
-// ... (código existente mantido)
-
 /**
- * [NOVO] Aplica um reajuste salarial em massa (Dissídio)
- * @param {string} departamento - Nome do departamento ou 'Todos'
- * @param {number} percentual - Ex: 5.5 (para 5.5%)
- * @param {string} dataVigencia - Data da movimentação
- * @param {string} descricao - Ex: "Dissídio 2025"
+ * [MÓDULO DE DISSÍDIO] Simula um reajuste em massa sem gravar no banco.
  */
-export const aplicarDissidioEmMassa = async ({ departamento, percentual, dataVigencia, descricao }) => {
-  // 1. Buscar funcionários elegíveis
-  let query = supabase.from('funcionarios').select('id, nome_completo, salario_bruto, cargo, departamento');
+export const simularReajusteMassa = async ({ departamento, tipoReajuste, valor, dataVigencia }) => {
+  // 1. Busca Funcionários Elegíveis
+  let query = supabase.from('funcionarios').select('id, nome_completo, salario_bruto, cargo, departamento, empresa_id').eq('status', 'Ativo');
   
   if (departamento && departamento !== 'Todos') {
     query = query.eq('departamento', departamento);
   }
   
-  const { data: funcionarios, error: errBusca } = await query;
-  if (errBusca) throw errBusca;
+  const { data: funcionarios, error } = await query;
+  if (error) throw error;
 
-  if (!funcionarios || funcionarios.length === 0) {
-    return { total: 0, message: "Nenhum funcionário encontrado para este filtro." };
-  }
+  if (!funcionarios.length) return [];
 
-  // 2. Preparar as movimentações em lote
-  const fator = 1 + (percentual / 100);
-  
-  // Como o Supabase não suporta "Transaction" via JS client facilmente para múltiplos updates distintos,
-  // faremos um loop de Promises. Para 50-100 funcionários é rápido. Para 1000+, ideal seria uma RPC (banco).
-  
-  const promises = funcionarios.map(async (func) => {
-    const novoSalario = parseFloat((func.salario_bruto * fator).toFixed(2));
-    
-    // Reaproveita sua função createMovimentacao que já atualiza o cadastro!
-    return createMovimentacao({
-      id_funcionario: func.id,
-      tipo: 'Ajuste Salarial', // ou 'Dissídio'
+  // 2. Calcula Projeção
+  const simulacao = funcionarios.map(func => {
+    let novoSalario = Number(func.salario_bruto);
+    const salarioAtual = Number(func.salario_bruto);
+
+    if (tipoReajuste === 'Porcentagem') {
+      novoSalario = salarioAtual * (1 + (valor / 100));
+    } else if (tipoReajuste === 'Valor Fixo') {
+      novoSalario = salarioAtual + valor;
+    } else if (tipoReajuste === 'Novo Piso') {
+      if (salarioAtual < valor) novoSalario = valor;
+    }
+
+    return {
+      id: func.id,
+      nome: func.nome_completo,
+      cargo: func.cargo,
+      salario_atual: salarioAtual,
+      novo_salario: parseFloat(novoSalario.toFixed(2)),
+      diferenca: parseFloat((novoSalario - salarioAtual).toFixed(2)),
+      empresa_id: func.empresa_id,
+      departamento: func.departamento
+    };
+  });
+
+  return simulacao.filter(item => item.diferenca > 0);
+};
+
+/**
+ * [MÓDULO DE DISSÍDIO] Aplica o reajuste confirmado.
+ */
+export const aplicarReajusteMassa = async (listaAprovada, motivo, dataVigencia) => {
+  const user = (await supabase.auth.getUser()).data.user;
+
+  const promises = listaAprovada.map(async (item) => {
+    // 1. Cria Movimentação
+    const { error: movError } = await supabase.from('movimentacoes').insert([{
+      id_funcionario: item.id,
       data_movimentacao: dataVigencia,
-      descricao: `${descricao} (${percentual}%)`,
-      cargo_anterior: func.cargo,
-      cargo_novo: func.cargo, // Cargo não muda
-      salario_anterior: func.salario_bruto,
-      salario_novo: novoSalario,
-      // Manter empresa/departamento iguais
-      empresa_anterior: null, // Opcional buscar se necessário
-      empresa_nova: null,
-      departamento_anterior: func.departamento,
-      departamento_novo: func.departamento
-    });
+      tipo: 'Reajuste Coletivo',
+      descricao: motivo,
+      cargo_anterior: item.cargo,
+      cargo_novo: item.cargo,
+      salario_anterior: item.salario_atual,
+      salario_novo: item.novo_salario
+    }]);
+    if (movError) throw movError;
+
+    // 2. Atualiza Funcionário
+    const { error: funcError } = await supabase.from('funcionarios').update({
+      salario_bruto: item.novo_salario
+    }).eq('id', item.id);
+    if (funcError) throw funcError;
   });
 
   await Promise.all(promises);
 
-  return { total: funcionarios.length, message: `Reajuste aplicado para ${funcionarios.length} colaboradores.` };
+  // 3. Auditoria
+  await supabase.from('auditoria_ajustes').insert([{
+    tipo_acao: 'Reajuste em Massa',
+    justificativa: `${motivo}. Afetou ${listaAprovada.length} colaboradores.`,
+    tabela_afetada: 'funcionarios',
+    usuario_responsavel: user?.id
+  }]);
+
+  return true;
 };
