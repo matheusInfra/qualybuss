@@ -1,0 +1,144 @@
+.movimentacao-modal {
+  background: white;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.movimentacao-header {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+}
+
+.tab-toggle {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.tab-toggle.active {
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.tab-toggle.active.saida { color: #dc2626; border-bottom: 3px solid #dc2626; }
+.tab-toggle.active.entrada { color: #16a34a; border-bottom: 3px solid #16a34a; }
+
+.movimentacao-form {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  color: #475569;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.form-group select, .form-group input, .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Dashboard de Saldos */
+.saldos-mini-dashboard {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.saldo-pill {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.saldo-pill.active {
+  opacity: 1;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  transform: translateY(-2px);
+}
+
+.saldo-pill .icon { font-size: 1.2rem; }
+.saldo-pill .info { display: flex; flex-direction: column; line-height: 1.2; }
+.saldo-pill small { font-size: 0.7rem; color: #64748b; }
+.saldo-pill strong { font-size: 0.9rem; color: #1e293b; }
+
+/* Alerts */
+.alert-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-left: 4px solid #ef4444;
+}
+
+.alert-info {
+  background: #f0f9ff;
+  color: #0369a1;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  border-left: 4px solid #0ea5e9;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-cancel {
+  padding: 10px 20px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #475569;
+}
+
+.btn-confirm {
+  padding: 10px 20px;
+  background: #0f172a;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: white;
+}
+
+.btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }

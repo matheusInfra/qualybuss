@@ -204,3 +204,40 @@
   from { opacity: 0; transform: translateY(-5px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.calendario-legenda {
+  margin-top: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-size: 0.8rem;
+  color: #64748b;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  align-items: center;
+}
+
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-border {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #94a3b8;
+  border-radius: 4px;
+}
+
+.dot-border.solid { border-style: solid; background: #cbd5e1; }
+.dot-border.dashed { border-style: dashed; background: transparent; }
+
+.legenda-divider { color: #cbd5e1; }

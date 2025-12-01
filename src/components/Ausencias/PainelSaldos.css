@@ -1,211 +1,155 @@
-/* src/components/Ausencias/PainelSaldos.css */
-
 .painel-saldos-container {
-  padding: 20px 0;
-  animation: fadeIn 0.4s ease-out;
+  padding: 10px;
+  animation: fadeIn 0.4s ease;
 }
 
-.saldos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 24px;
-}
-
-/* --- CARD MODERNO --- */
-.saldo-card-modern {
-  background: #fff;
-  border-radius: 16px;
+.painel-header-control {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 600px;
+  margin: 0 auto 30px auto;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.painel-header-control label {
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.select-funcionario {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.empty-state-saldos {
+  text-align: center;
+  color: #94a3b8;
+  padding: 60px;
+}
+
+.empty-state-saldos span {
+  font-size: 48px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.loading-saldos {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Grid de Cards */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.saldo-card {
+  background: white;
+  border-radius: 16px;
   padding: 24px;
   display: flex;
-  flex-direction: column;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.saldo-card-modern:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
-  border-color: #cbd5e0;
-}
-
-/* Borda superior colorida baseada no status */
-.saldo-card-modern.danger { border-top: 4px solid #ef4444; }
-.saldo-card-modern.warning { border-top: 4px solid #f59e0b; }
-.saldo-card-modern.success { border-top: 4px solid #22c55e; }
-
-/* HEADER */
-.saldo-header {
-  display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 16px;
+  gap: 20px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
 }
 
-.saldo-profile {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+.saldo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.saldo-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px; /* Quadrado arredondado é mais moderno que círculo */
-  object-fit: cover;
-  background-color: #f1f5f9;
-}
-
-.saldo-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.saldo-name {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1e293b;
-  max-width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.saldo-role {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-.saldo-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: 20px;
-}
-.saldo-badge.danger { background: #fef2f2; color: #ef4444; }
-.saldo-badge.warning { background: #fffbeb; color: #f59e0b; }
-.saldo-badge.success { background: #f0fdf4; color: #22c55e; }
-
-.saldo-divider {
-  height: 1px;
-  background-color: #f1f5f9;
-  margin-bottom: 20px;
-}
-
-/* KPI GRID (NÚMEROS) */
-.saldo-kpi-grid {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.kpi-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* Centralizado para dar destaque */
-  flex: 1;
-}
-
-.kpi-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #94a3b8;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.kpi-value-group {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-}
-
-.kpi-number {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1;
-}
-.kpi-number.text-red { color: #ef4444; }
-
-.kpi-unit {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.kpi-separator {
-  width: 1px;
-  height: 40px;
-  background-color: #e2e8f0;
-  margin: 0 16px;
-}
-
-/* BARRA DE PROGRESSO */
-.saldo-progress-wrapper {
-  margin-bottom: 24px;
-}
-.saldo-progress-bg {
-  height: 6px;
-  background-color: #f1f5f9;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.saldo-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 3px;
-}
-.status-danger .saldo-progress-bar { background: #ef4444; }
-
-/* AÇÕES (BOTÕES) */
-.saldo-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: auto; /* Empurra pro fundo se o card crescer */
-}
-
-.btn-action {
+.card-icon {
+  font-size: 2.5rem;
+  background: #f8fafc;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  border-radius: 8px;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-label {
+  display: block;
   font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 
-.btn-action .material-symbols-outlined {
-  font-size: 18px;
-}
-
-.btn-action.outline {
-  background: transparent;
-  border: 1px solid #cbd5e0;
-  color: #475569;
-}
-.btn-action.outline:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
+.card-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 8px;
   color: #1e293b;
 }
 
-.btn-action.primary {
-  background: #0f172a;
-  border: 1px solid #0f172a;
-  color: #fff;
+.card-value small {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-left: 4px;
 }
-.btn-action.primary:hover {
-  background: #1e293b;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -2px rgba(0,0,0,0.1);
+
+.card-value.text-red { color: #ef4444; }
+.card-value.text-green { color: #10b981; }
+
+.card-obs {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
 }
+
+/* Cores específicas de borda/bg */
+.saldo-card.ferias { border-bottom: 4px solid #3b82f6; }
+.saldo-card.banco { border-bottom: 4px solid #f59e0b; }
+.saldo-card.folga { border-bottom: 4px solid #8b5cf6; }
+
+.actions-bar {
+  text-align: right;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+}
+
+.btn-ajuste-manual {
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  color: #475569;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-ajuste-manual:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

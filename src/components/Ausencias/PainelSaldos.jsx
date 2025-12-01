@@ -1,95 +1,108 @@
-// src/components/Ausencias/PainelSaldos.jsx
-import React, { useMemo } from 'react';
+import React from 'react';
 import useSWR from 'swr';
-import { getSaldosConsolidados } from '../../services/saldoService';
-import { getMuralRecente } from '../../services/ausenciaService'; // <--- USAR ESTA FUNÇÃO
-import { getAvatarPublicUrl } from '../../services/funcionarioService';
-import SaldoCard from './SaldoCard';
+import { getFuncionarios } from '../../services/funcionarioService';
+import { getResumoSaldos } from '../../services/ausenciaService';
 import './PainelSaldos.css';
 
-function PainelSaldos({ aoVerExtrato, aoAjustar }) { // Recebe props de navegação se existirem
-  // 1. Busca os saldos (View SQL)
-  const { data: dadosView, isLoading: loadingSaldos } = useSWR('getSaldosConsolidados', getSaldosConsolidados);
+function PainelSaldos({ aoAjustar }) {
+  const [selectedFuncionario, setSelectedFuncionario] = React.useState('');
+  
+  // 1. Busca Funcionários
+  const { data: funcionarios } = useSWR('getFuncionarios', getFuncionarios);
 
-  // 2. Busca TODAS as movimentações recentes (Créditos + Débitos + Períodos)
-  const { data: muralData } = useSWR('getMuralRecente', getMuralRecente);
+  // 2. Busca Saldos Unificados (Só dispara se tiver funcionário selecionado)
+  const { data: saldos, isLoading } = useSWR(
+    selectedFuncionario ? ['getResumoSaldos', selectedFuncionario] : null,
+    () => getResumoSaldos(selectedFuncionario)
+  );
 
-  // 3. Processa a lista unificada de movimentos para exibir nos cards
-  const movimentosPorFuncionario = useMemo(() => {
-    if (!muralData) return {};
-    
-    const { ausencias, creditos, periodos } = muralData;
-    const mapa = {};
+  const getFuncionarioObj = () => funcionarios?.find(f => f.id === selectedFuncionario);
 
-    const addMovimento = (item, tipo, desc) => {
-      if (!mapa[item.funcionario_id]) mapa[item.funcionario_id] = [];
-      mapa[item.funcionario_id].push({
-        id: item.id,
-        data: new Date(item.data_inicio || item.data_lancamento || item.inicio_periodo || item.created_at),
-        tipo: tipo, // 'entrada' ou 'saida'
-        descricao: desc || item.tipo,
-        status: item.status || 'Concluído'
-      });
-    };
-
-    ausencias.forEach(a => addMovimento(a, 'saida', a.tipo)); // Débito
-    creditos.forEach(c => addMovimento(c, 'entrada', `Crédito: ${c.tipo}`)); // Crédito
-    periodos.forEach(p => addMovimento(p, 'entrada', 'Novo Período Aquisitivo')); // Crédito
-
-    // Ordena
-    Object.keys(mapa).forEach(key => {
-      mapa[key].sort((a, b) => b.data - a.data);
-    });
-
-    return mapa;
-  }, [muralData]);
-
-  // 4. Agrupa os saldos por funcionário
-  const funcionariosAgrupados = useMemo(() => {
-    if (!dadosView) return [];
-    const map = new Map();
-
-    dadosView.forEach(row => {
-      if (!row.tipo_saldo) return;
-      if (!map.has(row.funcionario_id)) {
-        map.set(row.funcionario_id, {
-          id: row.funcionario_id,
-          nome_completo: row.nome_completo,
-          cargo: row.cargo,
-          avatar_url: row.avatar_url,
-          saldos: {}
-        });
-      }
-      const func = map.get(row.funcionario_id);
-      func.saldos[row.tipo_saldo] = row.saldo_final;
-    });
-    return Array.from(map.values());
-  }, [dadosView]);
-
-  if (loadingSaldos) return <div className="painel-loading"><p>Calculando saldos...</p></div>;
+  // Helper para cor do saldo
+  const getSaldoClass = (valor, tipo) => {
+    if (tipo === 'banco' && valor < 0) return 'text-red'; // Devendo horas
+    if (valor > 0) return 'text-green';
+    return 'text-gray';
+  };
 
   return (
     <div className="painel-saldos-container">
-      <div className="saldos-grid">
-        {funcionariosAgrupados.map((func) => (
-          <SaldoCard 
-            key={func.id}
-            funcionario={func}
-            saldos={func.saldos}
-            // Passa a lista real de auditoria (últimos 3 movimentos)
-            ultimosMovimentos={movimentosPorFuncionario[func.id]?.slice(0, 3) || []} 
-            getAvatarUrl={getAvatarPublicUrl}
-            onAjustar={() => aoAjustar ? aoAjustar(func) : null} // Fallback
-            onVerExtrato={() => aoVerExtrato ? aoVerExtrato(func) : null}
-          />
-        ))}
-        
-        {funcionariosAgrupados.length === 0 && (
-           <p style={{gridColumn: '1/-1', textAlign: 'center', color: '#666', padding: '40px'}}>
-             Nenhum saldo calculado ainda.
-           </p>
-        )}
+      {/* Seletor de Funcionário */}
+      <div className="painel-header-control">
+        <label>Visualizar Saldos de:</label>
+        <select 
+          value={selectedFuncionario} 
+          onChange={(e) => setSelectedFuncionario(e.target.value)}
+          className="select-funcionario"
+        >
+          <option value="">-- Selecione um Colaborador --</option>
+          {funcionarios?.map(f => (
+            <option key={f.id} value={f.id}>{f.nome_completo}</option>
+          ))}
+        </select>
       </div>
+
+      {!selectedFuncionario && (
+        <div className="empty-state-saldos">
+          <span className="material-symbols-outlined">account_balance_wallet</span>
+          <h3>Selecione um colaborador para ver a carteira de tempo.</h3>
+        </div>
+      )}
+
+      {selectedFuncionario && isLoading && (
+        <div className="loading-saldos">Calculando saldos em tempo real...</div>
+      )}
+
+      {selectedFuncionario && saldos && (
+        <div className="cards-grid fade-in">
+          
+          {/* Card 1: Férias */}
+          <div className="saldo-card ferias">
+            <div className="card-icon">🏖️</div>
+            <div className="card-content">
+              <span className="card-label">Saldo de Férias</span>
+              <div className="card-value">
+                {saldos.ferias.saldo} <small>dias</small>
+              </div>
+              <p className="card-obs">Baseado em períodos aquisitivos abertos.</p>
+            </div>
+          </div>
+
+          {/* Card 2: Banco de Horas */}
+          <div className="saldo-card banco">
+            <div className="card-icon">⏱️</div>
+            <div className="card-content">
+              <span className="card-label">Banco de Horas</span>
+              <div className={`card-value ${getSaldoClass(saldos.banco_horas.saldo, 'banco')}`}>
+                {saldos.banco_horas.saldo} <small>horas</small>
+              </div>
+              <p className="card-obs">Acumulado de horas extras vs saídas.</p>
+            </div>
+          </div>
+
+          {/* Card 3: Folgas Compensatórias */}
+          <div className="saldo-card folga">
+            <div className="card-icon">📅</div>
+            <div className="card-content">
+              <span className="card-label">Folgas (Day Off)</span>
+              <div className={`card-value ${getSaldoClass(saldos.folgas.saldo, 'folga')}`}>
+                {saldos.folgas.saldo} <small>dias</small>
+              </div>
+              <p className="card-obs">Trabalho em feriados ou prêmios.</p>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {selectedFuncionario && (
+        <div className="actions-bar">
+          <button className="btn-ajuste-manual" onClick={() => aoAjustar(getFuncionarioObj())}>
+            <span className="material-symbols-outlined">tune</span>
+            Realizar Ajuste Manual / Correção
+          </button>
+        </div>
+      )}
     </div>
   );
 }

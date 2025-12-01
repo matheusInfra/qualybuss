@@ -27,12 +27,16 @@ const DnDCalendar = withDragAndDrop(Calendar);
 function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onEventClick }) {
   const [events, setEvents] = useState([]);
 
-  // Ícones para leitura rápida
-  const getIconePorTipo = (tipo) => {
-    if (tipo === 'Férias') return '🏖️';
-    if (tipo.includes('Atestado')) return '🤒';
-    if (tipo.includes('Licença')) return '👶';
-    return '📅';
+  // 1. Ícones e Cores por Tipo
+  const getConfigPorTipo = (tipo) => {
+    switch(tipo) {
+      case 'Férias': return { icon: '🏖️', bg: '#3b82f6', border: '#2563eb' }; // Azul
+      case 'Banco de Horas': return { icon: '⏱️', bg: '#f59e0b', border: '#d97706' }; // Laranja
+      case 'Folga Pessoal': 
+      case 'Folga': return { icon: '📅', bg: '#8b5cf6', border: '#7c3aed' }; // Roxo
+      case 'Atestado Médico': return { icon: '🤒', bg: '#ef4444', border: '#dc2626' }; // Vermelho
+      default: return { icon: '📝', bg: '#64748b', border: '#475569' }; // Cinza
+    }
   };
 
   const fetchEvents = useCallback(async () => {
@@ -43,14 +47,17 @@ function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onE
 
       const dados = await getFeriasAprovadasParaCalendario(ano, mes, searchTerm, departamentoFiltro);
 
-      const formattedEvents = dados.map(event => ({
-        id: event.id,
-        title: `${getIconePorTipo(event.tipo)} ${event.funcionarios?.nome_completo || 'N/A'}`,
-        start: new Date(event.data_inicio + 'T00:00:00'), 
-        end: new Date(event.data_fim + 'T23:59:59'),
-        resource: event,
-        allDay: true
-      }));
+      const formattedEvents = dados.map(event => {
+        const config = getConfigPorTipo(event.tipo);
+        return {
+          id: event.id,
+          title: `${config.icon} ${event.funcionarios?.nome_completo || 'N/A'}`,
+          start: new Date(event.data_inicio + 'T00:00:00'), 
+          end: new Date(event.data_fim + 'T23:59:59'),
+          resource: { ...event, config }, // Passa config para o styleGetter
+          allDay: true
+        };
+      });
 
       setEvents(formattedEvents);
     } catch (error) {
@@ -63,7 +70,6 @@ function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onE
     fetchEvents();
   }, [fetchEvents]);
 
-  // Drag & Drop Inteligente
   const handleEventDrop = async ({ event, start, end }) => {
     if (event.resource.status !== 'Pendente') {
       toast.error("Apenas solicitações Pendentes podem ser movidas.", { icon: '🔒' });
@@ -74,28 +80,19 @@ function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onE
       const novaDataInicio = format(start, 'yyyy-MM-dd');
       const novaDataFim = format(end, 'yyyy-MM-dd');
       
-      // Validação CLT
       if (event.resource.tipo === 'Férias') {
          const checkCLT = validarRegrasCLT(novaDataInicio);
-         if (!checkCLT.valido) {
-            toast(checkCLT.mensagem, { icon: '⚠️', duration: 5000 });
-         }
+         if (!checkCLT.valido) toast(checkCLT.mensagem, { icon: '⚠️', duration: 5000 });
       }
 
-      // Validação de Conflito (Ignorando o próprio evento)
       const temConflito = await checkConflitoDatas(event.resource.funcionario_id, novaDataInicio, novaDataFim, event.id);
-      
       if (temConflito) {
-        toast.error("Data indisponível: Conflita com outra ausência.");
+        toast.error("Conflito de datas!");
         return; 
       }
 
-      await updateAusencia(event.id, {
-        data_inicio: novaDataInicio,
-        data_fim: novaDataFim
-      });
-
-      toast.success("Reagendado com sucesso!");
+      await updateAusencia(event.id, { data_inicio: novaDataInicio, data_fim: novaDataFim });
+      toast.success("Reagendado!");
       fetchEvents(); 
     } catch (error) {
       toast.error(error.message);
@@ -104,18 +101,20 @@ function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onE
   };
 
   const eventStyleGetter = (event) => {
-    let backgroundColor = '#3174ad'; 
-    if (event.resource.status === 'Aprovado') backgroundColor = '#10B981';
-    if (event.resource.status === 'Pendente') backgroundColor = '#F59E0B';
-    if (event.resource.status === 'Rejeitado') backgroundColor = '#EF4444';
+    const config = event.resource.config;
+    // Se for Pendente, fica mais claro/transparente
+    const opacity = event.resource.status === 'Pendente' ? 0.7 : 1;
+    const borderStyle = event.resource.status === 'Pendente' ? 'dashed' : 'solid';
 
     return {
       style: {
-        backgroundColor,
+        backgroundColor: config.bg,
+        borderColor: config.border,
+        borderWidth: '2px',
+        borderStyle: borderStyle,
         borderRadius: '6px',
-        opacity: 0.95,
+        opacity: opacity,
         color: 'white',
-        border: '0px',
         display: 'block',
         fontSize: '0.85rem',
         padding: '2px 5px'
@@ -142,23 +141,18 @@ function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onE
           draggableAccessor={(event) => event.resource.status === 'Pendente'}
           resizable={false}
           onSelectEvent={(event) => onEventClick && onEventClick(event.id)}
-          messages={{
-            noEventsInRange: "Nenhuma ausência encontrada.",
-            showMore: total => `+${total} mais`
-          }}
+          messages={{ noEventsInRange: "Nenhuma ausência encontrada.", showMore: total => `+${total} mais` }}
           culture='pt-BR'
         />
       </div>
-       <div className="calendario-legenda" style={{marginTop: '10px', display:'flex', gap:'15px', fontSize:'0.8rem', color:'#64748b', paddingLeft:'10px'}}>
-        <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
-          <span style={{width:10, height:10, borderRadius:'50%', background:'#10B981'}}></span> Aprovado
-        </div>
-        <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
-          <span style={{width:10, height:10, borderRadius:'50%', background:'#F59E0B'}}></span> Pendente (Arrastável)
-        </div>
-        <div style={{marginLeft: 'auto'}}>
-           <small>Dica: Arraste os itens laranja para reagendar.</small>
-        </div>
+       <div className="calendario-legenda">
+        <div className="legenda-item"><span className="dot" style={{background:'#3b82f6'}}></span> Férias</div>
+        <div className="legenda-item"><span className="dot" style={{background:'#f59e0b'}}></span> Banco Horas</div>
+        <div className="legenda-item"><span className="dot" style={{background:'#8b5cf6'}}></span> Folgas</div>
+        <div className="legenda-item"><span className="dot" style={{background:'#ef4444'}}></span> Saúde</div>
+        <div className="legenda-divider">|</div>
+        <div className="legenda-item"><span className="dot-border solid"></span> Aprovado</div>
+        <div className="legenda-item"><span className="dot-border dashed"></span> Pendente</div>
       </div>
     </div>
   );
