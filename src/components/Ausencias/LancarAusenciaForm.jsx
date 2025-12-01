@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import useSWR, { useSWRConfig } from 'swr';
 import { toast } from 'react-hot-toast';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, addDays, format, getDay } from 'date-fns';
 import { getFuncionarios } from '../../services/funcionarioService';
 import { 
-  createAusencia,  // <--- CORREÇÃO AQUI
+  createAusencia, 
   updateAusencia, 
   getAusenciaById, 
   uploadAnexoAusencia, 
@@ -73,20 +73,40 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     }
   }, [selectedFuncionario, funcionarios, setValue, idParaEditar]);
 
-  const diasCalculados = useMemo(() => {
-    if (dataInicio && dataFim) {
-      const diff = differenceInDays(parseISO(dataFim), parseISO(dataInicio)) + 1;
-      return diff > 0 ? diff : 0;
-    }
-    return 0;
-  }, [dataInicio, dataFim]);
+  // --- 3. CÁLCULOS INTELIGENTES (UX) ---
+  const infoCalculada = useMemo(() => {
+    if (!dataInicio || !dataFim) return null;
+    
+    const start = parseISO(dataInicio);
+    const end = parseISO(dataFim);
+    const dias = differenceInDays(end, start) + 1;
+    
+    // Regra Visual: Alerta de Início (CLT)
+    const diaSemana = getDay(start); // 0=Dom, 6=Sab
+    const inicioRuim = (selectedTipo === 'Férias' && (diaSemana === 0 || diaSemana === 5 || diaSemana === 6));
+
+    // Previsão de Retorno (Dia seguinte ao fim)
+    const dataRetorno = addDays(end, 1);
+    
+    // Saldo Restante (Simulado)
+    const saldoRestante = saldoTotal - dias;
+
+    return {
+      dias: dias > 0 ? dias : 0,
+      retorno: format(dataRetorno, 'dd/MM/yyyy'),
+      inicioRuim,
+      saldoRestante,
+      isNegativo: saldoRestante < 0
+    };
+
+  }, [dataInicio, dataFim, selectedTipo, saldoTotal]);
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      // Validação de Saldo
+      // Validação de Saldo (Apenas Criação ou se regra rígida)
       if (data.tipo === 'Férias' && !idParaEditar) {
-         if (diasCalculados > saldoTotal) {
+         if (infoCalculada.dias > saldoTotal) {
              throw new Error(`Saldo insuficiente (${saldoTotal} dias).`);
          }
       }
@@ -105,7 +125,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
 
       const payload = {
         ...data,
-        quantidade: diasCalculados,
+        quantidade: infoCalculada.dias,
         categoria,
         ...(anexoPath ? { anexo_path: anexoPath } : {})
       };
@@ -118,7 +138,6 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
       } else {
         if (!anexoPath) payload.anexo_path = null; 
         
-        // <--- CORREÇÃO AQUI: Usando createAusencia
         await createAusencia(payload);
         toast.success('Solicitação registrada!');
       }
@@ -149,9 +168,27 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
             </select>
           </div>
 
-          {selectedFuncionario && (
-            <div style={{gridColumn: 'span 2', background: '#f0f9ff', padding: '12px', borderRadius: '6px', border: '1px solid #bae6fd'}}>
-              <span style={{fontWeight: 600, color: '#0284c7'}}>Saldo de Férias Disponível: {saldoTotal} Dias</span>
+          {/* Card de Feedback de Saldo Inteligente */}
+          {selectedFuncionario && selectedTipo === 'Férias' && (
+            <div style={{
+              gridColumn: 'span 2', 
+              background: infoCalculada?.isNegativo ? '#fef2f2' : '#f0f9ff', 
+              padding: '12px', borderRadius: '6px', 
+              border: `1px solid ${infoCalculada?.isNegativo ? '#fecaca' : '#bae6fd'}`,
+              display: 'flex', justifyContent: 'space-between'
+            }}>
+              <div>
+                <span style={{fontSize: '0.8rem', color: '#64748b'}}>Saldo Atual</span><br/>
+                <strong>{saldoTotal} dias</strong>
+              </div>
+              {infoCalculada?.dias > 0 && (
+                 <div style={{textAlign:'right'}}>
+                   <span style={{fontSize: '0.8rem', color: '#64748b'}}>Após Lançamento</span><br/>
+                   <strong style={{color: infoCalculada.isNegativo ? '#dc2626' : '#0284c7'}}>
+                     {infoCalculada.saldoRestante} dias
+                   </strong>
+                 </div>
+              )}
             </div>
           )}
 
@@ -178,8 +215,20 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
           
           <div className="ausencia-form-group">
             <label>Duração</label>
-            <input value={`${diasCalculados} dias`} disabled style={{background: '#eee'}} />
+            <input value={infoCalculada?.dias ? `${infoCalculada.dias} dias` : '-'} disabled style={{background: '#eee'}} />
           </div>
+
+          {/* Alertas Inteligentes */}
+          {infoCalculada?.inicioRuim && (
+             <div style={{gridColumn: 'span 2', color: '#b45309', fontSize: '0.85rem', background: '#fffbeb', padding: '8px', borderRadius: '4px'}}>
+               ⚠️ Atenção: Evite iniciar férias em Sextas ou Fins de Semana (Regra CLT).
+             </div>
+          )}
+          {infoCalculada?.dias > 0 && (
+             <div style={{gridColumn: 'span 2', color: '#059669', fontSize: '0.85rem', fontWeight: 600, marginTop: '-10px'}}>
+               📅 Previsão de Retorno: {infoCalculada.retorno}
+             </div>
+          )}
 
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
             <label>Anexo {selectedTipo?.includes('Atestado') && !idParaEditar && '*'}</label>
@@ -198,7 +247,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
 
         <div className="ausencia-form-footer">
           <button type="button" className="button-secondary" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="button-primary" disabled={isSubmitting}>
+          <button type="submit" className="button-primary" disabled={isSubmitting || infoCalculada?.isNegativo}>
             {idParaEditar ? 'Salvar Alterações' : 'Registrar'}
           </button>
         </div>

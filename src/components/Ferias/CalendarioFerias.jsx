@@ -9,11 +9,12 @@ import ptBR from 'date-fns/locale/pt-BR';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
-// Serviços (Atualizado para incluir checkConflitoDatas)
+// Serviços
 import { 
   getFeriasAprovadasParaCalendario, 
   updateAusencia, 
-  checkConflitoDatas 
+  checkConflitoDatas,
+  validarRegrasCLT
 } from '../../services/ausenciaService';
 
 // Estilos
@@ -86,13 +87,22 @@ function CalendarioFerias({
       const novaDataFim = format(end, 'yyyy-MM-dd');
       const funcionarioId = event.resource.funcionario_id;
 
-      // Regra 2: Verificação simples de conflito
-      // (Ignoramos o erro se for conflito com ele mesmo, o backend trata erros graves)
-      const temConflito = await checkConflitoDatas(funcionarioId, novaDataInicio, novaDataFim);
+      // Regra 2: Validação CLT (Visual)
+      // Avisa mas não bloqueia rígido no drag-and-drop para não frustrar UX, mas dá o alerta.
+      if (event.resource.tipo === 'Férias') {
+          const checkCLT = validarRegrasCLT(novaDataInicio);
+          if (!checkCLT.valido) {
+             toast(checkCLT.mensagem, { icon: '⚠️', duration: 5000 });
+          }
+      }
+
+      // Regra 3: Validação de Conflito (Passando ID do evento para excluir da checagem)
+      const temConflito = await checkConflitoDatas(funcionarioId, novaDataInicio, novaDataFim, event.id);
       
-      // Nota: A função checkConflitoDatas atual pode retornar true para o próprio evento.
-      // Em produção, idealmente passamos o ID do evento para excluir da checagem.
-      // Aqui, prosseguimos e confiamos no update, mas alertamos se houver falha.
+      if (temConflito) {
+        toast.error("Data indisponível: Conflita com outra ausência existente.");
+        return; // Cancela a ação
+      }
 
       await updateAusencia(event.id, {
         data_inicio: novaDataInicio,

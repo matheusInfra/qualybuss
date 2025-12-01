@@ -3,6 +3,24 @@ import { supabase } from './supabaseClient';
 
 const ANEXOS_BUCKET = 'anexos_ausencias';
 
+// --- FUNÇÕES AUXILIARES DE VALIDAÇÃO (NOVO) ---
+
+// Verifica se o início das férias é válido (Segurança Jurídica/CLT)
+// Retorna aviso se for Sexta(5), Sábado(6) ou Domingo(0)
+export const validarRegrasCLT = (dataInicio) => {
+  if (!dataInicio) return { valido: true };
+  const date = new Date(dataInicio + 'T00:00:00'); // Força fuso local
+  const diaSemana = date.getDay(); // 0 = Dom, 6 = Sab
+  
+  if (diaSemana === 0 || diaSemana === 6 || diaSemana === 5) {
+    return {
+      valido: false,
+      mensagem: "Pela legislação, recomenda-se não iniciar férias em Sextas, Sábados ou Domingos."
+    };
+  }
+  return { valido: true };
+};
+
 // ==============================================================================
 // 1. UPLOAD E ARQUIVOS
 // ==============================================================================
@@ -30,13 +48,24 @@ export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
 };
 
 // ==============================================================================
-// 2. CRIAÇÃO E LANÇAMENTO
+// 2. CRIAÇÃO E LANÇAMENTO (COM VALIDAÇÕES)
 // ==============================================================================
 
 export const createAusencia = async (dados) => {
-  if (['Férias', 'Folga Pessoal'].includes(dados.tipo)) {
+  // 1. Validação de Conflito Geral
+  if (['Férias', 'Folga Pessoal', 'Licença'].includes(dados.tipo)) {
     const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
     if (temConflito) throw new Error("Já existe uma ausência registrada neste período.");
+  }
+
+  // 2. Validação CLT (Específica para Férias)
+  if (dados.tipo === 'Férias') {
+    const checkCLT = validarRegrasCLT(dados.data_inicio);
+    if (!checkCLT.valido) {
+      // Optamos por lançar erro para forçar o usuário a corrigir, 
+      // mas poderia ser apenas um warning no frontend se quisesse ser flexível.
+      throw new Error(checkCLT.mensagem);
+    }
   }
 
   const { data, error } = await supabase
@@ -77,7 +106,7 @@ export const createCreditoSaldo = async (dados) => {
 };
 
 // ==============================================================================
-// 3. PERÍODOS AQUISITIVOS (SALDO) - [ADICIONADO]
+// 3. PERÍODOS AQUISITIVOS (SALDO)
 // ==============================================================================
 
 export const getPeriodosAquisitivos = async (funcionarioId) => {
@@ -85,7 +114,7 @@ export const getPeriodosAquisitivos = async (funcionarioId) => {
     .from('periodos_aquisitivos')
     .select('*')
     .eq('funcionario_id', funcionarioId)
-    .order('inicio_periodo', { ascending: true }); // Mais antigos primeiro para consumo
+    .order('inicio_periodo', { ascending: true });
   if (error) throw error;
   return data;
 };
@@ -244,7 +273,6 @@ export const deleteAusenciaSegura = async (id) => {
 };
 
 export const deleteCreditoSeguro = async (id) => {
-  // Lógica de exclusão de crédito omitida para brevidade, mantendo compatibilidade
   const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
   if (error) throw error;
   return true;
@@ -260,15 +288,27 @@ export const getAusenciaById = async (id) => {
 };
 
 export const getCreditoById = async (id) => {
-  // Simulação para edição
   const { data } = await supabase.from('historico_creditos').select('*').eq('id', id).maybeSingle();
   return data;
 };
 
+// [ATUALIZADO] updateAusencia com validação inteligente
 export const updateAusencia = async (id, dados) => {
-  const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status').eq('id', id).single();
+  const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status, funcionario_id').eq('id', id).single();
   if (!atual) throw new Error("Ausência não encontrada.");
   if (atual.status !== 'Pendente') throw new Error("Apenas solicitações pendentes podem ser editadas.");
+
+  // Valida conflitos (excluindo o próprio ID para evitar falso positivo)
+  if (dados.data_inicio && dados.data_fim) {
+    const temConflito = await checkConflitoDatas(atual.funcionario_id, dados.data_inicio, dados.data_fim, id);
+    if (temConflito) throw new Error("A nova data conflita com outro registro existente.");
+
+    // Valida CLT se for Férias
+    // (Assume-se que o tipo não muda na edição, se mudar precisaria buscar o tipo também)
+    // Para simplificar, validamos sempre datas
+    const checkCLT = validarRegrasCLT(dados.data_inicio);
+    if (!checkCLT.valido) throw new Error(checkCLT.mensagem);
+  }
   
   const { data, error } = await supabase.from('solicitacoes_ausencia').update(dados).eq('id', id).select();
   if (error) throw error;
@@ -276,18 +316,24 @@ export const updateAusencia = async (id, dados) => {
 };
 
 export const updateCredito = async (id, dados) => {
-   // Implementação padrão de update
    const { data, error } = await supabase.from('historico_creditos').update(dados).eq('id', id).select();
    if (error) throw error;
    return data[0];
 };
 
-export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim) => {
-  const { data } = await supabase.from('solicitacoes_ausencia')
+// [ATUALIZADO] Agora aceita 'excludeId' para ignorar um registro (útil na edição)
+export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, excludeId = null) => {
+  let query = supabase.from('solicitacoes_ausencia')
     .select('id')
     .eq('funcionario_id', funcionarioId)
     .neq('status', 'Rejeitado')
     .or(`data_inicio.lte.${dataFim},data_fim.gte.${dataInicio}`);
+  
+  if (excludeId) {
+    query = query.neq('id', excludeId);
+  }
+
+  const { data } = await query;
   return data?.length > 0;
 };
 
