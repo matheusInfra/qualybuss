@@ -1,9 +1,11 @@
-// src/utils/PDFProcessor.js
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
 
-// Configura o worker do PDF.js (Necessário para Vite/React)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configuração do Worker (Mantendo a correção anterior do Vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 /**
  * Processa o PDFzão, divide por páginas e tenta identificar o funcionário.
@@ -11,14 +13,21 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
  * @param {Array} funcionarios - Lista de funcionários do banco (para fazer o match)
  */
 export const processarPDFHolerites = async (file, funcionarios) => {
-  const arrayBuffer = await file.arrayBuffer();
-  
-  // 1. Carrega o documento para leitura de texto
-  const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+  // 1. Lê o arquivo original para um Buffer
+  const arrayBufferOriginal = await file.arrayBuffer();
+
+  // 2. CRIA UMA CÓPIA (CLONE) DO BUFFER
+  // Isso é vital: O PDF.js transfere o buffer para o worker e o "mata" (detach) na thread principal.
+  // Precisamos de duas cópias vivas: uma para ler (PDF.js) e outra para cortar (pdf-lib).
+  const bufferParaLeitura = arrayBufferOriginal.slice(0); 
+  const bufferParaEdicao = arrayBufferOriginal.slice(0);
+
+  // 3. Carrega o documento para LEITURA (Usa a cópia 1)
+  const loadingTask = pdfjsLib.getDocument(bufferParaLeitura);
   const pdf = await loadingTask.promise;
   
-  // 2. Carrega o documento para edição/split (separar as páginas)
-  const pdfDoc = await PDFDocument.load(arrayBuffer);
+  // 4. Carrega o documento para EDIÇÃO/CORTE (Usa a cópia 2)
+  const pdfDoc = await PDFDocument.load(bufferParaEdicao);
   
   const resultados = [];
 
@@ -26,51 +35,52 @@ export const processarPDFHolerites = async (file, funcionarios) => {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
+    
+    // Junta todo o texto da página em uma string só para busca
     const textoPagina = textContent.items.map(item => item.str).join(' ');
 
-    // --- ESTRATÉGIA DE EXTRAÇÃO (Adaptada para Onvio) ---
-    // Procuramos o nome do funcionário. 
-    // No seu modelo, o nome aparece solto, geralmente em caixa alta.
-    // Vamos varrer a lista de funcionários ativos e ver se o nome deles está nesta página.
-    
+    // --- ESTRATÉGIA DE EXTRAÇÃO ---
     let funcionarioEncontrado = null;
-    let grauCerteza = 'none'; // 'exact', 'partial', 'none'
 
-    // Normaliza o texto da página para evitar problemas com espaços extras/caixa
+    // Normaliza o texto da página (remove acentos, espaços extras, tudo maiúsculo)
     const textoNormalizado = textoPagina.toUpperCase().replace(/\s+/g, ' ');
 
     // Busca: Tenta achar o nome de algum funcionário dentro do texto da página
     for (const func of funcionarios) {
+      if (!func.nome_completo) continue;
+
       const nomeFuncionario = func.nome_completo.toUpperCase();
       
+      // Verifica se o nome completo está na página
       if (textoNormalizado.includes(nomeFuncionario)) {
         funcionarioEncontrado = func;
-        grauCerteza = 'exact';
-        break; // Achou exato, para de procurar
+        break; // Achou, para de procurar
       }
     }
 
-    // Extrai a Competência (Ex: "Agosto de 2025")
-    // Regex simples para tentar achar Mês/Ano
-    const matchCompetencia = textoNormalizado.match(/(JANEIRO|FEVEREIRO|MARÇO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+(\d{4})/);
-    const competencia = matchCompetencia ? matchCompetencia[0] : 'Desconhecida';
+    // Extrai a Competência (Ex: "Agosto de 2025") via Regex
+    const matchCompetencia = textoNormalizado.match(/(JANEIRO|FEVEREIRO|MARÇO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+(DE\s+)?(\d{4})/);
+    const competencia = matchCompetencia ? matchCompetencia[0] : 'Mês/Ano não identificado';
 
     // --- CRIAÇÃO DO PDF INDIVIDUAL ---
-    // Copia apenas esta página para um novo PDF
+    // Cria um novo PDF contendo apenas a página atual
     const novoPdf = await PDFDocument.create();
+    // Atenção: Indices do pdf-lib começam em 0, do pdf.js começam em 1
     const [copiedPage] = await novoPdf.copyPages(pdfDoc, [i - 1]);
     novoPdf.addPage(copiedPage);
     const pdfBytes = await novoPdf.save();
+    
+    // Cria o Blob para visualização e upload
     const blobIndividual = new Blob([pdfBytes], { type: 'application/pdf' });
 
     resultados.push({
-      id_temp: `page-${i}`, // ID temporário para a lista
+      id_temp: `page-${i}`, // ID único temporário
       numero_pagina: i,
-      funcionario: funcionarioEncontrado, // Pode ser null se não achou
+      funcionario: funcionarioEncontrado, // Objeto do funcionário ou null
       status: funcionarioEncontrado ? 'success' : 'warning', // Verde ou Amarelo
-      competencia,
-      arquivo: blobIndividual, // O arquivo pronto para upload
-      previewUrl: URL.createObjectURL(blobIndividual) // Para mostrar na tela
+      competencia, // Ex: "AGOSTO DE 2025"
+      arquivo: blobIndividual, // O arquivo físico pronto
+      previewUrl: URL.createObjectURL(blobIndividual) // Link para o iframe
     });
   }
 
