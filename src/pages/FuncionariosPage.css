@@ -1,65 +1,248 @@
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* src/pages/FuncionariosPage.css */
+
+.funcionarios-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  animation: fadeIn 0.4s ease;
 }
 
-.mural-container {
-  width: 100%;
+/* Cabeçalho */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
 }
 
-.mural-header {
+.page-header h1 {
+  font-size: 1.8rem;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+  font-weight: 700;
+}
+
+.page-header p {
+  color: #64748b;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.btn-novo {
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.btn-novo:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Barra de Filtros e Abas */
+.filters-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-}
-
-.mural-header h1 {
-  margin: 0;
-  color: #1a202c;
-}
-
-.button-novo {
-  padding: 10px 16px;
-  background-color: #2d3748;
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-.button-novo:hover {
-  background-color: #1a202c;
-}
-
-.mural-filter {
-  margin-bottom: 24px;
-}
-.mural-filter input {
-  width: 100%;
-  padding: 10px 14px;
-  font-size: 15px; 
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box; 
-  background-color: #fafafa;
-}
-
-.mural-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 32px;
   gap: 16px;
-  animation: fadeIn 0.5s ease-out; /* <-- ANIMAÇÃO DE FADE-IN */
+  flex-wrap: wrap;
 }
 
-.error-message {
-  color: #e53e3e;
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 300px;
+}
+
+.search-input-wrapper span {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 20px;
+}
+
+.search-input-wrapper input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input-wrapper input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Abas de Status (Ativos/Desligados) */
+.status-tabs {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.status-tabs button {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-tabs button:hover {
+  color: #334155;
+}
+
+.status-tabs button.active {
+  background: white;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Grid de Funcionários */
+.funcionarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.empty-grid {
+  grid-column: 1 / -1;
   text-align: center;
-  margin: 20px 0;
+  padding: 60px;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+/* Card do Funcionário (Wrapper) */
+.funcionario-wrapper {
+  position: relative;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: white;
+  overflow: hidden; /* Para o footer não vazar */
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.funcionario-wrapper:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e1;
+}
+
+/* Estilo visual para inativos */
+.funcionario-wrapper.inativo {
+  opacity: 0.75;
+  background: #f9fafb;
+  border: 1px dashed #cbd5e1;
+}
+
+.funcionario-wrapper.inativo:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #94a3b8;
+  opacity: 1;
+}
+
+/* Footer de Ações do Card */
+.card-actions-footer {
+  border-top: 1px solid #f1f5f9;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between; /* Editar na esq, Desligar na dir */
+  align-items: center;
+  background: #ffffff;
+}
+
+.btn-editar {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-editar:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.btn-desligar {
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.btn-desligar:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.btn-desligar span, .btn-editar span { font-size: 16px; }
+
+/* Badge de Status */
+.badge-desligado {
+  font-size: 0.75rem;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  display: inline-block;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-size: 1.1rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

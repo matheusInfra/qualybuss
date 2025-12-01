@@ -1,47 +1,44 @@
+// src/pages/DashboardPage.jsx
 import React from 'react';
 import useSWR from 'swr';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar 
+} from 'recharts';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import SkeletonCard from '../components/SkeletonCard';
-import AniversariantesCard from '../components/Dashboard/AniversariantesCard'; // [NOVO] Importação
+import AniversariantesCard from '../components/Dashboard/AniversariantesCard';
+import { getDashboardKPIs, getProximasFerias, getHistoricoKPIs } from '../services/dashboardService'; // Import novo
 import './DashboardPage.css';
 
 function DashboardPage() {
   const { user } = useAuth();
 
-  const { data: kpis, isLoading: kpiLoading } = useSWR('dashboard_kpis', async () => {
-    const { data, error } = await supabase.rpc('get_dashboard_kpis');
-    if (error) throw error;
-    return data;
-  });
+  // KPIs Atuais
+  const { data: kpis, isLoading: kpiLoading } = useSWR('dashboard_kpis', getDashboardKPIs);
+  
+  // Histórico para Gráficos
+  const { data: historico } = useSWR('historico_kpis', getHistoricoKPIs);
 
-  const { data: ultimasAusencias, isLoading: listLoading } = useSWR('dashboard_latest_ausencias', async () => {
-    const { data, error } = await supabase
-      .from('solicitacoes_ausencia')
-      .select('id, tipo, data_inicio, data_fim, status, funcionarios(nome_completo)')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    if (error) throw error;
-    return data;
-  });
+  // Próximas Férias (Mural rápido)
+  const { data: proximasFerias } = useSWR('proximas_ferias', getProximasFerias);
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  };
+  const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
-        <h1>Olá, Gestor</h1>
-        <p>Aqui está o panorama geral da sua empresa hoje.</p>
+        <h1>Painel de Controle</h1>
+        <p>Visão geral e evolução da sua operação.</p>
       </header>
 
-      {/* --- GRID DE KPIS --- */}
+      {/* --- GRID DE KPIS (Cards) --- */}
       <div className="kpi-grid">
         <div className="kpi-card blue">
           <div className="kpi-icon">👥</div>
           <div className="kpi-info">
-            <span className="kpi-label">Colaboradores Ativos</span>
+            <span className="kpi-label">Colaboradores</span>
             {kpiLoading ? <SkeletonCard /> : <span className="kpi-value">{kpis?.total_colaboradores || 0}</span>}
           </div>
         </div>
@@ -57,7 +54,7 @@ function DashboardPage() {
         <div className="kpi-card red">
           <div className="kpi-icon">⚠️</div>
           <div className="kpi-info">
-            <span className="kpi-label">Pendentes de Aprovação</span>
+            <span className="kpi-label">Pendências</span>
             {kpiLoading ? <SkeletonCard /> : <span className="kpi-value">{kpis?.pendentes || 0}</span>}
           </div>
         </div>
@@ -65,81 +62,93 @@ function DashboardPage() {
         <div className="kpi-card green">
           <div className="kpi-icon">💰</div>
           <div className="kpi-info">
-            <span className="kpi-label">Folha Estimada (Base)</span>
+            <span className="kpi-label">Folha Mensal</span>
             {kpiLoading ? <SkeletonCard /> : <span className="kpi-value">{formatCurrency(kpis?.folha_pagamento)}</span>}
           </div>
         </div>
       </div>
 
-      {/* --- SEÇÃO INFERIOR --- */}
-      <div className="dashboard-content-grid">
+      {/* --- ÁREA DE GRÁFICOS (NOVO) --- */}
+      <div className="charts-section">
         
-        {/* Coluna Esquerda: Últimas Solicitações */}
-        <div className="content-card">
-          <div className="card-header">
-            <h3>Últimas Movimentações</h3>
-            <button className="btn-link" onClick={() => window.location.href='/ausencias'}>Ver todas</button>
-          </div>
-          <div className="table-responsive">
-            <table className="simple-table">
-              <thead>
-                <tr>
-                  <th>Colaborador</th>
-                  <th>Tipo</th>
-                  <th>Data</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listLoading ? (
-                  <tr><td colSpan="4" className="text-center">Carregando...</td></tr>
-                ) : ultimasAusencias?.length === 0 ? (
-                  <tr><td colSpan="4" className="text-center">Nenhum registro recente.</td></tr>
-                ) : (
-                  ultimasAusencias?.map((item) => (
-                    <tr key={item.id}>
-                      <td className="fw-bold">{item.funcionarios?.nome_completo || 'N/A'}</td>
-                      <td>{item.tipo}</td>
-                      <td>{new Date(item.data_inicio).toLocaleDateString()}</td>
-                      <td>
-                        <span className={`status-badge ${item.status?.toLowerCase()}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* Gráfico 1: Evolução da Folha */}
+        <div className="chart-card">
+          <h3>📈 Evolução da Folha Salarial</h3>
+          <div style={{ width: '100%', height: 250 }}>
+            <ResponsiveContainer>
+              <AreaChart data={historico}>
+                <defs>
+                  <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />
+                <YAxis hide />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Area type="monotone" dataKey="total_folha" stroke="#10b981" fillOpacity={1} fill="url(#colorFolha)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Coluna Direita: Acesso Rápido + Aniversariantes */}
-        <div className="dashboard-right-col" style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
-          
-          <div className="content-card">
-            <div className="card-header">
-              <h3>Acesso Rápido</h3>
-            </div>
-            <div className="quick-actions">
-              <button className="action-btn" onClick={() => window.location.href='/funcionarios'}>
-                <span>👤</span> Novo Colaborador
-              </button>
-              <button className="action-btn" onClick={() => window.location.href='/ausencias'}>
-                <span>📅</span> Lançar Férias
-              </button>
-              <button className="action-btn" onClick={() => window.location.href='/documentos'}>
-                <span>📁</span> Upload Doc
-              </button>
-              <button className="action-btn warning" onClick={() => window.location.href='/ajustes'}>
-                <span>🛠️</span> Ajustes
-              </button>
-            </div>
+        {/* Gráfico 2: Evolução do Quadro */}
+        <div className="chart-card">
+          <h3>👥 Evolução do Quadro</h3>
+          <div style={{ width: '100%', height: 250 }}>
+            <ResponsiveContainer>
+              <BarChart data={historico}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />
+                <Tooltip />
+                <Bar dataKey="total_colaboradores" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* [NOVO] Widget de Aniversariantes */}
-          <AniversariantesCard />
+      </div>
 
+      {/* --- LISTAS E ACESSO RÁPIDO --- */}
+      <div className="dashboard-content-grid">
+        
+        {/* Próximas Férias */}
+        <div className="content-card">
+          <div className="card-header">
+            <h3>🏖️ Próximas Férias</h3>
+          </div>
+          <div className="lista-ferias-simples">
+            {proximasFerias?.length === 0 ? (
+              <p className="text-center text-gray-400 py-4">Nenhuma férias programada.</p>
+            ) : (
+              proximasFerias?.map((item, idx) => (
+                <div key={idx} className="item-ferias-row">
+                  <div className="user-row">
+                    <div className="avatar-mini">
+                        {item.funcionario_id?.nome_completo?.charAt(0)}
+                    </div>
+                    <span>{item.funcionario_id?.nome_completo}</span>
+                  </div>
+                  <span className="data-badge">{new Date(item.data_inicio).toLocaleDateString()}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Coluna Direita: Aniversariantes + Ações */}
+        <div className="dashboard-right-col">
+           <AniversariantesCard />
+           
+           <div className="quick-actions-card">
+              <h3>Acesso Rápido</h3>
+              <div className="quick-actions-grid">
+                <button onClick={() => window.location.href='/funcionarios/novo'}>👤 Novo</button>
+                <button onClick={() => window.location.href='/ausencias'}>📅 Férias</button>
+                <button onClick={() => window.location.href='/movimentacoes'}>💼 Cargos</button>
+              </div>
+           </div>
         </div>
 
       </div>
