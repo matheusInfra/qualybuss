@@ -1,6 +1,5 @@
 /* src/pages/DashboardPage.css */
 
-/* Container Principal */
 .dashboard-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -8,25 +7,11 @@
   animation: fadeIn 0.5s ease-out;
 }
 
-/* Header */
-.dashboard-header {
-  margin-bottom: 32px;
-}
+.dashboard-header { margin-bottom: 32px; }
+.dashboard-header h1 { font-size: 1.8rem; color: #1e293b; margin: 0 0 8px 0; font-weight: 700; }
+.dashboard-header p { color: #64748b; font-size: 1rem; margin: 0; }
 
-.dashboard-header h1 {
-  font-size: 1.8rem;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-  font-weight: 700;
-}
-
-.dashboard-header p {
-  color: #64748b;
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* --- KPI Cards (Topo) --- */
+/* KPI Cards */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -42,235 +27,81 @@
   align-items: center;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
-.kpi-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
+.kpi-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+.kpi-icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin-right: 16px; flex-shrink: 0; }
 
-.kpi-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.75rem;
-  margin-right: 16px;
-  flex-shrink: 0;
-}
-
-/* Cores dos Cards */
 .kpi-card.blue .kpi-icon { background-color: #eff6ff; color: #2563eb; }
 .kpi-card.orange .kpi-icon { background-color: #fff7ed; color: #ea580c; }
 .kpi-card.red .kpi-icon { background-color: #fef2f2; color: #dc2626; }
 .kpi-card.green .kpi-icon { background-color: #f0fdf4; color: #16a34a; }
 
-.kpi-info {
-  display: flex;
-  flex-direction: column;
-}
+.kpi-info { display: flex; flex-direction: column; }
+.kpi-label { font-size: 0.875rem; color: #64748b; font-weight: 500; margin-bottom: 4px; }
+.kpi-value { font-size: 1.5rem; font-weight: 800; color: #0f172a; line-height: 1.2; }
 
-.kpi-label {
-  font-size: 0.875rem;
-  color: #64748b;
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.kpi-value {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1.2;
-}
-
-/* --- Seção de Gráficos (Charts) --- */
+/* Gráficos */
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); /* Responsivo */
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
   gap: 24px;
   margin-bottom: 32px;
 }
 
 .chart-card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  display: flex;
-  flex-direction: column;
+  background: white; border-radius: 16px; padding: 24px;
+  border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  display: flex; flex-direction: column;
 }
+.chart-card h3 { margin: 0 0 24px 0; font-size: 1.1rem; color: #334155; font-weight: 600; }
+.chart-empty { height: 100%; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-style: italic; }
 
-.chart-card h3 {
-  margin: 0 0 24px 0;
-  font-size: 1.1rem;
-  color: #334155;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* --- Grid Inferior (Listas e Widgets) --- */
+/* Layout Inferior */
 .dashboard-content-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr; /* Esquerda maior, Direita menor */
-  gap: 24px;
-  align-items: start; /* Evita que estiquem */
+  display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;
 }
 
 @media (max-width: 1024px) {
-  .dashboard-content-grid {
-    grid-template-columns: 1fr; /* Empilha em telas menores */
-  }
-  .charts-section {
-    grid-template-columns: 1fr;
-  }
+  .dashboard-content-grid { grid-template-columns: 1fr; }
 }
 
-/* Card de Conteúdo Genérico */
+/* Lista Férias */
 .content-card {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
+  background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;
 }
+.card-header h3 { font-size: 1.1rem; margin: 0 0 16px 0; color: #334155; }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.card-header h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #334155;
-  margin: 0;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #2563eb;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.btn-link:hover { text-decoration: underline; }
-
-/* Lista de Próximas Férias */
-.lista-ferias-simples {
-  display: flex;
-  flex-direction: column;
-  gap: 0; /* Bordas cuidam do espaçamento */
-}
-
+.lista-ferias-simples { display: flex; flex-direction: column; }
 .item-ferias-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #f1f5f9;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid #f1f5f9;
 }
-
 .item-ferias-row:last-child { border-bottom: none; }
 
-.user-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #334155;
-}
-
+.user-row { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: 500; color: #334155; }
 .avatar-mini {
-  width: 36px;
-  height: 36px;
-  background: #e0f2fe;
-  color: #0369a1;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
+  width: 36px; height: 36px; background: #e0f2fe; color: #0369a1;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9rem;
 }
+.data-badge { background: #ecfdf5; color: #047857; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
 
-.data-badge {
-  background: #ecfdf5;
-  color: #047857;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
+/* Widgets Direita */
+.dashboard-right-col { display: flex; flex-direction: column; gap: 24px; }
 
-/* Coluna Direita (Widgets) */
-.dashboard-right-col {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* Card de Ações Rápidas */
 .quick-actions-card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  background: white; border-radius: 16px; padding: 24px; border: 1px solid #e2e8f0;
 }
+.quick-actions-card h3 { margin: 0 0 16px 0; font-size: 1.1rem; color: #334155; }
 
-.quick-actions-card h3 {
-  margin: 0 0 16px 0;
-  font-size: 1.1rem;
-  color: #334155;
-  font-weight: 600;
-}
-
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-}
-
+.quick-actions-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .quick-actions-grid button {
-  padding: 12px 8px;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #475569;
-  font-weight: 600;
+  padding: 12px 8px; background: #f8fafc; border: 1px solid #cbd5e1;
+  border-radius: 8px; cursor: pointer; font-size: 0.85rem; color: #475569; font-weight: 600;
   transition: all 0.2s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
 }
+.quick-actions-grid button:hover { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; transform: translateY(-2px); }
 
-.quick-actions-grid button:hover {
-  background: #eff6ff;
-  color: #2563eb;
-  border-color: #bfdbfe;
-  transform: translateY(-2px);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

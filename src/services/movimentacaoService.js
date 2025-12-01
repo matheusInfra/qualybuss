@@ -19,7 +19,7 @@ export const getMovimentacoesPorFuncionario = async (funcionarioId) => {
 };
 
 /**
- * Busca TODAS as movimentações recentes (com join para pegar nomes)
+ * [LEGADO] Busca TODAS as movimentações recentes (sem filtro)
  */
 export const getTodasMovimentacoes = async () => {
   const { data, error } = await supabase
@@ -31,8 +31,41 @@ export const getTodasMovimentacoes = async () => {
     .order('data_movimentacao', { ascending: false })
     .limit(50);
 
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * [NOVO] Busca Avançada com Filtros
+ * Permite analisar por período, tipo e colaborador específico.
+ */
+export const getMovimentacoesFiltradas = async ({ funcionarioId, tipo, dataInicio, dataFim }) => {
+  let query = supabase
+    .from('movimentacoes')
+    .select(`
+      *,
+      funcionarios ( nome_completo, avatar_url )
+    `)
+    .order('data_movimentacao', { ascending: false });
+
+  // Aplicação Dinâmica de Filtros
+  if (funcionarioId) {
+    query = query.eq('id_funcionario', funcionarioId);
+  }
+  if (tipo && tipo !== 'Todos') {
+    query = query.eq('tipo', tipo);
+  }
+  if (dataInicio) {
+    query = query.gte('data_movimentacao', dataInicio);
+  }
+  if (dataFim) {
+    query = query.lte('data_movimentacao', dataFim);
+  }
+
+  const { data, error } = await query;
+  
   if (error) {
-    console.error("Erro ao buscar todas as movimentações:", error.message);
+    console.error("Erro ao filtrar movimentações:", error.message);
     throw error;
   }
   return data;
@@ -78,7 +111,7 @@ export const createMovimentacao = async (dadosMovimentacao) => {
     updates.empresa_id = dadosMovimentacao.empresa_nova;
   }
 
-  // Executa update se houver mudanças
+  // Executa update se houver mudanças no cadastro
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await supabase
       .from('funcionarios')
@@ -87,6 +120,7 @@ export const createMovimentacao = async (dadosMovimentacao) => {
 
     if (updateError) {
       console.error("ALERTA CRÍTICO: Movimentação salva, mas falha ao atualizar cadastro:", updateError.message);
+      // Em produção, isso seria tratado com rollback ou fila de retry
       throw new Error("Movimentação registrada, mas houve erro ao atualizar o cadastro do funcionário.");
     }
   }
@@ -95,10 +129,9 @@ export const createMovimentacao = async (dadosMovimentacao) => {
 };
 
 /**
- * [MÓDULO DE DISSÍDIO] Simula um reajuste em massa sem gravar no banco.
+ * [MÓDULO AVANÇADO] Simula um reajuste em massa.
  */
 export const simularReajusteMassa = async ({ departamento, tipoReajuste, valor, dataVigencia }) => {
-  // 1. Busca Funcionários Elegíveis
   let query = supabase.from('funcionarios').select('id, nome_completo, salario_bruto, cargo, departamento, empresa_id').eq('status', 'Ativo');
   
   if (departamento && departamento !== 'Todos') {
@@ -110,7 +143,6 @@ export const simularReajusteMassa = async ({ departamento, tipoReajuste, valor, 
 
   if (!funcionarios.length) return [];
 
-  // 2. Calcula Projeção
   const simulacao = funcionarios.map(func => {
     let novoSalario = Number(func.salario_bruto);
     const salarioAtual = Number(func.salario_bruto);
@@ -139,7 +171,7 @@ export const simularReajusteMassa = async ({ departamento, tipoReajuste, valor, 
 };
 
 /**
- * [MÓDULO DE DISSÍDIO] Aplica o reajuste confirmado.
+ * [MÓDULO AVANÇADO] Aplica o reajuste confirmado.
  */
 export const aplicarReajusteMassa = async (listaAprovada, motivo, dataVigencia) => {
   const user = (await supabase.auth.getUser()).data.user;

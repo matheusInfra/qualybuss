@@ -4,11 +4,10 @@ import useSWR from 'swr';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar 
 } from 'recharts';
-import { supabase } from '../services/supabaseClient';
+import { getDashboardKPIs, getProximasFerias, getHistoricoKPIs } from '../services/dashboardService';
 import { useAuth } from '../contexts/AuthContext';
 import SkeletonCard from '../components/SkeletonCard';
 import AniversariantesCard from '../components/Dashboard/AniversariantesCard';
-import { getDashboardKPIs, getProximasFerias, getHistoricoKPIs } from '../services/dashboardService'; // Import novo
 import './DashboardPage.css';
 
 function DashboardPage() {
@@ -20,11 +19,17 @@ function DashboardPage() {
   // Histórico para Gráficos
   const { data: historico } = useSWR('historico_kpis', getHistoricoKPIs);
 
-  // Próximas Férias (Mural rápido)
+  // Próximas Férias
   const { data: proximasFerias } = useSWR('proximas_ferias', getProximasFerias);
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-  const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const formatDate = (dateStr) => {
+    if(!dateStr) return '';
+    const date = new Date(dateStr);
+    // Ajuste de fuso simples para exibição
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
 
   return (
     <div className="dashboard-container">
@@ -75,21 +80,24 @@ function DashboardPage() {
         <div className="chart-card">
           <h3>📈 Evolução da Folha Salarial</h3>
           <div style={{ width: '100%', height: 250 }}>
-            <ResponsiveContainer>
-              <AreaChart data={historico}>
-                <defs>
-                  <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />
-                <YAxis hide />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Area type="monotone" dataKey="total_folha" stroke="#10b981" fillOpacity={1} fill="url(#colorFolha)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {historico && historico.length > 0 ? (
+              <ResponsiveContainer>
+                <AreaChart data={historico}>
+                  <defs>
+                    <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Area type="monotone" dataKey="total_folha" stroke="#10b981" fillOpacity={1} fill="url(#colorFolha)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="chart-empty">Dados históricos sendo coletados...</div>
+            )}
           </div>
         </div>
 
@@ -97,14 +105,18 @@ function DashboardPage() {
         <div className="chart-card">
           <h3>👥 Evolução do Quadro</h3>
           <div style={{ width: '100%', height: 250 }}>
-            <ResponsiveContainer>
-              <BarChart data={historico}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />
-                <Tooltip />
-                <Bar dataKey="total_colaboradores" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {historico && historico.length > 0 ? (
+              <ResponsiveContainer>
+                <BarChart data={historico}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="data_referencia" tickFormatter={formatDate} style={{fontSize: '12px'}} />
+                  <Tooltip />
+                  <Bar dataKey="total_colaboradores" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="chart-empty">Dados históricos sendo coletados...</div>
+            )}
           </div>
         </div>
 
@@ -116,11 +128,11 @@ function DashboardPage() {
         {/* Próximas Férias */}
         <div className="content-card">
           <div className="card-header">
-            <h3>🏖️ Próximas Férias</h3>
+            <h3>🏖️ Próximas Férias (15 dias)</h3>
           </div>
           <div className="lista-ferias-simples">
             {proximasFerias?.length === 0 ? (
-              <p className="text-center text-gray-400 py-4">Nenhuma férias programada.</p>
+              <p className="text-center text-gray-400 py-4">Nenhuma férias programada para breve.</p>
             ) : (
               proximasFerias?.map((item, idx) => (
                 <div key={idx} className="item-ferias-row">
@@ -144,7 +156,7 @@ function DashboardPage() {
            <div className="quick-actions-card">
               <h3>Acesso Rápido</h3>
               <div className="quick-actions-grid">
-                <button onClick={() => window.location.href='/funcionarios/novo'}>👤 Novo</button>
+                <button onClick={() => window.location.href='/funcionarios'}>👤 Novo</button>
                 <button onClick={() => window.location.href='/ausencias'}>📅 Férias</button>
                 <button onClick={() => window.location.href='/movimentacoes'}>💼 Cargos</button>
               </div>
