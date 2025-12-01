@@ -16,7 +16,6 @@ import './LancarAusenciaForm.css';
 function LancarAusenciaForm({ onClose, idParaEditar = null }) {
   const { register, handleSubmit, watch, setValue, reset } = useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [periodos, setPeriodos] = useState([]);
   const [saldoTotal, setSaldoTotal] = useState(0);
   const { mutate } = useSWRConfig();
 
@@ -31,35 +30,26 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
   // 1. MODO EDIÇÃO: Carregar dados
   useEffect(() => {
     if (idParaEditar) {
-      const carregarDadosEdicao = async () => {
-        try {
-          const dados = await getAusenciaById(idParaEditar);
-          if (dados) {
-            reset({
-              funcionario_id: dados.funcionario_id,
-              tipo: dados.tipo,
-              data_inicio: dados.data_inicio,
-              data_fim: dados.data_fim,
-              motivo: dados.motivo,
-              empresa_id: dados.empresa_id
-            });
-            toast("Modo de Edição ativado", { icon: '✏️', duration: 2000 });
-          }
-        } catch (error) {
-          console.error(error);
-          toast.error("Erro ao carregar dados para edição");
-          onClose();
+      getAusenciaById(idParaEditar).then(dados => {
+        if (dados) {
+          reset({
+            funcionario_id: dados.funcionario_id,
+            tipo: dados.tipo,
+            data_inicio: dados.data_inicio,
+            data_fim: dados.data_fim,
+            motivo: dados.motivo,
+            empresa_id: dados.empresa_id
+          });
+          toast("Modo de Edição ativado", { icon: '✏️', duration: 2000 });
         }
-      };
-      carregarDadosEdicao();
+      });
     }
-  }, [idParaEditar, reset, onClose]);
+  }, [idParaEditar, reset]);
 
-  // 2. Carrega saldo e empresa
+  // 2. Carrega saldo
   useEffect(() => {
     if (selectedFuncionario) {
       getPeriodosAquisitivos(selectedFuncionario).then(data => {
-        setPeriodos(data || []);
         const saldo = data
           ?.filter(p => p.status === 'Aberto')
           .reduce((acc, curr) => acc + Number(curr.saldo_atual), 0);
@@ -73,71 +63,57 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     }
   }, [selectedFuncionario, funcionarios, setValue, idParaEditar]);
 
-  // --- 3. CÁLCULOS INTELIGENTES (UX) ---
-  const infoCalculada = useMemo(() => {
+  // 3. Cálculos Inteligentes e UX
+  const stats = useMemo(() => {
     if (!dataInicio || !dataFim) return null;
     
     const start = parseISO(dataInicio);
     const end = parseISO(dataFim);
     const dias = differenceInDays(end, start) + 1;
     
-    // Regra Visual: Alerta de Início (CLT)
-    const diaSemana = getDay(start); // 0=Dom, 6=Sab
+    // Regra Visual: Alerta de Início
+    const diaSemana = getDay(start); // 0=Dom
     const inicioRuim = (selectedTipo === 'Férias' && (diaSemana === 0 || diaSemana === 5 || diaSemana === 6));
-
-    // Previsão de Retorno (Dia seguinte ao fim)
-    const dataRetorno = addDays(end, 1);
     
-    // Saldo Restante (Simulado)
+    const dataRetorno = addDays(end, 1);
     const saldoRestante = saldoTotal - dias;
+    const porcentagemUso = saldoTotal > 0 ? Math.min((dias / saldoTotal) * 100, 100) : 100;
 
     return {
       dias: dias > 0 ? dias : 0,
       retorno: format(dataRetorno, 'dd/MM/yyyy'),
       inicioRuim,
       saldoRestante,
-      isNegativo: saldoRestante < 0
+      isNegativo: saldoRestante < 0,
+      porcentagemUso
     };
-
   }, [dataInicio, dataFim, selectedTipo, saldoTotal]);
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      // Validação de Saldo (Apenas Criação ou se regra rígida)
       if (data.tipo === 'Férias' && !idParaEditar) {
-         if (infoCalculada.dias > saldoTotal) {
-             throw new Error(`Saldo insuficiente (${saldoTotal} dias).`);
-         }
+         if (stats.dias > saldoTotal) throw new Error(`Saldo insuficiente (${saldoTotal} dias).`);
       }
 
-      // Upload de Anexo
       let anexoPath = null;
       if (data.anexo && data.anexo[0]) {
         anexoPath = await uploadAnexoAusencia(data.anexo[0], data.funcionario_id);
       }
 
-      // Categorização
-      let categoria = 'Geral';
-      if (data.tipo === 'Férias') categoria = 'Ferias';
-      else if (data.tipo.includes('Atestado') || data.tipo.includes('Licença')) categoria = 'Saude';
-      else if (data.tipo.includes('Pessoal')) categoria = 'Pessoal';
-
       const payload = {
         ...data,
-        quantidade: infoCalculada.dias,
-        categoria,
+        quantidade: stats.dias,
+        categoria: data.tipo === 'Férias' ? 'Ferias' : (data.tipo.includes('Atestado') ? 'Saude' : 'Pessoal'),
         ...(anexoPath ? { anexo_path: anexoPath } : {})
       };
-      
       delete payload.anexo;
 
       if (idParaEditar) {
         await updateAusencia(idParaEditar, payload);
         toast.success('Solicitação atualizada!');
       } else {
-        if (!anexoPath) payload.anexo_path = null; 
-        
+        if (!anexoPath) payload.anexo_path = null;
         await createAusencia(payload);
         toast.success('Solicitação registrada!');
       }
@@ -145,7 +121,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
       mutate('getTodasSolicitacoes'); 
       onClose();
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message, { duration: 5000 });
     } finally {
       setIsSubmitting(false);
     }
@@ -158,37 +134,31 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
           
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
             <label>Colaborador *</label>
-            <select 
-                {...register('funcionario_id', { required: true })} 
-                disabled={!!idParaEditar} 
-                style={idParaEditar ? {backgroundColor: '#f1f5f9', cursor: 'not-allowed'} : {}}
-            >
+            <select {...register('funcionario_id', { required: true })} disabled={!!idParaEditar} style={idParaEditar ? {backgroundColor: '#f1f5f9'} : {}}>
               <option value="">Selecione...</option>
               {funcionarios?.map(f => <option key={f.id} value={f.id}>{f.nome_completo}</option>)}
             </select>
           </div>
 
-          {/* Card de Feedback de Saldo Inteligente */}
+          {/* BARRA DE PROGRESSO DO SALDO */}
           {selectedFuncionario && selectedTipo === 'Férias' && (
-            <div style={{
-              gridColumn: 'span 2', 
-              background: infoCalculada?.isNegativo ? '#fef2f2' : '#f0f9ff', 
-              padding: '12px', borderRadius: '6px', 
-              border: `1px solid ${infoCalculada?.isNegativo ? '#fecaca' : '#bae6fd'}`,
-              display: 'flex', justifyContent: 'space-between'
-            }}>
-              <div>
-                <span style={{fontSize: '0.8rem', color: '#64748b'}}>Saldo Atual</span><br/>
-                <strong>{saldoTotal} dias</strong>
+            <div style={{gridColumn: 'span 2', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0'}}>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'6px', fontSize:'0.85rem', color:'#475569'}}>
+                <span>Saldo Atual: <strong>{saldoTotal} dias</strong></span>
+                {stats?.dias > 0 && (
+                  <span style={{color: stats.isNegativo ? '#ef4444' : '#0284c7'}}>
+                    Restante: <strong>{stats.saldoRestante} dias</strong>
+                  </span>
+                )}
               </div>
-              {infoCalculada?.dias > 0 && (
-                 <div style={{textAlign:'right'}}>
-                   <span style={{fontSize: '0.8rem', color: '#64748b'}}>Após Lançamento</span><br/>
-                   <strong style={{color: infoCalculada.isNegativo ? '#dc2626' : '#0284c7'}}>
-                     {infoCalculada.saldoRestante} dias
-                   </strong>
-                 </div>
-              )}
+              <div style={{height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden'}}>
+                <div style={{
+                  height: '100%', 
+                  width: `${stats?.porcentagemUso || 0}%`, 
+                  background: stats?.isNegativo ? '#ef4444' : '#3b82f6',
+                  transition: 'width 0.3s ease'
+                }}></div>
+              </div>
             </div>
           )}
 
@@ -199,44 +169,32 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
               <option value="Atestado Médico">Atestado Médico</option>
               <option value="Licença Paternidade/Maternidade">Licença Paternidade/Maternidade</option>
               <option value="Folga Pessoal">Folga Pessoal</option>
-              <option value="Outro">Outro</option>
             </select>
           </div>
 
-          <div className="ausencia-form-group">
-            <label>Início *</label>
-            <input type="date" {...register('data_inicio', { required: true })} />
-          </div>
-          
-          <div className="ausencia-form-group">
-            <label>Fim *</label>
-            <input type="date" {...register('data_fim', { required: true })} />
-          </div>
+          <div className="ausencia-form-group"><label>Início *</label><input type="date" {...register('data_inicio', { required: true })} /></div>
+          <div className="ausencia-form-group"><label>Fim *</label><input type="date" {...register('data_fim', { required: true })} /></div>
           
           <div className="ausencia-form-group">
             <label>Duração</label>
-            <input value={infoCalculada?.dias ? `${infoCalculada.dias} dias` : '-'} disabled style={{background: '#eee'}} />
+            <input value={stats?.dias ? `${stats.dias} dias` : '-'} disabled style={{background: '#f1f5f9'}} />
           </div>
 
-          {/* Alertas Inteligentes */}
-          {infoCalculada?.inicioRuim && (
-             <div style={{gridColumn: 'span 2', color: '#b45309', fontSize: '0.85rem', background: '#fffbeb', padding: '8px', borderRadius: '4px'}}>
-               ⚠️ Atenção: Evite iniciar férias em Sextas ou Fins de Semana (Regra CLT).
+          {/* ALERTAS INTELIGENTES */}
+          {stats?.inicioRuim && (
+             <div style={{gridColumn: 'span 2', padding: '10px', background: '#fff7ed', borderLeft: '4px solid #f97316', color: '#9a3412', fontSize: '0.85rem', borderRadius: '4px'}}>
+               ⚠️ <strong>Atenção:</strong> Evite iniciar férias em sextas-feiras ou fins de semana.
              </div>
           )}
-          {infoCalculada?.dias > 0 && (
-             <div style={{gridColumn: 'span 2', color: '#059669', fontSize: '0.85rem', fontWeight: 600, marginTop: '-10px'}}>
-               📅 Previsão de Retorno: {infoCalculada.retorno}
+          {stats?.dias > 0 && (
+             <div style={{gridColumn: 'span 2', marginTop: '-10px', fontSize: '0.9rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'}}>
+               <span>🔙</span> Retorno previsto: {stats.retorno}
              </div>
           )}
 
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
             <label>Anexo {selectedTipo?.includes('Atestado') && !idParaEditar && '*'}</label>
-            <input 
-              type="file" 
-              {...register('anexo', { required: (!idParaEditar && selectedTipo?.includes('Atestado')) })} 
-            />
-            {idParaEditar && <small style={{color:'#64748b', display:'block', marginTop:'4px'}}>Deixe vazio para manter o anexo atual.</small>}
+            <input type="file" {...register('anexo', { required: (!idParaEditar && selectedTipo?.includes('Atestado')) })} />
           </div>
 
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
@@ -247,7 +205,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
 
         <div className="ausencia-form-footer">
           <button type="button" className="button-secondary" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="button-primary" disabled={isSubmitting || infoCalculada?.isNegativo}>
+          <button type="submit" className="button-primary" disabled={isSubmitting || stats?.isNegativo}>
             {idParaEditar ? 'Salvar Alterações' : 'Registrar'}
           </button>
         </div>

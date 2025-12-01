@@ -9,7 +9,6 @@ import ptBR from 'date-fns/locale/pt-BR';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
-// Serviços
 import { 
   getFeriasAprovadasParaCalendario, 
   updateAusencia, 
@@ -17,46 +16,36 @@ import {
   validarRegrasCLT
 } from '../../services/ausenciaService';
 
-// Estilos
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './CalendarioFerias.css';
 
-// Configuração do Localizador
 const locales = { 'pt-BR': ptBR };
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
-
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 const DnDCalendar = withDragAndDrop(Calendar);
 
-function CalendarioFerias({ 
-  data: dataAtual,      // Data controlada pela página pai
-  searchTerm,           // Filtro de texto
-  departamentoFiltro,   // Filtro de departamento
-  onEventClick          // Função para abrir o modal no pai
-}) {
+function CalendarioFerias({ data: dataAtual, searchTerm, departamentoFiltro, onEventClick }) {
   const [events, setEvents] = useState([]);
-  const navigate = useNavigate();
 
-  // 1. BUSCAR DADOS (Reativo aos filtros e data)
+  // Ícones para leitura rápida
+  const getIconePorTipo = (tipo) => {
+    if (tipo === 'Férias') return '🏖️';
+    if (tipo.includes('Atestado')) return '🤒';
+    if (tipo.includes('Licença')) return '👶';
+    return '📅';
+  };
+
   const fetchEvents = useCallback(async () => {
     try {
       if (!dataAtual) return;
-
       const ano = dataAtual.getFullYear();
-      const mes = dataAtual.getMonth() + 1; // Ajuste 0-11 para 1-12
+      const mes = dataAtual.getMonth() + 1;
 
       const dados = await getFeriasAprovadasParaCalendario(ano, mes, searchTerm, departamentoFiltro);
 
       const formattedEvents = dados.map(event => ({
         id: event.id,
-        title: `${event.funcionarios?.nome_completo || 'N/A'} - ${event.tipo}`,
-        // Adiciona hora fixa para evitar problemas de fuso no grid
+        title: `${getIconePorTipo(event.tipo)} ${event.funcionarios?.nome_completo || 'N/A'}`,
         start: new Date(event.data_inicio + 'T00:00:00'), 
         end: new Date(event.data_fim + 'T23:59:59'),
         resource: event,
@@ -65,8 +54,8 @@ function CalendarioFerias({
 
       setEvents(formattedEvents);
     } catch (error) {
-      console.error("Erro ao carregar calendário:", error);
-      toast.error("Erro ao sincronizar calendário.");
+      console.error(error);
+      toast.error("Erro ao carregar calendário.");
     }
   }, [dataAtual, searchTerm, departamentoFiltro]);
 
@@ -74,34 +63,31 @@ function CalendarioFerias({
     fetchEvents();
   }, [fetchEvents]);
 
-  // 2. LÓGICA DE BLOQUEIO E ATUALIZAÇÃO (Drag & Drop)
+  // Drag & Drop Inteligente
   const handleEventDrop = async ({ event, start, end }) => {
-    // Regra 1: Apenas Pendentes podem ser movidos
     if (event.resource.status !== 'Pendente') {
-      toast.error("Apenas solicitações Pendentes podem ser reagendadas aqui.", { icon: '🔒' });
+      toast.error("Apenas solicitações Pendentes podem ser movidas.", { icon: '🔒' });
       return; 
     }
 
     try {
       const novaDataInicio = format(start, 'yyyy-MM-dd');
       const novaDataFim = format(end, 'yyyy-MM-dd');
-      const funcionarioId = event.resource.funcionario_id;
-
-      // Regra 2: Validação CLT (Visual)
-      // Avisa mas não bloqueia rígido no drag-and-drop para não frustrar UX, mas dá o alerta.
+      
+      // Validação CLT
       if (event.resource.tipo === 'Férias') {
-          const checkCLT = validarRegrasCLT(novaDataInicio);
-          if (!checkCLT.valido) {
-             toast(checkCLT.mensagem, { icon: '⚠️', duration: 5000 });
-          }
+         const checkCLT = validarRegrasCLT(novaDataInicio);
+         if (!checkCLT.valido) {
+            toast(checkCLT.mensagem, { icon: '⚠️', duration: 5000 });
+         }
       }
 
-      // Regra 3: Validação de Conflito (Passando ID do evento para excluir da checagem)
-      const temConflito = await checkConflitoDatas(funcionarioId, novaDataInicio, novaDataFim, event.id);
+      // Validação de Conflito (Ignorando o próprio evento)
+      const temConflito = await checkConflitoDatas(event.resource.funcionario_id, novaDataInicio, novaDataFim, event.id);
       
       if (temConflito) {
-        toast.error("Data indisponível: Conflita com outra ausência existente.");
-        return; // Cancela a ação
+        toast.error("Data indisponível: Conflita com outra ausência.");
+        return; 
       }
 
       await updateAusencia(event.id, {
@@ -109,49 +95,32 @@ function CalendarioFerias({
         data_fim: novaDataFim
       });
 
-      toast.success("Datas atualizadas (Pendente)");
-      fetchEvents(); // Recarrega visualização
+      toast.success("Reagendado com sucesso!");
+      fetchEvents(); 
     } catch (error) {
-      toast.error("Erro ao mover: " + error.message);
-      fetchEvents(); // Reverte visualmente
+      toast.error(error.message);
+      fetchEvents(); 
     }
   };
 
-  // 3. ESTILIZAÇÃO POR STATUS
   const eventStyleGetter = (event) => {
     let backgroundColor = '#3174ad'; 
-    let borderColor = '#265985';
-
-    if (event.resource.status === 'Aprovado') {
-      backgroundColor = '#10B981'; // Verde
-      borderColor = '#059669';
-    } else if (event.resource.status === 'Pendente') {
-      backgroundColor = '#F59E0B'; // Laranja
-      borderColor = '#D97706';
-    } else if (event.resource.status === 'Rejeitado') {
-      backgroundColor = '#EF4444'; // Vermelho
-      borderColor = '#B91C1C';
-    }
+    if (event.resource.status === 'Aprovado') backgroundColor = '#10B981';
+    if (event.resource.status === 'Pendente') backgroundColor = '#F59E0B';
+    if (event.resource.status === 'Rejeitado') backgroundColor = '#EF4444';
 
     return {
       style: {
         backgroundColor,
-        borderColor,
-        borderRadius: '4px',
-        opacity: 0.9,
+        borderRadius: '6px',
+        opacity: 0.95,
         color: 'white',
         border: '0px',
         display: 'block',
-        fontSize: '0.85rem'
+        fontSize: '0.85rem',
+        padding: '2px 5px'
       }
     };
-  };
-
-  // 4. INTERAÇÃO AO CLICAR
-  const handleSelectEvent = (event) => {
-    if (onEventClick) {
-      onEventClick(event.id);
-    }
   };
 
   return (
@@ -160,51 +129,35 @@ function CalendarioFerias({
         <DnDCalendar
           localizer={localizer}
           events={events}
-          
-          // Controle Externo (FeriasPage)
           date={dataAtual}
           onNavigate={() => {}} 
           view="month"
           onView={() => {}} 
           toolbar={false}
-
           startAccessor="start"
           endAccessor="end"
           style={{ height: '100%' }}
-          
           eventPropGetter={eventStyleGetter}
-          
-          // Drag & Drop
           onEventDrop={handleEventDrop}
           draggableAccessor={(event) => event.resource.status === 'Pendente'}
           resizable={false}
-          
-          // Clique
-          onSelectEvent={handleSelectEvent}
-          
+          onSelectEvent={(event) => onEventClick && onEventClick(event.id)}
           messages={{
-            next: "Próximo",
-            previous: "Anterior",
-            today: "Hoje",
-            month: "Mês",
-            week: "Semana",
-            day: "Dia",
-            agenda: "Agenda",
-            date: "Data",
-            time: "Hora",
-            event: "Evento",
-            noEventsInRange: "Nenhuma ausência encontrada com estes filtros."
+            noEventsInRange: "Nenhuma ausência encontrada.",
+            showMore: total => `+${total} mais`
           }}
           culture='pt-BR'
         />
       </div>
-
        <div className="calendario-legenda" style={{marginTop: '10px', display:'flex', gap:'15px', fontSize:'0.8rem', color:'#64748b', paddingLeft:'10px'}}>
         <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
           <span style={{width:10, height:10, borderRadius:'50%', background:'#10B981'}}></span> Aprovado
         </div>
         <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
           <span style={{width:10, height:10, borderRadius:'50%', background:'#F59E0B'}}></span> Pendente (Arrastável)
+        </div>
+        <div style={{marginLeft: 'auto'}}>
+           <small>Dica: Arraste os itens laranja para reagendar.</small>
         </div>
       </div>
     </div>

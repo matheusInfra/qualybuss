@@ -1,12 +1,11 @@
-// src/components/Modal/ModalSolicitarAjuste.jsx
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../services/supabaseClient';
-import './ModalAjusteSaldo.css'; // Podemos reutilizar o CSS do modal de saldo ou criar um novo
+import { solicitarAjuste } from '../../services/ausenciaService';
+import './ModalSolicitarAjuste.css';
 
 function ModalSolicitarAjuste({ ausencia, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Justificativa, 2: Novos Dados
+  const [step, setStep] = useState(1);
   
   const [form, setForm] = useState({
     tipo_ajuste: 'Erro Operacional',
@@ -20,38 +19,33 @@ function ModalSolicitarAjuste({ ausencia, onClose, onSuccess }) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleNext = () => {
-    if (form.justificativa.length < 10) {
-      toast.error("A justificativa deve ser detalhada (min. 10 caracteres).");
-      return;
-    }
-    setStep(2);
-  };
-
   const handleSubmit = async () => {
+    if (form.justificativa.length < 5) return toast.error("Justifique a alteração.");
+    
     setLoading(true);
-    const toastId = toast.loading("Processando retificação segura...");
-
     try {
-      // Chamada RPC (Remote Procedure Call) para o Backend Blindado
-      // Essa função será criada no Passo 3
-      const { error } = await supabase.rpc('processar_retificacao_ausencia', {
-        p_ausencia_id: ausencia.id,
-        p_tipo_ajuste: form.tipo_ajuste,
-        p_justificativa: form.justificativa,
-        p_nova_data_inicio: form.nova_data_inicio,
-        p_nova_data_fim: form.nova_data_fim,
-        p_novo_tipo: form.novo_tipo
-      });
+      // Prepara o pacote de dados para o Inbox
+      const payload = {
+        ausencia_id: ausencia.id,
+        tipo_ajuste: form.tipo_ajuste,
+        justificativa: form.justificativa,
+        dados_anteriores: { // Snapshot do estado atual
+          tipo: ausencia.tipo,
+          data_inicio: ausencia.data_inicio,
+          data_fim: ausencia.data_fim
+        },
+        novos_dados: { // O que se deseja aplicar
+          tipo: form.novo_tipo,
+          data_inicio: form.nova_data_inicio,
+          data_fim: form.nova_data_fim
+        }
+      };
 
-      if (error) throw error;
-
-      toast.success("Ajuste registrado e auditado com sucesso!", { id: toastId });
+      await solicitarAjuste(payload);
       onSuccess();
       onClose();
     } catch (error) {
-      console.error(error);
-      toast.error("Erro ao processar ajuste: " + error.message, { id: toastId });
+      toast.error("Erro: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -59,84 +53,59 @@ function ModalSolicitarAjuste({ ausencia, onClose, onSuccess }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '500px' }}>
-        <div className="modal-header warning-header">
-          <h3>⚠️ Retificação de Registro Consolidado</h3>
-          <button onClick={onClose} className="close-btn">×</button>
+      <div className="modal-content">
+        <div className="modal-header">
+          <h3>Solicitar Retificação</h3>
+          <button onClick={onClose}>×</button>
         </div>
 
         <div className="modal-body">
           {step === 1 && (
-            <div className="step-container">
-              <p className="text-sm text-gray-600 mb-4">
-                Este registro já foi aprovado. Qualquer alteração será gravada na 
-                <strong> Tabela de Auditoria Fiscal</strong>.
-              </p>
-
+            <>
+              <p className="helper-text">Este registro entrará em análise antes de ser alterado.</p>
               <div className="form-group">
-                <label>Tipo de Ocorrência</label>
+                <label>Motivo</label>
                 <select name="tipo_ajuste" value={form.tipo_ajuste} onChange={handleChange}>
-                  <option value="Erro Operacional">Erro de Digitação / Operacional</option>
-                  <option value="Cancelamento">Cancelamento da Ausência</option>
-                  <option value="Mudança de Data">Alteração de Datas (Solicitado pelo Gestor)</option>
-                  <option value="Interrupção Legal">Interrupção Legal (Ex: Doença durante férias)</option>
+                  <option>Erro Operacional</option>
+                  <option>Cancelamento</option>
+                  <option>Mudança de Datas</option>
                 </select>
               </div>
-
               <div className="form-group">
-                <label>Justificativa Obrigatória</label>
-                <textarea 
-                  name="justificativa" 
-                  rows="4" 
-                  className="w-full border p-2 rounded"
-                  placeholder="Descreva detalhadamente o motivo da alteração..."
-                  value={form.justificativa}
-                  onChange={handleChange}
-                ></textarea>
+                <label>Justificativa *</label>
+                <textarea name="justificativa" rows="3" value={form.justificativa} onChange={handleChange}></textarea>
               </div>
-
-              <button className="button-primary w-full mt-4" onClick={handleNext}>
-                Continuar para Dados &raquo;
-              </button>
-            </div>
+              <button className="button-primary w-full mt-4" onClick={() => setStep(2)}>Próximo: Dados Corretos</button>
+            </>
           )}
 
           {step === 2 && (
-            <div className="step-container">
-              <h4 className="font-bold mb-3">Informe os Dados Corretos</h4>
-              
+            <>
               <div className="form-group">
-                <label>Novo Tipo</label>
+                <label>Tipo Correto</label>
                 <select name="novo_tipo" value={form.novo_tipo} onChange={handleChange}>
                   <option value="Férias">Férias</option>
                   <option value="Folga Pessoal">Folga Pessoal</option>
                   <option value="Atestado Médico">Atestado Médico</option>
-                  {/* Outros tipos... */}
                 </select>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="form-group">
-                  <label>Nova Data Início</label>
+                  <label>Início Correto</label>
                   <input type="date" name="nova_data_inicio" value={form.nova_data_inicio} onChange={handleChange} />
                 </div>
                 <div className="form-group">
-                  <label>Nova Data Fim</label>
+                  <label>Fim Correto</label>
                   <input type="date" name="nova_data_fim" value={form.nova_data_fim} onChange={handleChange} />
                 </div>
               </div>
-
-              <div className="flex gap-2 mt-6">
+              <div className="flex gap-2 mt-4">
                 <button className="button-secondary flex-1" onClick={() => setStep(1)}>Voltar</button>
-                <button 
-                  className="button-primary flex-1 bg-red-600 hover:bg-red-700 text-white" 
-                  onClick={handleSubmit}
-                  disabled={loading}
-                >
-                  {loading ? 'Auditando...' : 'Confirmar Retificação'}
+                <button className="button-primary flex-1" onClick={handleSubmit} disabled={loading}>
+                  {loading ? 'Enviando...' : 'Enviar Solicitação'}
                 </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
