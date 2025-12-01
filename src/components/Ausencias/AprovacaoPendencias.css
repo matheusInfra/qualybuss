@@ -1,0 +1,190 @@
+.aprovacao-container {
+  padding: 10px 0;
+}
+
+.empty-state-aprovacao {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  border: 1px dashed #e2e8f0;
+  color: #64748b;
+}
+
+.icon-check {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  color: #1e293b;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title .badge {
+  background: #ef4444;
+  color: white;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.lista-pendencias {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.card-pendencia {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  transition: transform 0.2s;
+}
+
+.card-pendencia:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.pendencia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar, .avatar-placeholder {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #64748b;
+}
+
+.user-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.user-info .cargo {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.tag-tipo {
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pendencia-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.data-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.data-box .label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.data-box strong {
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.arrow {
+  color: #cbd5e1;
+}
+
+.duracao-badge {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.pendencia-motivo {
+  font-size: 0.9rem;
+  color: #475569;
+  font-style: italic;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.pendencia-anexo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #2563eb;
+  margin-bottom: 16px;
+}
+
+.pendencia-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-aprovar, .btn-rejeitar {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+}
+
+.btn-aprovar {
+  background: #22c55e;
+  color: white;
+}
+
+.btn-rejeitar {
+  background: #fff1f2;
+  color: #e11d48;
+  border: 1px solid #fecaca;
+}
+
+.btn-aprovar:hover { background: #16a34a; }
+.btn-rejeitar:hover { background: #fee2e2; }

@@ -1,4 +1,3 @@
-// vite.config.js
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -6,7 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [
     react({
-      // Esta linha força o uso do novo transformador JSX
+      // Esta linha força o novo transformador JSX, removendo o aviso
       jsxRuntime: 'automatic', 
     }),
   ],

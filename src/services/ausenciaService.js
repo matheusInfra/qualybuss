@@ -3,7 +3,9 @@ import { supabase } from './supabaseClient';
 
 const ANEXOS_BUCKET = 'anexos_ausencias';
 
-// --- INTELIGÊNCIA DE NEGÓCIO (VALIDAÇÕES) ---
+// ==============================================================================
+// 0. INTELIGÊNCIA DE NEGÓCIO & VALIDAÇÕES
+// ==============================================================================
 
 const FERIADOS_NACIONAIS = [
   '01-01', '21-04', '01-05', '07-09', '12-10', '02-11', '15-11', '25-12'
@@ -11,7 +13,7 @@ const FERIADOS_NACIONAIS = [
 
 const isFeriado = (dataString) => {
   if (!dataString) return false;
-  const partes = dataString.split('-');
+  const partes = dataString.split('-'); // YYYY-MM-DD
   if (partes.length !== 3) return false;
   const mesDia = `${partes[1]}-${partes[2]}`;
   return FERIADOS_NACIONAIS.includes(mesDia);
@@ -23,10 +25,11 @@ export const validarRegrasCLT = (dataInicio) => {
   const date = new Date(dataInicio + 'T00:00:00'); 
   const diaSemana = date.getDay(); 
   
+  // Regra: Evitar início em Sexta(5), Sábado(6) ou Domingo(0)
   if (diaSemana === 0 || diaSemana === 6 || diaSemana === 5) {
     return {
       valido: false,
-      mensagem: "⚠️ Pela legislação, recomenda-se não iniciar férias em Sextas, Sábados ou Domingos."
+      mensagem: "⚠️ Pela legislação (Precedente Normativo 100 TST), recomenda-se não iniciar férias em Sextas, Sábados ou Domingos."
     };
   }
 
@@ -52,27 +55,75 @@ export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, exc
   return data?.length > 0;
 };
 
-// ==============================================================================
-// 1. UPLOAD E ARQUIVOS
-// ==============================================================================
-
-export const uploadAnexoAusencia = async (file, funcionarioId) => {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}.${fileExt}`;
-  const filePath = `${funcionarioId}/${fileName}`;
-  const { error } = await supabase.storage.from(ANEXOS_BUCKET).upload(filePath, file);
-  if (error) throw error;
-  return filePath;
-};
-
-export const getAnexoAusenciaDownloadUrl = async (pathStorage) => {
-  const { data, error } = await supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(pathStorage, 60);
-  if (error) throw error;
-  return data.signedUrl;
+// Auxiliar para cálculo de dias
+const calcularDias = (inicio, fim) => {
+  const oneDay = 24 * 60 * 60 * 1000;
+  const firstDate = new Date(inicio + 'T00:00:00');
+  const secondDate = new Date(fim + 'T00:00:00');
+  return Math.round(Math.abs((firstDate - secondDate) / oneDay)) + 1;
 };
 
 // ==============================================================================
-// 2. CRIAÇÃO E EDIÇÃO (CRUD)
+// 1. GESTÃO DE SALDO (O "BANCO" DE DIAS)
+// ==============================================================================
+
+/**
+ * Consome ou devolve dias do período aquisitivo mais antigo em aberto.
+ * @param {string} funcionarioId 
+ * @param {number} diasQtd (Positivo = Consumir / Negativo = Devolver)
+ */
+const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
+  if (diasQtd === 0) return;
+
+  // Busca períodos abertos (FIFO - First In, First Out)
+  const { data: periodos } = await supabase
+    .from('periodos_aquisitivos')
+    .select('*')
+    .eq('funcionario_id', funcionarioId)
+    .eq('status', 'Aberto')
+    .gt('saldo_atual', 0)
+    .order('inicio_periodo', { ascending: true });
+
+  if (!periodos || periodos.length === 0) {
+    if (diasQtd < 0) { console.warn("Devolução sem período ativo."); return; }
+    throw new Error("O funcionário não possui saldo de férias disponível.");
+  }
+
+  let diasRestantesParaAbater = diasQtd;
+
+  for (const periodo of periodos) {
+    if (diasRestantesParaAbater === 0) break;
+
+    const saldoDisponivel = periodo.saldo_atual;
+    let abate = 0;
+
+    if (diasRestantesParaAbater > 0) {
+        // Consumo
+        abate = Math.min(diasRestantesParaAbater, saldoDisponivel);
+    } else {
+        // Devolução
+        abate = diasRestantesParaAbater; 
+    }
+
+    const novoSaldo = saldoDisponivel - abate;
+    const novosDiasGozados = (periodo.dias_gozados || 0) + abate;
+    const novoStatus = novoSaldo === 0 ? 'Fechado' : 'Aberto';
+
+    await supabase
+      .from('periodos_aquisitivos')
+      .update({ saldo_atual: novoSaldo, dias_gozados: novosDiasGozados, status: novoStatus })
+      .eq('id', periodo.id);
+
+    diasRestantesParaAbater -= abate;
+  }
+
+  if (diasRestantesParaAbater > 0) {
+    throw new Error(`Saldo insuficiente! Faltam ${diasRestantesParaAbater} dias.`);
+  }
+};
+
+// ==============================================================================
+// 2. CRIAÇÃO E EDIÇÃO DE AUSÊNCIAS
 // ==============================================================================
 
 export const createAusencia = async (dados) => {
@@ -111,26 +162,58 @@ export const deleteAusenciaSegura = async (id) => {
   const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status, anexo_path').eq('id', id).single();
   if (!atual) throw new Error("Registro não encontrado.");
   if (atual.status !== 'Pendente') throw new Error("Por segurança, apenas registros Pendentes podem ser excluídos.");
+  
   if (atual.anexo_path) await supabase.storage.from(ANEXOS_BUCKET).remove([atual.anexo_path]);
+  
   const { error } = await supabase.from('solicitacoes_ausencia').delete().eq('id', id);
   if (error) throw error;
   return true;
 };
 
 // ==============================================================================
-// 3. CRÉDITOS E SALDOS
+// 3. FLUXO DE APROVAÇÃO (MESA DE DECISÃO)
+// ==============================================================================
+
+export const getSolicitacoesPendentes = async () => {
+  const { data, error } = await supabase
+    .from('solicitacoes_ausencia')
+    .select(`*, funcionarios ( nome_completo, departamento, avatar_url, cargo )`)
+    .eq('status', 'Pendente')
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return data;
+};
+
+export const decidirSolicitacao = async (id, decisao, motivo = '') => {
+  if (!['Aprovado', 'Rejeitado'].includes(decisao)) throw new Error("Decisão inválida.");
+
+  const { data: solicitacao } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
+  if (!solicitacao) throw new Error("Solicitação não encontrada.");
+
+  // Se Aprovar Férias -> Desconta Saldo
+  if (decisao === 'Aprovado' && solicitacao.tipo === 'Férias') {
+    await movimentarSaldoFerias(solicitacao.funcionario_id, solicitacao.quantidade);
+  }
+
+  const { data, error } = await supabase
+    .from('solicitacoes_ausencia')
+    .update({ status: decisao })
+    .eq('id', id)
+    .select();
+
+  if (error) throw error;
+  return data[0];
+};
+
+// ==============================================================================
+// 4. CRÉDITOS E SALDOS (MANUTENÇÃO)
 // ==============================================================================
 
 export const getPeriodosAquisitivos = async (funcionarioId) => {
   const { data, error } = await supabase.from('periodos_aquisitivos').select('*').eq('funcionario_id', funcionarioId).order('inicio_periodo', { ascending: true });
   if (error) throw error;
   return data;
-};
-
-export const updatePeriodoAquisitivo = async (id, dados) => {
-  const { data, error } = await supabase.from('periodos_aquisitivos').update(dados).eq('id', id).select();
-  if (error) throw error;
-  return data[0];
 };
 
 export const createCreditoSaldo = async (dados) => {
@@ -143,8 +226,7 @@ export const createCreditoSaldo = async (dados) => {
       dias_direito: dados.quantidade,
       status: 'Aberto'
     }]).select();
-    if (error) throw error;
-    return data[0];
+    if (error) throw error; return data[0];
   } else {
     const { data, error } = await supabase.from('historico_creditos').insert([{
       funcionario_id: dados.funcionario_id,
@@ -154,8 +236,7 @@ export const createCreditoSaldo = async (dados) => {
       motivo: dados.motivo,
       data_lancamento: dados.data_inicio 
     }]).select();
-    if (error) throw error;
-    return data[0];
+    if (error) throw error; return data[0];
   }
 };
 
@@ -164,40 +245,74 @@ export const getCreditoById = async (id) => {
   const { data: credito } = await supabase.from('historico_creditos').select('*').eq('id', id).maybeSingle();
   if (credito) return credito;
   const { data: periodo } = await supabase.from('periodos_aquisitivos').select('*').eq('id', id).maybeSingle();
-  if (periodo) {
-    return {
-      ...periodo, tipo: 'Férias', quantidade: periodo.dias_direito,
-      data_lancamento: periodo.inicio_periodo, data_inicio: periodo.inicio_periodo,
-      data_fim: periodo.fim_periodo, data_limite: periodo.limite_concessivo
-    };
-  }
+  if (periodo) return { ...periodo, tipo: 'Férias', quantidade: periodo.dias_direito, data_lancamento: periodo.inicio_periodo, data_inicio: periodo.inicio_periodo, data_fim: periodo.fim_periodo };
   return null;
 };
 
 export const updateCredito = async (id, dados) => {
   if (dados.tipo === 'Férias') {
-     const { data, error } = await supabase.from('periodos_aquisitivos').update({
-      inicio_periodo: dados.data_inicio, fim_periodo: dados.data_fim,
-      limite_concessivo: dados.data_limite, dias_direito: dados.quantidade
-    }).eq('id', id).select();
+     const { data, error } = await supabase.from('periodos_aquisitivos').update({ inicio_periodo: dados.data_inicio, fim_periodo: dados.data_fim, limite_concessivo: dados.data_limite, dias_direito: dados.quantidade }).eq('id', id).select();
     if (error) throw error; return data[0];
   } else {
-    const { data, error } = await supabase.from('historico_creditos').update({
-      tipo: dados.tipo, quantidade: dados.quantidade, unidade: dados.unidade,
-      motivo: dados.motivo, data_lancamento: dados.data_inicio
-    }).eq('id', id).select();
+    const { data, error } = await supabase.from('historico_creditos').update({ tipo: dados.tipo, quantidade: dados.quantidade, unidade: dados.unidade, motivo: dados.motivo, data_lancamento: dados.data_inicio }).eq('id', id).select();
     if (error) throw error; return data[0];
   }
 };
 
-export const deleteCreditoSeguro = async (id) => {
-  const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
+export const updatePeriodoAquisitivo = async (id, dados) => {
+  const { data, error } = await supabase.from('periodos_aquisitivos').update(dados).eq('id', id).select();
   if (error) throw error;
-  return true;
+  return data[0];
 };
 
 // ==============================================================================
-// 4. LEITURA (CALENDÁRIO/DASHBOARD/HISTÓRICO)
+// 5. AJUSTES E AUDITORIA (CONTROLE DE RETIFICAÇÕES)
+// ==============================================================================
+
+export const solicitarAjuste = async (payload) => {
+  const { data, error } = await supabase.from('solicitacoes_ajuste').insert([{
+      ausencia_id: payload.ausencia_id, tipo_ajuste: payload.tipo_ajuste, justificativa: payload.justificativa,
+      dados_anteriores: payload.dados_anteriores, novos_dados: payload.novos_dados, status: 'Pendente',
+      solicitante_id: (await supabase.auth.getUser()).data.user?.id
+    }]).select();
+  if (error) throw new Error("Falha ao registrar ajuste: " + error.message);
+  return data[0];
+};
+
+export const getAjustesPendentes = async () => {
+  const { data, error } = await supabase.from('solicitacoes_ajuste').select(`*, ausencia:ausencia_id ( id, funcionarios ( nome_completo, cargo ) )`).eq('status', 'Pendente').order('created_at', { ascending: false });
+  if (error) throw error; return data;
+};
+
+export const aprovarAjuste = async (ajusteId, dadosNovos, ausenciaId) => {
+  const { data: original } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', ausenciaId).single();
+  
+  // Recálculo financeiro de saldo no ajuste
+  if (original.tipo === 'Férias' && dadosNovos.tipo === 'Férias') {
+    const diasAntigos = original.quantidade || calcularDias(original.data_inicio, original.data_fim);
+    const diasNovos = calcularDias(dadosNovos.data_inicio, dadosNovos.data_fim);
+    const diferenca = diasNovos - diasAntigos;
+    if (diferenca !== 0) await movimentarSaldoFerias(original.funcionario_id, diferenca);
+  }
+
+  const { error: upError } = await supabase.from('solicitacoes_ausencia').update({ 
+      tipo: dadosNovos.tipo, data_inicio: dadosNovos.data_inicio, data_fim: dadosNovos.data_fim, 
+      quantidade: calcularDias(dadosNovos.data_inicio, dadosNovos.data_fim) 
+    }).eq('id', ausenciaId);
+  if (upError) throw upError;
+
+  await supabase.from('solicitacoes_ajuste').update({ status: 'Aprovado', data_aprovacao: new Date() }).eq('id', ajusteId);
+  await supabase.from('auditoria_ajustes').insert([{ tipo_acao: 'Retificação Aprovada', justificativa: `Ajuste ID ${ajusteId} aprovado.`, tabela_afetada: 'solicitacoes_ausencia', registro_id: ausenciaId }]);
+  return true;
+};
+
+export const rejeitarAjuste = async (ajusteId, motivo) => {
+  const { error } = await supabase.from('solicitacoes_ajuste').update({ status: 'Rejeitado', obs_resolucao: motivo, data_aprovacao: new Date() }).eq('id', ajusteId);
+  if (error) throw error; return true;
+};
+
+// ==============================================================================
+// 6. LEITURA (CALENDÁRIO/DASHBOARD/HISTÓRICO)
 // ==============================================================================
 
 export const getFeriasAprovadasParaCalendario = async (ano, mes, searchTerm = '', departamento = 'Todos') => {
@@ -246,91 +361,9 @@ export const getMuralRecente = async () => {
   return { ausencias: resA.data || [], creditos: resC.data || [], periodos: resP.data || [] };
 };
 
-export const updateStatusSolicitacao = async (id, status) => {
-  const { data, error } = await supabase.from('solicitacoes_ausencia').update({ status }).eq('id', id).select();
-  if (error) throw error;
-  return data[0];
-};
-
-export const getAusenciaById = async (id) => {
-  if (!id) return null;
-  const { data, error } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
-  if (error) throw error;
-  return data;
-};
-
-// ==============================================================================
-// 7. MÓDULO DE AJUSTES E RETIFICAÇÕES (NOVO FLUXO)
-// ==============================================================================
-
-export const solicitarAjuste = async (payload) => {
-  const { data, error } = await supabase
-    .from('solicitacoes_ajuste') // Se esta tabela não existir, crie-a no Supabase
-    .insert([{
-      ausencia_id: payload.ausencia_id,
-      tipo_ajuste: payload.tipo_ajuste,
-      justificativa: payload.justificativa,
-      dados_anteriores: payload.dados_anteriores,
-      novos_dados: payload.novos_dados,
-      status: 'Pendente',
-      solicitante_id: (await supabase.auth.getUser()).data.user?.id
-    }])
-    .select();
-
-  if (error) throw new Error("Falha ao registrar solicitação de ajuste: " + error.message);
-  return data[0];
-};
-
-export const getAjustesPendentes = async () => {
-  const { data, error } = await supabase
-    .from('solicitacoes_ajuste')
-    .select(`*, ausencia:ausencia_id ( id, funcionarios ( nome_completo, cargo ) )`)
-    .eq('status', 'Pendente')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data;
-};
-
-export const aprovarAjuste = async (ajusteId, dadosNovos, ausenciaId) => {
-  // 1. Atualiza a Ausência Original
-  const { error: updateError } = await supabase
-    .from('solicitacoes_ausencia')
-    .update({ tipo: dadosNovos.tipo, data_inicio: dadosNovos.data_inicio, data_fim: dadosNovos.data_fim })
-    .eq('id', ausenciaId);
-
-  if (updateError) throw updateError;
-
-  // 2. Fecha o ticket
-  const { error: ajusteError } = await supabase
-    .from('solicitacoes_ajuste')
-    .update({ status: 'Aprovado', data_aprovacao: new Date() })
-    .eq('id', ajusteId);
-
-  if (ajusteError) throw ajusteError;
-
-  // 3. Grava Auditoria
-  await supabase.from('auditoria_ajustes').insert([{
-    tipo_acao: 'Retificação Aprovada', justificativa: `Ajuste ID ${ajusteId} aprovado.`,
-    tabela_afetada: 'solicitacoes_ausencia', registro_id: ausenciaId
-  }]);
-
-  return true;
-};
-
-export const rejeitarAjuste = async (ajusteId, motivoRejeicao) => {
-  const { error } = await supabase
-    .from('solicitacoes_ajuste')
-    .update({ status: 'Rejeitado', obs_resolucao: motivoRejeicao, data_aprovacao: new Date() })
-    .eq('id', ajusteId);
-
-  if (error) throw error;
-  return true;
-};
-
-// Funções legadas (mantidas)
-export const getHistoricoAusencias = async () => { const { data } = await supabase.from('solicitacoes_ausencia').select('*'); return data; };
-export const getHistoricoCreditos = async () => { const { data } = await supabase.from('historico_creditos').select('*'); return data; };
-export const getTodasSolicitacoes = async () => { const { data } = await supabase.from('solicitacoes_ausencia').select('*, funcionarios(nome_completo, avatar_url, cargo)'); return data; };
-export const concluirSolicitacao = async (id) => updateStatusSolicitacao(id, 'Concluído');
-export const deleteSolicitacao = async (id) => deleteAusenciaSegura(id);
+// Auxiliares
+export const getAusenciaById = async (id) => { const { data } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single(); return data; };
+export const updateStatusSolicitacao = async (id, status) => { const { data } = await supabase.from('solicitacoes_ausencia').update({ status }).eq('id', id).select(); return data[0]; };
+export const uploadAnexoAusencia = async (file, funcionarioId) => { const path = `${funcionarioId}/${Date.now()}.${file.name.split('.').pop()}`; await supabase.storage.from(ANEXOS_BUCKET).upload(path, file); return path; };
+export const getAnexoAusenciaDownloadUrl = async (path) => { const { data } = await supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(path, 60); return data.signedUrl; };
+export const deleteCreditoSeguro = async (id) => { await supabase.from('historico_creditos').delete().eq('id', id); return true; };

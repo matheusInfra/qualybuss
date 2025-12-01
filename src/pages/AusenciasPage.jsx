@@ -3,60 +3,56 @@ import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import './AusenciasPage.css';
 
-// Serviços (ADICIONADO)
+// Serviços
 import { getMuralRecente } from '../services/ausenciaService';
 
-// Sub-componentes das Abas
+// Sub-componentes
 import MuralMovimentacoes from '../components/Ausencias/MuralMovimentacoes';
 import HistoricoAusencias from '../components/Ausencias/HistoricoAusencias';
 import PainelSaldos from '../components/Ausencias/PainelSaldos';
+import AprovacaoPendencias from '../components/Ausencias/AprovacaoPendencias'; // [NOVO]
 
 // Modais
 import ModalLancarMovimento from '../components/Modal/ModalLancarMovimento';
 import ModalAjusteSaldo from '../components/Modal/ModalAjusteSaldo';
 
 function AusenciasPage() {
-  const [activeTab, setActiveTab] = useState('mural');
+  // Aba padrão 'aprovacao' para focar na decisão
+  const [activeTab, setActiveTab] = useState('aprovacao');
   
-  // Estado para armazenar os dados do Mural (ADICIONADO)
   const [muralData, setMuralData] = useState([]);
   const [isLoadingMural, setIsLoadingMural] = useState(true);
 
-  // Estados dos Modais
   const [modalLancamento, setModalLancamento] = useState(null); 
   const [modalAjuste, setModalAjuste] = useState(null); 
 
-  // --- EFEITO PARA BUSCAR DADOS (ADICIONADO) ---
   useEffect(() => {
-    carregarDadosMural();
-  }, []);
+    if (activeTab === 'mural') {
+        carregarDadosMural();
+    }
+  }, [activeTab]);
 
   const carregarDadosMural = async () => {
     setIsLoadingMural(true);
     try {
       const dados = await getMuralRecente();
       
-      // Precisamos unificar as listas (ausências, créditos e períodos) 
-      // para exibir tudo no mural, ou filtrar apenas o que você deseja.
-      // Aqui estou padronizando tudo para o formato que o Card espera.
-      
       const ausenciasFormatadas = (dados.ausencias || []).map(item => ({
         ...item,
-        categoria_origem: 'ausencia' // Flag para saber a origem se precisar
+        categoria_origem: 'ausencia'
       }));
 
       const creditosFormatados = (dados.creditos || []).map(item => ({
         ...item,
         id: item.id,
         tipo: item.tipo || 'Crédito',
-        data_inicio: item.data_lancamento, // Mapeando para data_inicio
-        data_fim: item.data_lancamento,    // Crédito pontual tem fim igual início
-        observacao: item.motivo,           // Mapeando motivo para observacao
-        status: 'Concluído',               // Créditos já nascem concluídos
+        data_inicio: item.data_lancamento,
+        data_fim: item.data_lancamento,
+        observacao: item.motivo,
+        status: 'Concluído',
         categoria_origem: 'credito'
       }));
       
-      // Juntamos tudo e ordenamos por data
       const tudoMisturado = [...ausenciasFormatadas, ...creditosFormatados].sort((a, b) => {
         return new Date(b.data_inicio) - new Date(a.data_inicio);
       });
@@ -70,29 +66,25 @@ function AusenciasPage() {
     }
   };
 
-  // Handlers para Lançamento
   const abrirNovoLancamento = () => setModalLancamento({ tipo: 'novo' });
   const fecharModalLancamento = () => {
     setModalLancamento(null);
-    carregarDadosMural(); // Recarrega o mural após salvar
+    carregarDadosMural(); 
   };
 
-  // Handlers para Ajuste
   const abrirAjuste = (funcionario) => {
     setModalAjuste({ isOpen: true, funcionario });
   };
   const fecharAjuste = () => {
     setModalAjuste(null);
-    // Se quiser atualizar saldos ou algo assim, chame aqui
   };
 
   return (
     <div className="ausencias-container">
-      {/* Cabeçalho Fixo */}
       <div className="ausencias-header">
         <div>
-          <h1 className="page-title">Central de Ausências</h1>
-          <p className="page-subtitle">Gerencie férias, folgas e banco de horas.</p>
+          <h1 className="page-title">Gestão de Ausências</h1>
+          <p className="page-subtitle">Centralize aprovações e controle de férias.</p>
         </div>
         
         <button className="button-novo-lancamento" onClick={abrirNovoLancamento}>
@@ -101,8 +93,15 @@ function AusenciasPage() {
         </button>
       </div>
 
-      {/* Navegação por Abas */}
       <div className="ausencias-tabs">
+        <button 
+          className={`tab-btn-destaque ${activeTab === 'aprovacao' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('aprovacao')}
+        >
+          <span className="material-symbols-outlined icon-tab">gavel</span>
+          Aprovações
+        </button>
+
         <button 
           className={activeTab === 'mural' ? 'active' : ''} 
           onClick={() => setActiveTab('mural')}
@@ -123,15 +122,17 @@ function AusenciasPage() {
         </button>
       </div>
 
-      {/* Área de Conteúdo Dinâmico */}
       <div className="ausencias-tab-content">
+        {activeTab === 'aprovacao' && (
+          <AprovacaoPendencias />
+        )}
+
         {activeTab === 'mural' && (
-          // CORREÇÃO AQUI: Passando os dados para o componente
           isLoadingMural ? (
             <div style={{padding: 20, textAlign: 'center'}}>Carregando mural...</div>
           ) : (
             <MuralMovimentacoes 
-              movimentacoes={muralData} // <--- AQUI ESTAVA O ERRO (Faltava essa prop)
+              movimentacoes={muralData} 
               onEditar={(id, tipo) => setModalLancamento({ tipo: 'editar', id, origem: tipo })} 
             />
           )
@@ -149,8 +150,6 @@ function AusenciasPage() {
         )}
       </div>
 
-      {/* --- MODAIS --- */}
-      
       <ModalLancarMovimento
         isOpen={!!modalLancamento}
         onClose={fecharModalLancamento}
