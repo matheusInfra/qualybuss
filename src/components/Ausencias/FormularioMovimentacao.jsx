@@ -10,10 +10,10 @@ import {
   getResumoSaldos,
   uploadAnexoAusencia 
 } from '../../services/ausenciaService';
-import './FormularioMovimentacao.css'; // Criaremos este CSS
+import './FormularioMovimentacao.css';
 
 function FormularioMovimentacao({ onClose, idParaEditar = null }) {
-  const [modo, setModo] = useState('saida'); // 'saida' (Débito) ou 'entrada' (Crédito)
+  const [modo, setModo] = useState('saida'); // 'saida' (Uso) ou 'entrada' (Ganho)
   const { register, handleSubmit, watch, setValue, reset } = useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saldos, setSaldos] = useState(null);
@@ -24,34 +24,40 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
   const tipoSelecionado = watch('tipo');
   const dataInicio = watch('data_inicio');
   const dataFim = watch('data_fim');
-  const qtdInput = watch('quantidade_manual'); // Para Banco de Horas
+  const qtdInput = watch('quantidade_manual'); 
 
   const { data: funcionarios } = useSWR('getFuncionarios', getFuncionarios);
 
-  // Carrega Saldos em Tempo Real
+  // Carrega Saldos
   useEffect(() => {
     if (selectedFuncionario) {
       getResumoSaldos(selectedFuncionario).then(setSaldos);
     } else {
       setSaldos(null);
     }
-  }, [selectedFuncionario, modo]); // Recarrega se mudar o funcionário
+  }, [selectedFuncionario, modo]);
 
   // Cálculos Inteligentes
   const stats = useMemo(() => {
     if (!dataInicio) return null;
     
-    // Cálculo de Dias
-    let dias = 0;
-    if (dataFim) {
-      dias = differenceInDays(parseISO(dataFim), parseISO(dataInicio)) + 1;
-    } else {
-      dias = 1; // Padrão se não tiver data fim
-    }
-
-    // Se for Banco de Horas, usa o input manual
-    const qtdFinal = tipoSelecionado === 'Banco de Horas' ? parseFloat(qtdInput || 0) : dias;
+    // Define unidade
     const unidade = tipoSelecionado === 'Banco de Horas' ? 'horas' : 'dias';
+
+    // Lógica de Quantidade:
+    // 1. Se tiver input manual, usa ele (prioridade para Banco de Horas ou Entrada de Férias)
+    // 2. Se não, calcula dias entre datas
+    let qtdFinal = 0;
+    
+    if (qtdInput) {
+        qtdFinal = parseFloat(qtdInput);
+    } else {
+        if (dataFim) {
+            qtdFinal = differenceInDays(parseISO(dataFim), parseISO(dataInicio)) + 1;
+        } else {
+            qtdFinal = 1; // Padrão 1 dia se não tiver fim
+        }
+    }
 
     // Projeção de Saldo (Apenas para SAÍDA)
     let saldoAtual = 0;
@@ -64,7 +70,7 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
       else if (tipoSelecionado === 'Folga Pessoal') saldoAtual = saldos.folgas.saldo;
       
       saldoRestante = saldoAtual - qtdFinal;
-      // Banco de horas pode ficar negativo? Depende da política. Vamos alertar.
+      // Validação rígida apenas para Férias
       if (tipoSelecionado === 'Férias' && saldoRestante < 0) hasSaldo = false;
     }
 
@@ -79,6 +85,11 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
   }, [dataInicio, dataFim, qtdInput, tipoSelecionado, saldos, modo]);
 
   const onSubmit = async (data) => {
+    if (!data.funcionario_id) {
+      toast.error("Selecione um colaborador.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -91,10 +102,12 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
       };
 
       if (modo === 'saida') {
-        // Regras de Bloqueio
-        if (data.tipo === 'Férias' && !stats.hasSaldo) throw new Error(`Saldo insuficiente (${stats.saldoAtual} dias).`);
+        // --- PROCESSO DE SAÍDA (DÉBITO) ---
+        if (data.tipo === 'Férias' && !stats.hasSaldo) {
+            throw new Error(`Saldo insuficiente (${stats.saldoAtual} dias).`);
+        }
         
-        payload.data_fim = data.data_fim; // Apenas saída tem intervalo
+        payload.data_fim = data.data_fim; // Obrigatório para saída
         
         // Upload Anexo
         if (data.anexo && data.anexo[0]) {
@@ -103,9 +116,19 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
 
         await solicitarAusencia(payload);
         toast.success("Solicitação enviada!");
+
       } else {
-        // Entrada (Crédito)
-        payload.data_fim = data.data_inicio; // Crédito pontual
+        // --- PROCESSO DE ENTRADA (CRÉDITO) ---
+        
+        // Se for Crédito de Férias (Período Aquisitivo), precisamos da data fim do período
+        if (data.tipo === 'Férias') {
+            if (!data.data_fim) throw new Error("Informe a Data Final do Período Aquisitivo.");
+            payload.data_fim = data.data_fim;
+        } else {
+            // Para outros créditos, data fim é igual início (evento pontual)
+            payload.data_fim = data.data_inicio;
+        }
+
         await lancarCredito(payload);
         toast.success("Crédito lançado com sucesso!");
       }
@@ -114,11 +137,16 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
       mutate('getSolicitacoesPendentes');
       onClose();
     } catch (err) {
+      console.error(err);
       toast.error(err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Lógica de Exibição de Campos
+  const showDataFim = modo === 'saida' || (modo === 'entrada' && tipoSelecionado === 'Férias');
+  const showManualInput = tipoSelecionado === 'Banco de Horas' || (modo === 'entrada' && tipoSelecionado === 'Férias') || (modo === 'entrada' && tipoSelecionado === 'Folga');
 
   return (
     <div className="movimentacao-modal">
@@ -148,7 +176,7 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
           </select>
         </div>
 
-        {/* FEEDBACK VISUAL DE SALDOS (O "Dashboard" do Form) */}
+        {/* FEEDBACK VISUAL DE SALDOS */}
         {selectedFuncionario && saldos && (
           <div className="saldos-mini-dashboard">
             <div className={`saldo-pill ${tipoSelecionado === 'Férias' ? 'active' : ''}`}>
@@ -190,39 +218,49 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
               ) : (
                 <>
                   <option value="Banco de Horas">Hora Extra (Banco)</option>
-                  <option value="Folga">Folga Compensatória (Trabalho Feriado)</option>
-                  <option value="Férias">Direito de Férias (Aquisitivo)</option>
+                  <option value="Folga">Folga Compensatória</option>
+                  <option value="Férias">Período Aquisitivo (Novo)</option>
                 </>
               )}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Data {modo === 'saida' ? 'Início' : 'do Evento'}</label>
+            <label>Data {modo === 'saida' ? 'Início' : (tipoSelecionado === 'Férias' ? 'Início Período' : 'do Evento')}</label>
             <input type="date" {...register('data_inicio', { required: true })} />
           </div>
         </div>
 
         {/* Campos Condicionais */}
-        {modo === 'saida' && (
-          <div className="form-row">
+        <div className="form-row">
+          {showDataFim && (
             <div className="form-group">
-              <label>Data Fim</label>
+              <label>Data {tipoSelecionado === 'Férias' && modo === 'entrada' ? 'Fim Período' : 'Fim'}</label>
               <input type="date" {...register('data_fim', { required: true })} />
             </div>
-            <div className="form-group info-box">
-              <label>Duração Calculada</label>
-              <div className="value-display">{stats?.qtd || 0} {stats?.unidade}</div>
-            </div>
+          )}
+          
+          <div className="form-group info-box">
+            <label>
+               {modo === 'entrada' ? 'A Creditar' : 'Duração Calculada'}
+            </label>
+            <div className="value-display">{stats?.qtd || 0} {stats?.unidade}</div>
           </div>
-        )}
+        </div>
 
-        {/* Input Manual para Banco de Horas */}
-        {(tipoSelecionado === 'Banco de Horas' || modo === 'entrada') && tipoSelecionado !== 'Férias' && tipoSelecionado !== 'Folga' && (
+        {/* Input Manual: Aparece para Banco de Horas OU Cadastro de Período Aquisitivo */}
+        {showManualInput && (
           <div className="form-group highlight">
-            <label>Quantidade de Horas</label>
-            <input type="number" step="0.1" placeholder="Ex: 1.5" {...register('quantidade_manual')} />
-            <small>Use ponto para minutos (Ex: 1.5 = 1h30min)</small>
+            <label>
+              {tipoSelecionado === 'Férias' ? 'Dias de Direito (Ex: 30)' : 'Quantidade Manual'}
+            </label>
+            <input 
+              type="number" 
+              step="0.1" 
+              placeholder={tipoSelecionado === 'Férias' ? "30" : "Ex: 1.5"} 
+              {...register('quantidade_manual')} 
+            />
+            {tipoSelecionado === 'Banco de Horas' && <small>Use ponto para minutos (Ex: 1.5 = 1h30min)</small>}
           </div>
         )}
 
@@ -230,12 +268,6 @@ function FormularioMovimentacao({ onClose, idParaEditar = null }) {
         {modo === 'saida' && stats && !stats.hasSaldo && (
           <div className="alert-error">
             ⚠️ Saldo insuficiente! Você tem {stats.saldoAtual} e quer usar {stats.qtd}.
-          </div>
-        )}
-
-        {modo === 'saida' && stats && stats.saldoRestante >= 0 && tipoSelecionado !== 'Atestado Médico' && (
-          <div className="alert-info">
-            📊 Saldo após uso: <strong>{stats.saldoRestante} {stats.unidade}</strong>
           </div>
         )}
 
