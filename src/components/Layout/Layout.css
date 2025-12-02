@@ -12,41 +12,109 @@
 /* --- SIDEBAR --- */
 .sidebar {
   width: 280px;
-  /* Um pouco mais larga para elegância */
   height: 100%;
   background-color: white;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   z-index: 20;
-  transition: transform 0.3s ease;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 80px;
 }
 
 /* Header */
 .sidebar-header {
   height: 80px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
   border-bottom: 1px solid var(--slate-100);
+  position: relative;
 }
 
-.brand-logo {
-  font-size: 1.5rem;
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0;
+}
+
+.brand-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--primary-600);
+  color: white;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 800;
-  color: var(--primary-600);
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.brand-text {
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.brand-text h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  margin: 0;
   letter-spacing: -0.03em;
+}
+
+.brand-text p {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin: 0;
 }
 
-.brand-subtitle {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--slate-400);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-top: 0.25rem;
+/* Toggle Button */
+.toggle-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  color: var(--slate-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: absolute;
+  right: 1rem;
+}
+
+.toggle-btn:hover {
+  background: var(--primary-100);
+  color: var(--primary-600);
+  border-color: var(--primary-200);
+}
+
+.sidebar.collapsed .toggle-btn {
+  right: -12px;
+  top: 28px;
+  background: white;
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
 }
 
 /* Navigation */
@@ -54,6 +122,11 @@
   flex: 1;
   padding: 1.5rem 1rem;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  padding: 1.5rem 0.75rem;
 }
 
 .sidebar-nav ul {
@@ -62,7 +135,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .nav-item {
@@ -75,13 +148,26 @@
   font-size: 0.9375rem;
   font-weight: 500;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .nav-item {
+  padding: 0.75rem;
+  justify-content: center;
 }
 
 .nav-icon {
-  margin-right: 0.75rem;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: var(--slate-400);
   transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.nav-label {
+  margin-left: 0.75rem;
+  opacity: 1;
+  transition: opacity 0.2s;
 }
 
 /* Hover State */
@@ -111,6 +197,12 @@
   background-color: var(--slate-50);
 }
 
+.sidebar.collapsed .sidebar-footer {
+  padding: 1rem 0.5rem;
+  display: flex;
+  justify-content: center;
+}
+
 .user-info-mini {
   display: flex;
   align-items: center;
@@ -119,16 +211,17 @@
 }
 
 .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   background-color: var(--primary-100);
   color: var(--primary-700);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.875rem;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .user-details {
@@ -154,40 +247,39 @@
 
 .btn-logout {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.625rem;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: var(--slate-600);
+  color: var(--danger);
   background: white;
-  border: 1px solid var(--slate-200);
+  border: 1px solid var(--danger-bg);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s;
+  font-weight: 600;
+}
+
+.sidebar.collapsed .btn-logout {
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
 }
 
 .btn-logout:hover {
-  border-color: var(--danger);
-  color: var(--danger);
-  background-color: #fff1f2;
+  background-color: var(--danger-bg);
+  border-color: #fca5a5;
 }
 
 /* --- MAIN CONTENT --- */
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  /* Impede overflow flex */
-}
-
 .content-area {
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
   scroll-behavior: smooth;
+  transition: padding 0.3s ease;
 }
 
 /* --- RESPONSIVE --- */
@@ -196,9 +288,17 @@
     position: fixed;
     transform: translateX(-100%);
     box-shadow: var(--shadow-xl);
+    width: 280px !important;
+    /* Force width on mobile */
   }
 
-  .sidebar.open {
+  .sidebar.collapsed {
+    transform: translateX(0);
+    /* Reuse collapsed class for open state on mobile if needed, or manage differently */
+  }
+
+  /* Better mobile handling would be a separate 'open' class, but keeping simple for now */
+  .app-layout.sidebar-open .sidebar {
     transform: translateX(0);
   }
 

@@ -1,6 +1,11 @@
+/* src/components/Modal/ModalConfirmacao.css */
+
 .modal-overlay-confirm {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
@@ -12,66 +17,134 @@
 
 .modal-card-confirm {
   background: white;
-  padding: 32px;
-  border-radius: 16px;
+  padding: 2rem;
+  border-radius: var(--radius-xl);
   width: 90%;
-  max-width: 400px;
+  max-width: 420px;
   text-align: center;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xl);
   animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .modal-icon-confirm {
-  width: 64px;
-  height: 64px;
+  width: 4rem;
+  height: 4rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 20px auto;
+  margin: 0 auto 1.25rem auto;
 }
 
-.modal-icon-confirm.danger { background: #fef2f2; color: #dc2626; }
-.modal-icon-confirm.warning { background: #fffbeb; color: #d97706; }
-.modal-icon-confirm.primary { background: #eff6ff; color: #2563eb; }
+.modal-icon-confirm.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
 
-.modal-icon-confirm span { font-size: 32px; }
+.modal-icon-confirm.warning {
+  background: var(--warning-bg);
+  color: #d97706;
+}
 
-.modal-title-confirm { font-size: 1.25rem; font-weight: 700; color: #1e293b; margin: 0 0 8px 0; }
-.modal-message-confirm { color: #64748b; font-size: 0.95rem; line-height: 1.5; margin-bottom: 24px; }
+.modal-icon-confirm.primary {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
 
-.modal-actions-confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-icon-confirm span {
+  font-size: 2rem;
+}
+
+.modal-title-confirm {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  margin: 0 0 0.5rem 0;
+}
+
+.modal-message-confirm {
+  color: var(--slate-500);
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.modal-actions-confirm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
 
 .btn-cancel-confirm {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
-  padding: 10px 16px;
-  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--slate-300);
+  color: var(--slate-700);
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-cancel-confirm:hover { background: #f8fafc; }
+
+.btn-cancel-confirm:hover {
+  background: var(--slate-50);
+  border-color: var(--slate-400);
+}
 
 .btn-action-confirm {
   border: none;
   color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-sm);
 }
 
-.btn-action-confirm.danger { background: #dc2626; }
-.btn-action-confirm.danger:hover { background: #b91c1c; }
-.btn-action-confirm.warning { background: #d97706; }
-.btn-action-confirm.warning:hover { background: #b45309; }
-.btn-action-confirm.primary { background: #2563eb; }
-.btn-action-confirm.primary:hover { background: #1d4ed8; }
+.btn-action-confirm.danger {
+  background: var(--danger);
+}
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.btn-action-confirm.danger:hover {
+  background: #b91c1c;
+}
+
+.btn-action-confirm.warning {
+  background: #d97706;
+}
+
+.btn-action-confirm.warning:hover {
+  background: #b45309;
+}
+
+.btn-action-confirm.primary {
+  background: var(--primary-600);
+}
+
+.btn-action-confirm.primary:hover {
+  background: var(--primary-700);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
