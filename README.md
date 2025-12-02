@@ -1,16 +1,57 @@
-# React + Vite
+# Qualybuss
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de gestão empresarial focado em RH e Departamento Pessoal, desenvolvido com React e Supabase.
 
-Currently, two official plugins are available:
+## 🚀 Tecnologias
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Frontend:** React 19, Vite
+- **Linguagem:** JavaScript (ES Modules)
+- **Estilização:** CSS Modules / Vanilla CSS
+- **Roteamento:** React Router Dom v6
+- **Gerenciamento de Estado:** Context API + SWR
+- **Formulários:** React Hook Form + Zod
+- **Backend/Banco de Dados:** Supabase
+- **Outras Libs:** Recharts (Gráficos), React Big Calendar, PDF-Lib.
 
-## React Compiler
+## 📦 Funcionalidades
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+O sistema conta com os seguintes módulos principais:
 
-## Expanding the ESLint configuration
+- **🔐 Autenticação:** Login seguro e proteção de rotas.
+- **📊 Dashboard:** Visão geral com métricas e gráficos.
+- **👥 Funcionários:** Cadastro completo, edição e listagem de colaboradores.
+- **📅 Ausências:** Controle de faltas e justificativas.
+- **🏖️ Férias:** Gestão de períodos de férias.
+- **🔄 Movimentações:** Histórico de mudanças de cargo/setor.
+- **📂 Documentos:** Gestão eletrônica de documentos (GED) com visualização e importação de PDFs.
+- **⚙️ Configurações:** Ajustes gerais do sistema e da empresa.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🔧 Como Rodar o Projeto
+
+1. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
+
+2. **Configure as Variáveis de Ambiente:**
+   Crie um arquivo `.env` na raiz do projeto com as credenciais do Supabase:
+   ```env
+   VITE_SUPABASE_URL=sua_url_aqui
+   VITE_SUPABASE_ANON_KEY=sua_chave_aqui
+   ```
+
+3. **Rode o servidor de desenvolvimento:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Acesse:**
+   Abra `http://localhost:5173` no seu navegador.
+
+## 🏗️ Estrutura do Projeto
+
+- `src/pages`: Páginas da aplicação (rotas).
+- `src/components`: Componentes reutilizáveis.
+- `src/contexts`: Gerenciamento de estado global (Auth, Empresa).
+- `src/services`: Comunicação com APIs e Supabase.
+- `src/utils`: Funções auxiliares e validadores.
