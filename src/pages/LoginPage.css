@@ -1,17 +1,11 @@
-/* Fonte e ícones */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
-
-body {
-  font-family: 'Inter', sans-serif;
-}
+/* src/pages/LoginPage.css */
 
 /* CONTAINER PRINCIPAL */
 .login-wrapper {
   display: flex;
   height: 100vh;
   width: 100%;
-  background-color: #101622;
+  background-color: var(--slate-900);
   color: white;
 }
 
@@ -21,56 +15,62 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px;
+  padding: 2.5rem;
+  background-color: var(--slate-900);
 }
 
 .login-box {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
 }
 
 .brand-icon {
-  font-size: 40px;
-  color: #1152d4;
+  font-size: 2.5rem;
+  color: var(--primary-500);
 }
 
 .brand-name {
-  font-size: 26px;
+  font-size: 1.75rem;
   font-weight: 700;
+  color: white;
+  letter-spacing: -0.025em;
 }
 
 .title {
-  font-size: 32px;
+  font-size: 2rem;
   font-weight: 700;
   margin: 0;
+  color: white;
 }
 
 .subtitle {
-  margin-top: 8px;
-  color: #92a4c9;
+  margin-top: 0.5rem;
+  color: var(--slate-400);
+  font-size: 1rem;
 }
 
 /* FORM INPUTS */
 .form {
-  margin-top: 30px;
+  margin-top: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 1.5rem;
 }
 
 .input-label {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 500;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.5rem;
+  color: var(--slate-200);
 }
 
 .input-container {
@@ -79,31 +79,34 @@ body {
 
 .input-icon {
   position: absolute;
-  left: 14px;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #92a4c9;
+  color: var(--slate-500);
+  font-size: 1.25rem;
 }
 
 .input-container input {
-  width: 85%;
-  height: 20px;
-  padding: 14px 14px 14px 46px;
-  border-radius: 8px;
-  background: #192233;
+  width: 100%;
+  padding: 0.875rem 1rem 0.875rem 3rem;
+  border-radius: var(--radius-md);
+  background: var(--slate-800);
   color: white;
-  border: 1px solid #324467;
-  font-size: 16px;
+  border: 1px solid var(--slate-700);
+  font-size: 1rem;
+  transition: all 0.2s;
 }
 
 .input-container input:focus {
-  border-color: #1152d4;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px var(--primary-900);
   outline: none;
 }
 
 .error-message {
-  color: #ff6b6b;
-  font-size: 14px;
+  color: var(--danger);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
 }
 
 /* OPÇÕES */
@@ -116,48 +119,54 @@ body {
 .remember {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #92a4c9;
-  font-size: 14px;
+  gap: 0.5rem;
+  color: var(--slate-400);
+  font-size: 0.875rem;
 }
 
 .forgot {
-  color: #92a4c9;
-  font-size: 14px;
-  text-decoration: underline;
+  color: var(--primary-400);
+  font-size: 0.875rem;
+  text-decoration: none;
+  font-weight: 500;
 }
 
 .forgot:hover {
-  color: white;
+  color: var(--primary-300);
+  text-decoration: underline;
 }
 
 /* BOTÃO */
 .submit-btn {
   width: 100%;
-  height: 54px;
-  border-radius: 8px;
-  background: #1152d4;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--primary-600);
   color: white;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 1rem;
   border: none;
   cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
 }
 
 .submit-btn:hover {
-  background: #0e3eb1;
+  background: var(--primary-500);
+  transform: translateY(-1px);
 }
 
 .submit-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+  transform: none;
 }
 
 /* LADO DIREITO */
 .login-right {
   flex: 1;
   position: relative;
-  background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB-HFYegW_8XoMKV4OsDxg7mH4q0BOoHoOsCRwuBqHkbYV9Ey4Ddd9bh1sSw4lZd0C713CpEnB72tPlrnWN5ROQxEVXDX31A1TpwLXcSu-SkNDjTC1ZVoy40SnzkqvbqR1Ys6t6Yw-lUHRpAhfHSkmo1yKLoREwtfUA1ZmqvsY_syIM2gNYAHqIjuTk2AXOHUxS33bxmU2PAYQyMwskgQHJFeKtB7SFWQQ7mHDZt7BOnCckl2PzakwcnUdkbFtsYKXcl2XEl5lZ7ane");
+  background-image: url("https://images.unsplash.com/photo-1497215728101-856f4ea42174?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
   background-size: cover;
   background-position: center;
 }
@@ -165,26 +174,35 @@ body {
 .overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, #101622, rgba(17, 82, 212, 0.5), transparent);
+  background: linear-gradient(to top, var(--slate-900), rgba(99, 102, 241, 0.4), transparent);
 }
 
 .right-content {
   position: relative;
   z-index: 2;
-  padding: 40px;
+  padding: 3rem;
   text-align: center;
   color: white;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .right-content h2 {
-  font-size: 36px;
-  font-weight: 700;
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0 0 1rem 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .right-content p {
-  margin-top: 14px;
-  font-size: 18px;
-  color: #d4d4d4;
+  font-size: 1.125rem;
+  color: var(--slate-100);
+  max-width: 500px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* RESPONSIVIDADE */

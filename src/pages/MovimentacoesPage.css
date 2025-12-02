@@ -1,0 +1,225 @@
+/* src/pages/MovimentacoesPage.css */
+
+.movimentacoes-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    animation: fadeIn 0.4s ease;
+}
+
+.movimentacoes-header {
+    margin-bottom: 2rem;
+}
+
+.movimentacoes-header h1 {
+    font-size: 1.75rem;
+    color: var(--slate-900);
+    margin: 0 0 0.25rem 0;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.movimentacoes-header p {
+    color: var(--slate-500);
+    margin: 0;
+    font-size: 1rem;
+}
+
+/* Formulário Container */
+.movimentacao-form-wrapper {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    margin-bottom: 2.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.form-section-title {
+    font-size: 1.125rem;
+    color: var(--slate-800);
+    margin: 0 0 1.5rem 0;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--slate-100);
+    font-weight: 600;
+}
+
+.movimentacao-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+}
+
+.movimentacao-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.movimentacao-group.span-2 {
+    grid-column: span 2;
+}
+
+.movimentacao-group.span-4 {
+    grid-column: span 4;
+}
+
+.movimentacao-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    margin-bottom: 0.5rem;
+}
+
+.movimentacao-group input,
+.movimentacao-group select {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    background-color: white;
+    color: var(--slate-900);
+    transition: all 0.2s;
+}
+
+.movimentacao-group input:focus,
+.movimentacao-group select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.movimentacao-group input:disabled {
+    background-color: var(--slate-50);
+    color: var(--slate-500);
+    cursor: not-allowed;
+}
+
+.divider {
+    grid-column: span 4;
+    border-top: 1px dashed var(--slate-200);
+    margin: 0.5rem 0;
+}
+
+.form-footer {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Área de Análise */
+.analise-section {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.analise-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.analise-header h2 {
+    font-size: 1.25rem;
+    color: var(--slate-800);
+    margin: 0;
+    font-weight: 700;
+}
+
+/* Filtros */
+.filtros-bar {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    background: var(--slate-50);
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--slate-100);
+}
+
+.filtro-group label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--slate-500);
+    margin-bottom: 0.25rem;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.filtro-group select,
+.filtro-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--slate-300);
+    font-size: 0.875rem;
+}
+
+/* Tabela */
+.historico-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.historico-table th {
+    text-align: left;
+    padding: 1rem;
+    font-size: 0.75rem;
+    color: var(--slate-500);
+    font-weight: 700;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--slate-200);
+    background: var(--slate-50);
+}
+
+.historico-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--slate-100);
+    font-size: 0.9375rem;
+    color: var(--slate-700);
+    vertical-align: middle;
+}
+
+.colaborador-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.colaborador-nome {
+    font-weight: 600;
+    color: var(--slate-900);
+}
+
+.tipo-pill {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--primary-50);
+    color: var(--primary-700);
+}
+
+.tipo-pill.danger {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

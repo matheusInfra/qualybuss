@@ -1,44 +1,67 @@
 /* src/pages/FeriasPage.css */
 
 .ferias-container {
-  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  animation: fadeIn 0.4s ease;
 }
 
-/* Cabeçalho (baseado em code.html) */
+/* Cabeçalho */
 .ferias-header {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
+
 .ferias-title {
-  color: #1a202c; /* text-gray-900 */
-  font-size: 1.875rem; /* text-3xl */
-  font-weight: 700; /* font-bold */
+  color: var(--slate-900);
+  font-size: 1.75rem;
+  font-weight: 700;
   line-height: 1.2;
+  letter-spacing: -0.025em;
 }
+
 .ferias-button-novo {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 16px;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
   border: none;
-  border-radius: 0.5rem; /* rounded-lg */
-  background-color: #135bec; /* bg-primary */
+  border-radius: var(--radius-md);
+  background-color: var(--primary-600);
   color: white;
-  font-size: 0.875rem; /* text-sm */
-  font-weight: 700; /* font-bold */
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
 }
+
 .ferias-button-novo:hover {
-  background-color: #0f4ac4; /* bg-primary/90 */
+  background-color: var(--primary-700);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
+
 .ferias-button-novo .material-symbols-outlined {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-variation-settings: 'FILL' 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
