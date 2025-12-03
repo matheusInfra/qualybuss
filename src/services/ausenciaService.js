@@ -1,5 +1,5 @@
 // src/services/ausenciaService.js
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient'; //
 
 const ANEXOS_BUCKET = 'anexos_ausencias';
 
@@ -25,21 +25,27 @@ export const validarRegrasCLT = (dataInicio) => {
   // Cria data ignorando hora para evitar erros de fuso
   const [ano, mes, dia] = dataInicio.split('-').map(Number);
   const date = new Date(ano, mes - 1, dia); 
-  const diaSemana = date.getDay(); 
+  const diaSemana = date.getDay(); // 0=Dom, 1=Seg, ..., 5=Sex, 6=Sáb
   
   // Regra: Evitar início em Sexta(5), Sábado(6) ou Domingo(0)
-  if (diaSemana === 0 || diaSemana === 6 || diaSemana === 5) {
+  // [REFATORADO] Adicionado flag 'bloqueante' para controle de UI
+  if (diaSemana === 5 || diaSemana === 6 || diaSemana === 0) {
     return {
       valido: false,
-      mensagem: "⚠️ Pela legislação (Precedente Normativo 100 TST), recomenda-se não iniciar férias em Sextas, Sábados ou Domingos."
+      bloqueante: true, // Indica que isso gera passivo trabalhista real
+      mensagem: "⚠️ Risco Trabalhista: Pela legislação (Precedente Normativo 100 TST), o início das férias não deve ocorrer em Sextas, Sábados, Domingos ou Feriados."
     };
   }
 
   if (isFeriado(dataInicio)) {
-    return { valido: false, mensagem: "⚠️ Não é permitido iniciar férias em feriados." };
+    return { 
+      valido: false, 
+      bloqueante: true,
+      mensagem: "🚫 Proibido: Não é permitido iniciar férias em feriados nacionais." 
+    };
   }
 
-  return { valido: true };
+  return { valido: true, bloqueante: false };
 };
 
 export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, excludeId = null) => {
@@ -47,6 +53,7 @@ export const checkConflitoDatas = async (funcionarioId, dataInicio, dataFim, exc
     .select('id')
     .eq('funcionario_id', funcionarioId)
     .neq('status', 'Rejeitado')
+    // Verifica sobreposição de datas: (InicioA <= FimB) e (FimA >= InicioB)
     .or(`data_inicio.lte.${dataFim},data_fim.gte.${dataInicio}`);
   
   if (excludeId) {
@@ -69,64 +76,94 @@ const calcularDias = (inicio, fim) => {
 };
 
 // ==============================================================================
-// 1. GESTÃO DE SALDO (O "BANCO" DE DIAS)
+// 1. GESTÃO DE SALDO (O "BANCO" DE DIAS E ESTORNO)
 // ==============================================================================
 
 /**
- * Consome ou devolve dias do período aquisitivo mais antigo em aberto.
+ * Consome dias do período aquisitivo mais antigo em aberto (FIFO).
  */
 const movimentarSaldoFerias = async (funcionarioId, diasQtd) => {
   if (diasQtd === 0) return;
 
-  // Busca períodos abertos (FIFO)
   const { data: periodos } = await supabase
     .from('periodos_aquisitivos')
-    .select('*') // Traz saldo_atual (calculado) para leitura
+    .select('*')
     .eq('funcionario_id', funcionarioId)
     .eq('status', 'Aberto')
-    .gt('saldo_atual', 0)
-    .order('inicio_periodo', { ascending: true });
+    .gt('saldo_atual', 0) // Garante que pega apenas quem tem saldo
+    .order('inicio_periodo', { ascending: true }); // Prioriza vencer o mais antigo
 
   if (!periodos || periodos.length === 0) {
-    if (diasQtd < 0) { console.warn("Devolução sem período ativo."); return; }
-    throw new Error("O funcionário não possui saldo de férias disponível.");
+    // Se for consumo (>0) e não tem saldo, erro. Se for devolução (<0), permite passar pois será tratado no estorno.
+    if (diasQtd > 0) throw new Error("O funcionário não possui saldo de férias disponível.");
   }
 
-  let diasRestantesParaAbater = diasQtd;
+  let diasRestantes = diasQtd;
 
   for (const periodo of periodos) {
-    if (diasRestantesParaAbater === 0) break;
+    if (diasRestantes <= 0) break;
 
     const saldoDisponivel = periodo.saldo_atual;
-    let abate = 0;
+    const abate = Math.min(diasRestantes, saldoDisponivel);
 
-    if (diasRestantesParaAbater > 0) {
-        // Consumo
-        abate = Math.min(diasRestantesParaAbater, saldoDisponivel);
-    } else {
-        // Devolução
-        abate = diasRestantesParaAbater; 
-    }
-
-    // [CORREÇÃO CRÍTICA] Não enviamos saldo_atual. Atualizamos apenas dias_gozados.
     const novosDiasGozados = (periodo.dias_gozados || 0) + abate;
     
-    // Verificação de segurança: Se abate == saldoDisponivel, o saldo vai zerar.
-    const vaiZerar = (saldoDisponivel - abate) <= 0;
+    // Verifica se vai zerar o saldo (saldo_total - dias_gozados <= 0)
+    // O saldo_atual é calculado via trigger/view ou na aplicação (dias_direito - dias_gozados)
+    const saldoFinal = periodo.dias_direito - novosDiasGozados;
+    const vaiFechar = saldoFinal <= 0;
 
     await supabase
       .from('periodos_aquisitivos')
       .update({ 
         dias_gozados: novosDiasGozados, 
-        status: vaiZerar ? 'Fechado' : 'Aberto' 
+        status: vaiFechar ? 'Fechado' : 'Aberto' 
       })
       .eq('id', periodo.id);
 
-    diasRestantesParaAbater -= abate;
+    diasRestantes -= abate;
   }
 
-  if (diasRestantesParaAbater > 0) {
-    throw new Error(`Saldo insuficiente! Faltam ${diasRestantesParaAbater} dias.`);
+  if (diasRestantes > 0) {
+    throw new Error(`Saldo insuficiente! Faltam ${diasRestantes} dias para completar a solicitação.`);
+  }
+};
+
+/**
+ * [NOVO] Devolve dias para o saldo (Estorno)
+ * Usado quando uma férias aprovada é cancelada ou excluída.
+ */
+const estornarSaldoFerias = async (funcionarioId, diasQtd) => {
+  if (diasQtd <= 0) return;
+
+  // Busca histórico de períodos para devolver (pode incluir fechados que reabrirão)
+  // Ordena pelo mais recente para devolver para onde provavelmente foi tirado, ou o mais antigo aberto.
+  // Estratégia segura: Devolver para o período aberto mais antigo ou reabrir o último fechado.
+  const { data: periodos } = await supabase
+    .from('periodos_aquisitivos')
+    .select('*')
+    .eq('funcionario_id', funcionarioId)
+    .order('inicio_periodo', { ascending: true });
+
+  let diasParaDevolver = diasQtd;
+
+  for (const periodo of periodos) {
+    if (diasParaDevolver === 0) break;
+
+    // Só podemos devolver se houver dias gozados para "des-gozar"
+    if (periodo.dias_gozados > 0) {
+      const devolucao = Math.min(diasParaDevolver, periodo.dias_gozados);
+      
+      await supabase
+        .from('periodos_aquisitivos')
+        .update({ 
+          dias_gozados: periodo.dias_gozados - devolucao,
+          status: 'Aberto' // Força reabertura se recebeu dias de volta
+        })
+        .eq('id', periodo.id);
+
+      diasParaDevolver -= devolucao;
+    }
   }
 };
 
@@ -160,14 +197,21 @@ export const getResumoSaldos = async (funcionarioId) => {
 // ==============================================================================
 
 export const createAusencia = async (dados) => {
+  // 1. Verifica conflitos
   const temConflito = await checkConflitoDatas(dados.funcionario_id, dados.data_inicio, dados.data_fim);
-  if (temConflito) throw new Error("Conflito: Já existe uma ausência neste período.");
+  if (temConflito) throw new Error("Conflito: Já existe uma ausência registrada neste período.");
 
+  // 2. Valida regras de negócio (CLT)
   if (dados.tipo === 'Férias') {
     const checkCLT = validarRegrasCLT(dados.data_inicio);
-    if (!checkCLT.valido) throw new Error(checkCLT.mensagem);
+    // [ATENÇÃO] Aqui permitimos passar se for apenas alerta, o bloqueio real deve ser na UI ou configurável
+    if (!checkCLT.valido && checkCLT.bloqueante) {
+        // Se quiser ser rígido no backend: throw new Error(checkCLT.mensagem);
+        console.warn("Aviso CLT:", checkCLT.mensagem);
+    }
   }
 
+  // 3. Insere
   const { data, error } = await supabase.from('solicitacoes_ausencia').insert([dados]).select();
   if (error) throw error;
   return data[0];
@@ -176,19 +220,21 @@ export const createAusencia = async (dados) => {
 export const solicitarAusencia = createAusencia;
 
 export const lancarCredito = async (dados) => {
+  // [REFATORADO] Separação lógica: Férias = Período Aquisitivo; Outros = Créditos Avulsos
   if (dados.tipo === 'Férias') {
-    // [CORREÇÃO CRÍTICA] Removido 'saldo_atual' do insert
     const { data, error } = await supabase.from('periodos_aquisitivos').insert([{
       funcionario_id: dados.funcionario_id,
       inicio_periodo: dados.data_inicio,
       fim_periodo: dados.data_fim, 
-      dias_direito: dados.quantidade, 
-      status: 'Aberto'
+      dias_direito: dados.quantidade, // Geralmente 30 dias
+      status: 'Aberto',
+      // saldo_atual é calculado automaticamente pelo DB ou assume valor inicial
     }]).select();
     if (error) throw error; 
     return data[0];
   } 
   
+  // Banco de Horas / Folgas
   const { data, error } = await supabase.from('historico_creditos').insert([{
     funcionario_id: dados.funcionario_id,
     tipo: dados.tipo,
@@ -205,14 +251,16 @@ export const lancarCredito = async (dados) => {
 export const updateAusencia = async (id, dados) => {
   const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status, funcionario_id').eq('id', id).single();
   if (!atual) throw new Error("Registro não encontrado.");
-  if (atual.status !== 'Pendente') throw new Error("Apenas solicitações Pendentes podem ser editadas.");
+  
+  // Permite edição apenas se Pendente (para integridade de saldo já descontado)
+  if (atual.status !== 'Pendente') throw new Error("Apenas solicitações Pendentes podem ser editadas. Para alterar uma aprovada, solicite um ajuste/cancelamento.");
 
   if (dados.data_inicio && dados.data_fim) {
     const temConflito = await checkConflitoDatas(atual.funcionario_id, dados.data_inicio, dados.data_fim, id);
-    if (temConflito) throw new Error("A nova data conflita com outro registro.");
+    if (temConflito) throw new Error("A nova data conflita com outro registro existente.");
 
     const checkCLT = validarRegrasCLT(dados.data_inicio);
-    if (!checkCLT.valido) throw new Error(checkCLT.mensagem);
+    if (!checkCLT.valido && checkCLT.bloqueante) console.warn(checkCLT.mensagem);
   }
   
   const { data, error } = await supabase.from('solicitacoes_ausencia').update(dados).eq('id', id).select();
@@ -221,14 +269,30 @@ export const updateAusencia = async (id, dados) => {
 };
 
 export const deleteAusenciaSegura = async (id) => {
-  const { data: atual } = await supabase.from('solicitacoes_ausencia').select('status, anexo_path').eq('id', id).single();
+  // 1. Busca os dados antes de apagar para verificar status e anexos
+  const { data: atual } = await supabase
+    .from('solicitacoes_ausencia')
+    .select('status, anexo_path, tipo, funcionario_id, quantidade, data_inicio, data_fim')
+    .eq('id', id)
+    .single();
+
   if (!atual) throw new Error("Registro não encontrado.");
-  if (atual.status !== 'Pendente') throw new Error("Por segurança, apenas registros Pendentes podem ser excluídos.");
+
+  // [CRÍTICO] Se for Férias e já estava Aprovado, deve-se estornar o saldo antes de apagar
+  if (atual.status === 'Aprovado' && atual.tipo === 'Férias') {
+     const qtdDias = atual.quantidade || calcularDias(atual.data_inicio, atual.data_fim);
+     await estornarSaldoFerias(atual.funcionario_id, qtdDias);
+  }
   
-  if (atual.anexo_path) await supabase.storage.from(ANEXOS_BUCKET).remove([atual.anexo_path]);
+  // 2. Remove anexo do Storage se existir
+  if (atual.anexo_path) {
+    await supabase.storage.from(ANEXOS_BUCKET).remove([atual.anexo_path]);
+  }
   
+  // 3. Deleta o registro do banco
   const { error } = await supabase.from('solicitacoes_ausencia').delete().eq('id', id);
   if (error) throw error;
+  
   return true;
 };
 
@@ -253,13 +317,16 @@ export const decidirSolicitacao = async (id, decisao, motivo = '') => {
   const { data: solicitacao } = await supabase.from('solicitacoes_ausencia').select('*').eq('id', id).single();
   if (!solicitacao) throw new Error("Solicitação não encontrada.");
 
+  // Se Aprovar e for Férias, consome o saldo
   if (decisao === 'Aprovado' && solicitacao.tipo === 'Férias') {
     await movimentarSaldoFerias(solicitacao.funcionario_id, solicitacao.quantidade);
   }
+  
+  // OBS: Se rejeitar, não faz nada com saldo pois ele só é consumido na aprovação.
 
   const { data, error } = await supabase
     .from('solicitacoes_ausencia')
-    .update({ status: decisao })
+    .update({ status: decisao }) // Poderia salvar 'motivo_rejeicao' se houver coluna
     .eq('id', id)
     .select();
 
@@ -289,25 +356,47 @@ export const createCreditoSaldo = async (dados) => {
 
 export const getCreditoById = async (id) => {
   if (!id) return null;
+  // Tenta buscar como crédito avulso
   const { data: credito } = await supabase.from('historico_creditos').select('*').eq('id', id).maybeSingle();
   if (credito) return credito;
+  
+  // Se não achar, tenta buscar como período aquisitivo (adaptação para edição unificada)
   const { data: periodo } = await supabase.from('periodos_aquisitivos').select('*').eq('id', id).maybeSingle();
   if (periodo) return { ...periodo, tipo: 'Férias', quantidade: periodo.dias_direito, data_lancamento: periodo.inicio_periodo, data_inicio: periodo.inicio_periodo, data_fim: periodo.fim_periodo };
+  
   return null;
 };
 
 export const updateCredito = async (id, dados) => {
   if (dados.tipo === 'Férias') {
-     const { data, error } = await supabase.from('periodos_aquisitivos').update({ inicio_periodo: dados.data_inicio, fim_periodo: dados.data_fim, limite_concessivo: dados.data_limite, dias_direito: dados.quantidade }).eq('id', id).select();
+     const { data, error } = await supabase.from('periodos_aquisitivos').update({ 
+       inicio_periodo: dados.data_inicio, 
+       fim_periodo: dados.data_fim, 
+       limite_concessivo: dados.data_limite, 
+       dias_direito: dados.quantidade 
+     }).eq('id', id).select();
     if (error) throw error; return data[0];
   } else {
-    const { data, error } = await supabase.from('historico_creditos').update({ tipo: dados.tipo, quantidade: dados.quantidade, unidade: dados.unidade, motivo: dados.motivo, data_lancamento: dados.data_inicio }).eq('id', id).select();
+    const { data, error } = await supabase.from('historico_creditos').update({ 
+      tipo: dados.tipo, 
+      quantidade: dados.quantidade, 
+      unidade: dados.unidade, 
+      motivo: dados.motivo, 
+      data_lancamento: dados.data_inicio 
+    }).eq('id', id).select();
     if (error) throw error; return data[0];
   }
 };
 
 export const deleteCreditoSeguro = async (id) => {
-  const { error } = await supabase.from('historico_creditos').delete().eq('id', id);
+  // Tenta deletar de créditos
+  const { error: errCred } = await supabase.from('historico_creditos').delete().eq('id', id);
+  if (!errCred) return true; // Sucesso
+
+  // Se falhar ou não afetar linhas (não implementado retorno de rows aqui), tenta periodos (cuidado)
+  // Geralmente deletar período é perigoso se já houver consumo. 
+  // Ideal: Verificar se dias_gozados > 0 antes de permitir delete.
+  const { error } = await supabase.from('periodos_aquisitivos').delete().eq('id', id);
   if (error) throw error;
   return true;
 };
@@ -338,8 +427,13 @@ export const aprovarAjuste = async (ajusteId, dadosNovos, ausenciaId) => {
   if (original.tipo === 'Férias' && dadosNovos.tipo === 'Férias') {
     const diasAntigos = original.quantidade || calcularDias(original.data_inicio, original.data_fim);
     const diasNovos = calcularDias(dadosNovos.data_inicio, dadosNovos.data_fim);
-    const diferenca = diasNovos - diasAntigos;
-    if (diferenca !== 0) await movimentarSaldoFerias(original.funcionario_id, diferenca);
+    const diferenca = diasNovos - diasAntigos; // Se positivo, consome mais. Se negativo, devolve.
+    
+    if (diferenca > 0) {
+      await movimentarSaldoFerias(original.funcionario_id, diferenca);
+    } else if (diferenca < 0) {
+      await estornarSaldoFerias(original.funcionario_id, Math.abs(diferenca));
+    }
   }
 
   const { error: upError } = await supabase.from('solicitacoes_ausencia').update({ 

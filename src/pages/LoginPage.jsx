@@ -1,60 +1,86 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import "./LoginPage.css";
+import { useAuth } from "../contexts/AuthContext"; //
+import "./LoginPage.css"; //
 
 function LoginPage() {
-  // ... estados existentes
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
   
-  // NOVO ESTADO: Controla se mostra Login ou Recuperação
-  const [isRecovering, setIsRecovering] = useState(false);
-  const [message, setMessage] = useState(null); // Mensagem de sucesso
+  // Estados de Interface
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null); // Para feedback de sucesso
+  const [loading, setLoading] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false); // Alterna entre Login e Recuperação
+  const [cooldown, setCooldown] = useState(0); // Temporizador em segundos
 
-  const { signIn, resetPassword } = useAuth(); // Importe resetPassword
+  const { signIn, resetPassword } = useAuth();
   const navigate = useNavigate();
 
-  // Função Original de Login
+  // Efeito para gerenciar a contagem regressiva (Anti-Spam)
+  useEffect(() => {
+    let timer;
+    if (cooldown > 0) {
+      timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  // Função de Login (Padrão)
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
       const { error } = await signIn(email, password);
       if (error) throw error;
-      navigate("/");
+      navigate("/"); // Redireciona para o Dashboard
     } catch (err) {
-      setError("Falha ao fazer login. Verifique suas credenciais.");
+      setError("Falha ao entrar. Verifique seu e-mail e senha.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Nova Função de Recuperação
+  // Função de Recuperação de Senha (Com Cooldown)
   const handleRecovery = async (e) => {
     e.preventDefault();
+    
+    if (cooldown > 0) return; // Bloqueia clique duplo ou spam
+
     setError(null);
     setMessage(null);
     setLoading(true);
+
     try {
+      // O resetPassword já foi configurado no AuthContext atualizado
       const { error } = await resetPassword(email);
       if (error) throw error;
-      setMessage("Se o e-mail existir, você receberá um link em instantes.");
-      // Opcional: voltar para login após alguns segundos ou manter na tela
+
+      setMessage("Instruções enviadas! Verifique sua caixa de entrada (e spam).");
+      setCooldown(60); // Ativa espera de 60 segundos
     } catch (err) {
-      setError("Erro ao solicitar recuperação: " + err.message);
+      setError("Não foi possível enviar o e-mail: " + err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Alternar modos limpa os erros
+  const toggleMode = () => {
+    setIsRecovering(!isRecovering);
+    setError(null);
+    setMessage(null);
   };
 
   return (
     <div className="login-wrapper">
+
+      {/* LADO ESQUERDO: Formulário */}
       <div className="login-left">
         <div className="login-box">
+
           <div className="brand">
             <span className="material-symbols-outlined brand-icon">donut_large</span>
             <h1 className="brand-name">QualyBuss</h1>
@@ -65,20 +91,19 @@ function LoginPage() {
           </h1>
           <p className="subtitle">
             {isRecovering 
-              ? "Informe seu e-mail para receber as instruções." 
+              ? "Informe seu e-mail para receber o link de redefinição." 
               : "A saúde do seu negócio é nossa responsabilidade."}
           </p>
 
-          {/* Renderização Condicional do Formulário */}
           <form onSubmit={isRecovering ? handleRecovery : handleLogin} className="form">
             
             <label className="input-label">
               E-mail
               <div className="input-container">
-                <span className="material-symbols-outlined input-icon">person</span>
+                <span className="material-symbols-outlined input-icon">mail</span>
                 <input
                   type="email"
-                  placeholder="Digite seu e-mail"
+                  placeholder="exemplo@qualybuss.com.br"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -86,7 +111,7 @@ function LoginPage() {
               </div>
             </label>
 
-            {/* Campo de Senha só aparece se NÃO estiver recuperando */}
+            {/* Campo de Senha (Apenas no Login) */}
             {!isRecovering && (
               <label className="input-label">
                 Senha
@@ -94,7 +119,7 @@ function LoginPage() {
                   <span className="material-symbols-outlined input-icon">lock</span>
                   <input
                     type="password"
-                    placeholder="Digite sua senha"
+                    placeholder="Sua senha segura"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -103,9 +128,22 @@ function LoginPage() {
               </label>
             )}
 
-            {error && <p className="error-message" style={{color: 'red', marginTop: '10px'}}>{error}</p>}
-            {message && <p className="success-message" style={{color: 'green', marginTop: '10px'}}>{message}</p>}
+            {/* Mensagens de Feedback */}
+            {error && (
+              <div className="feedback-message error">
+                <span className="material-symbols-outlined">error</span>
+                {error}
+              </div>
+            )}
+            
+            {message && (
+              <div className="feedback-message success">
+                <span className="material-symbols-outlined">check_circle</span>
+                {message}
+              </div>
+            )}
 
+            {/* Opções (Esqueci senha / Lembrar) */}
             {!isRecovering && (
               <div className="form-options">
                 <label className="remember">
@@ -115,45 +153,52 @@ function LoginPage() {
 
                 <button 
                   type="button" 
-                  className="forgot" 
-                  onClick={() => {
-                    setIsRecovering(true);
-                    setError(null);
-                    setMessage(null);
-                  }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  className="forgot-link" 
+                  onClick={toggleMode}
                 >
                   Esqueceu sua senha?
                 </button>
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="submit-btn">
-              {loading ? "Processando..." : (isRecovering ? "Enviar Link" : "Entrar")}
+            {/* Botão Principal */}
+            <button 
+              type="submit" 
+              disabled={loading || (isRecovering && cooldown > 0)} 
+              className={`submit-btn ${cooldown > 0 && isRecovering ? 'disabled' : ''}`}
+            >
+              {loading 
+                ? "Processando..." 
+                : isRecovering 
+                  ? (cooldown > 0 ? `Aguarde ${cooldown}s para reenviar` : "Enviar Link")
+                  : "Entrar na Conta"
+              }
             </button>
 
+            {/* Botão Voltar (Apenas na Recuperação) */}
             {isRecovering && (
               <button 
                 type="button" 
-                className="submit-btn" 
-                style={{ backgroundColor: 'transparent', color: '#666', border: '1px solid #ddd', marginTop: '10px' }}
-                onClick={() => {
-                    setIsRecovering(false);
-                    setError(null);
-                    setMessage(null);
-                }}
+                className="back-btn" 
+                onClick={toggleMode}
               >
-                Voltar para Login
+                Voltar para o Login
               </button>
             )}
 
           </form>
         </div>
       </div>
-      {/* Lado direito mantém igual */}
+
+      {/* LADO DIREITO: Decorativo */}
       <div className="login-right">
-        {/* ... conteúdo igual ... */}
+        <div className="overlay"></div>
+        <div className="right-content">
+          <h2>Gestão Inteligente</h2>
+          <p>Equilíbrio e produtividade para sua equipe em um só lugar.</p>
+        </div>
       </div>
+
     </div>
   );
 }

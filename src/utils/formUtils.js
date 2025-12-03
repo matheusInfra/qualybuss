@@ -28,3 +28,34 @@ export const handleEnterAsTab = (e) => {
     }
   }
 };
+
+/**
+ * Busca dados de endereço via API ViaCEP
+ * @param {string} cep - O CEP a ser consultado (pode ter formatação)
+ * @returns {Promise<Object>} - Retorna objeto com logradouro, bairro, localidade, uf, etc.
+ */
+export const buscarCep = async (cep) => {
+  if (!cep) return { erro: true };
+
+  // Remove caracteres não numéricos
+  const cleanCep = cep.replace(/\D/g, '');
+
+  // Validação básica de formato
+  if (cleanCep.length !== 8) {
+    return { erro: true, mensagem: 'Formato inválido' };
+  }
+
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+    const data = await response.json();
+
+    if (data.erro) {
+      return { erro: true, mensagem: 'CEP não encontrado' };
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Erro ao buscar CEP:", error);
+    return { erro: true, mensagem: 'Erro de conexão' };
+  }
+};

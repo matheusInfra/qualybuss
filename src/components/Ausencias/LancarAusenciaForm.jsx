@@ -7,9 +7,10 @@ import { getFuncionarios } from '../../services/funcionarioService';
 import { 
   createAusencia, 
   updateAusencia, 
-  getAusenciaById, // Agora importado corretamente
+  getAusenciaById, 
   uploadAnexoAusencia, 
-  getPeriodosAquisitivos 
+  getPeriodosAquisitivos,
+  validarRegrasCLT // [NOVO] Importando a validação
 } from '../../services/ausenciaService';
 import './LancarAusenciaForm.css'; 
 
@@ -26,6 +27,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
 
   const { data: funcionarios } = useSWR('getFuncionarios', getFuncionarios);
 
+  // Carrega dados para edição
   useEffect(() => {
     if (idParaEditar) {
       getAusenciaById(idParaEditar).then(dados => {
@@ -38,18 +40,19 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
             motivo: dados.motivo,
             empresa_id: dados.empresa_id
           });
-          toast("Modo de Edição ativado", { icon: '✏️', duration: 2000 });
+          toast("Modo de Edição: Você está alterando um registro existente.", { icon: '✏️' });
         }
       });
     }
   }, [idParaEditar, reset]);
 
+  // Carrega saldo do funcionário selecionado
   useEffect(() => {
     if (selectedFuncionario) {
       getPeriodosAquisitivos(selectedFuncionario).then(data => {
         const saldo = data
           ?.filter(p => p.status === 'Aberto')
-          .reduce((acc, curr) => acc + Number(curr.saldo_atual), 0);
+          .reduce((acc, curr) => acc + (Number(curr.dias_direito) - Number(curr.dias_gozados || 0)), 0);
         setSaldoTotal(saldo || 0);
         
         if (!idParaEditar) {
@@ -60,6 +63,7 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     }
   }, [selectedFuncionario, funcionarios, setValue, idParaEditar]);
 
+  // Cálculos em tempo real (Stats)
   const stats = useMemo(() => {
     if (!dataInicio || !dataFim) return null;
     
@@ -67,19 +71,26 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
     const end = parseISO(dataFim);
     const dias = differenceInDays(end, start) + 1;
     
-    const diaSemana = getDay(start);
-    const inicioRuim = (selectedTipo === 'Férias' && (diaSemana === 0 || diaSemana === 5 || diaSemana === 6));
+    // Validação Visual da Regra CLT
+    const validacaoCLT = validarRegrasCLT(dataInicio);
+    const inicioRuim = !validacaoCLT.valido && validacaoCLT.bloqueante;
+    const msgRuim = validacaoCLT.mensagem;
     
     const dataRetorno = addDays(end, 1);
-    const saldoRestante = saldoTotal - dias;
+    
+    // Se for Férias, abate do saldo. Se for outro tipo, não impacta visualmente o saldo aqui.
+    const saldoRestante = selectedTipo === 'Férias' ? saldoTotal - dias : saldoTotal;
+    const isNegativo = selectedTipo === 'Férias' && saldoRestante < 0;
+    
     const porcentagemUso = saldoTotal > 0 ? Math.min((dias / saldoTotal) * 100, 100) : 100;
 
     return {
       dias: dias > 0 ? dias : 0,
       retorno: format(dataRetorno, 'dd/MM/yyyy'),
       inicioRuim,
+      msgRuim,
       saldoRestante,
-      isNegativo: saldoRestante < 0,
+      isNegativo,
       porcentagemUso
     };
   }, [dataInicio, dataFim, selectedTipo, saldoTotal]);
@@ -87,75 +98,107 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      if (data.tipo === 'Férias' && !idParaEditar) {
-         if (stats.dias > saldoTotal) throw new Error(`Saldo insuficiente (${saldoTotal} dias).`);
+      // 1. Validação de Saldo (Apenas para Férias)
+      if (data.tipo === 'Férias') {
+         // Na edição, o saldo já conta com a saída atual, então é complexo validar sem buscar o original.
+         // Simplificação: validamos saldo apenas na criação.
+         if (!idParaEditar && stats.dias > saldoTotal) {
+           throw new Error(`Saldo insuficiente! O colaborador tem apenas ${saldoTotal} dias.`);
+         }
       }
 
+      // 2. Validação Rígida CLT (Precedente 100 TST)
+      if (data.tipo === 'Férias' && stats?.inicioRuim) {
+        const confirmacao = window.confirm(
+          `⚠️ ALERTA DE RISCO TRABALHISTA ⚠️\n\n${stats.msgRuim}\n\nIniciar férias nesta data pode gerar passivo jurídico para a empresa.\n\nDeseja prosseguir mesmo assim?`
+        );
+        if (!confirmacao) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // 3. Upload de Anexo
       let anexoPath = null;
       if (data.anexo && data.anexo[0]) {
         anexoPath = await uploadAnexoAusencia(data.anexo[0], data.funcionario_id);
       }
 
+      // 4. Montagem do Payload
       const payload = {
         ...data,
         quantidade: stats.dias,
+        // Define categoria para relatórios
         categoria: data.tipo === 'Férias' ? 'Ferias' : (data.tipo.includes('Atestado') ? 'Saude' : 'Pessoal'),
         ...(anexoPath ? { anexo_path: anexoPath } : {})
       };
-      delete payload.anexo;
+      delete payload.anexo; // Remove o objeto File do payload JSON
 
+      // 5. Envio ao Backend
       if (idParaEditar) {
         await updateAusencia(idParaEditar, payload);
-        toast.success('Solicitação atualizada!');
+        toast.success('Solicitação atualizada com sucesso!');
       } else {
+        // Na criação, se não tem anexo, garante null
         if (!anexoPath) payload.anexo_path = null;
         await createAusencia(payload);
-        toast.success('Lançamento registrado!');
+        toast.success('Ausência registrada!');
       }
 
+      // 6. Atualiza dados globais e fecha
       mutate('getTodasSolicitacoes'); 
       onClose();
+
     } catch (err) {
-      toast.error(err.message, { duration: 5000 });
+      console.error(err);
+      toast.error(err.message || "Erro ao salvar.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="ausencia-form-container" style={{border:'none', boxShadow:'none', padding:0}}>
+    <div className="ausencia-form-container">
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="ausencia-form-grid">
           
+          {/* SELEÇÃO DE COLABORADOR */}
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
             <label>Colaborador *</label>
-            <select {...register('funcionario_id', { required: true })} disabled={!!idParaEditar} style={idParaEditar ? {backgroundColor: '#f1f5f9'} : {}}>
+            <select 
+              {...register('funcionario_id', { required: "Selecione um colaborador" })} 
+              disabled={!!idParaEditar} 
+              className={idParaEditar ? 'input-disabled' : ''}
+            >
               <option value="">Selecione...</option>
               {funcionarios?.map(f => <option key={f.id} value={f.id}>{f.nome_completo}</option>)}
             </select>
           </div>
 
+          {/* BARRA DE SALDO (Apenas Férias) */}
           {selectedFuncionario && selectedTipo === 'Férias' && (
-            <div style={{gridColumn: 'span 2', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0'}}>
-              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'6px', fontSize:'0.85rem', color:'#475569'}}>
-                <span>Saldo Atual: <strong>{saldoTotal} dias</strong></span>
+            <div className="saldo-bar-container">
+              <div className="saldo-info">
+                <span>Disponível: <strong>{saldoTotal} dias</strong></span>
                 {stats?.dias > 0 && (
-                  <span style={{color: stats.isNegativo ? '#ef4444' : '#0284c7'}}>
-                    Restante: <strong>{stats.saldoRestante} dias</strong>
+                  <span className={stats.isNegativo ? 'text-danger' : 'text-primary'}>
+                    Após saída: <strong>{stats.saldoRestante} dias</strong>
                   </span>
                 )}
               </div>
-              <div style={{height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden'}}>
-                <div style={{
-                  height: '100%', 
-                  width: `${stats?.porcentagemUso || 0}%`, 
-                  background: stats?.isNegativo ? '#ef4444' : '#3b82f6',
-                  transition: 'width 0.3s ease'
-                }}></div>
+              <div className="progress-bg">
+                <div 
+                  className="progress-fill"
+                  style={{
+                    width: `${stats?.porcentagemUso || 0}%`, 
+                    backgroundColor: stats?.isNegativo ? '#ef4444' : '#3b82f6'
+                  }}
+                ></div>
               </div>
             </div>
           )}
 
+          {/* TIPO DE AUSÊNCIA */}
           <div className="ausencia-form-group">
             <label>Tipo *</label>
             <select {...register('tipo', { required: true })}>
@@ -163,43 +206,73 @@ function LancarAusenciaForm({ onClose, idParaEditar = null }) {
               <option value="Atestado Médico">Atestado Médico</option>
               <option value="Licença Paternidade/Maternidade">Licença Paternidade/Maternidade</option>
               <option value="Folga Pessoal">Folga Pessoal</option>
+              <option value="Banco de Horas">Banco de Horas</option>
             </select>
           </div>
 
-          <div className="ausencia-form-group"><label>Início *</label><input type="date" {...register('data_inicio', { required: true })} /></div>
-          <div className="ausencia-form-group"><label>Fim *</label><input type="date" {...register('data_fim', { required: true })} /></div>
+          {/* DATAS */}
+          <div className="ausencia-form-group">
+            <label>Início *</label>
+            <input type="date" {...register('data_inicio', { required: true })} />
+          </div>
+          <div className="ausencia-form-group">
+            <label>Fim *</label>
+            <input type="date" {...register('data_fim', { required: true })} />
+          </div>
           
+          {/* DURAÇÃO (Read Only) */}
           <div className="ausencia-form-group">
             <label>Duração</label>
-            <input value={stats?.dias ? `${stats.dias} dias` : '-'} disabled style={{background: '#f1f5f9'}} />
+            <input 
+              value={stats?.dias ? `${stats.dias} dias` : '-'} 
+              disabled 
+              className="input-readonly" 
+            />
           </div>
 
-          {stats?.inicioRuim && (
-             <div style={{gridColumn: 'span 2', padding: '10px', background: '#fff7ed', borderLeft: '4px solid #f97316', color: '#9a3412', fontSize: '0.85rem', borderRadius: '4px'}}>
-               ⚠️ <strong>Atenção:</strong> Evite iniciar férias em sextas-feiras ou fins de semana.
+          {/* ALERTAS VISUAIS */}
+          {stats?.inicioRuim && selectedTipo === 'Férias' && (
+             <div className="alert-warning">
+               {stats.msgRuim}
              </div>
           )}
+          
           {stats?.dias > 0 && (
-             <div style={{gridColumn: 'span 2', marginTop: '-10px', fontSize: '0.9rem', color: '#059669', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'}}>
-               <span>🔙</span> Retorno previsto: {stats.retorno}
+             <div className="info-retorno">
+               <span>📅</span> Retorno previsto: <strong>{stats.retorno}</strong>
              </div>
           )}
 
+          {/* ANEXO */}
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
-            <label>Anexo {selectedTipo?.includes('Atestado') && !idParaEditar && '*'}</label>
-            <input type="file" {...register('anexo', { required: (!idParaEditar && selectedTipo?.includes('Atestado')) })} />
+            <label>
+              Anexo 
+              {selectedTipo?.includes('Atestado') && !idParaEditar && <span className="required-mark">* (Obrigatório para Saúde)</span>}
+            </label>
+            <input 
+              type="file" 
+              {...register('anexo', { required: (!idParaEditar && selectedTipo?.includes('Atestado')) })} 
+            />
           </div>
 
+          {/* OBSERVAÇÕES */}
           <div className="ausencia-form-group" style={{gridColumn: 'span 2'}}>
             <label>Observações</label>
-            <textarea {...register('motivo')} rows="2"></textarea>
+            <textarea {...register('motivo')} rows="2" placeholder="Descreva o motivo ou detalhes adicionais..."></textarea>
           </div>
         </div>
 
+        {/* RODAPÉ / BOTÕES */}
         <div className="ausencia-form-footer">
-          <button type="button" className="button-secondary" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="button-primary" disabled={isSubmitting || stats?.isNegativo}>
-            {idParaEditar ? 'Salvar Alterações' : 'Registrar'}
+          <button type="button" className="button-secondary" onClick={onClose}>
+            Cancelar
+          </button>
+          <button 
+            type="submit" 
+            className="button-primary" 
+            disabled={isSubmitting || (selectedTipo === 'Férias' && stats?.isNegativo && !idParaEditar)}
+          >
+            {isSubmitting ? 'Salvando...' : (idParaEditar ? 'Salvar Alterações' : 'Registrar Solicitação')}
           </button>
         </div>
       </form>

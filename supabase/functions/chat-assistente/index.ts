@@ -15,30 +15,60 @@ Deno.serve(async (req) => {
 
     if (!geminiKey) throw new Error("Chave da IA não configurada no servidor.");
 
-    // 2. Buscar "Cérebro" no Banco de Dados
+    // 2. Conectar ao Banco
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const { prompt } = await req.json();
+
+    // =========================================================================
+    // NOVO: Coleta de Dados (O Cérebro do Negócio)
+    // Buscamos dados resumidos para dar contexto à IA sem gastar muitos tokens
+    // =========================================================================
     
-    const { data: config, error: dbError } = await supabase
+    // A. Busca Funcionários (Apenas dados não sensíveis)
+    const { data: funcionarios } = await supabase
+      .from('funcionarios')
+      .select('nome_completo, cargo, departamento, status')
+      .eq('status', 'Ativo') // Opcional: Apenas ativos
+      .limit(50); // Limite para não estourar tokens se tiver mil funcionários
+
+    // B. Busca KPIs básicos (Ex: total de ausências hoje)
+    // (Opcional - pode adicionar depois)
+
+    // Monta o contexto para a IA ler
+    const contextoDados = `
+      DADOS ATUAIS DA EMPRESA (Use estes dados para responder se perguntado):
+      
+      LISTA DE COLABORADORES:
+      ${JSON.stringify(funcionarios)}
+      
+      INSTRUÇÕES DE SEGURANÇA:
+      - Você tem acesso a essa lista acima.
+      - Se perguntarem sobre salários, CPF ou dados pessoais, diga que não tem acesso a essas informações.
+      - Responda de forma natural, como um assistente de RH prestativo.
+    `;
+
+    // =========================================================================
+
+    // 3. Configurações da IA
+    // Tenta pegar do banco, se não tiver, usa o padrão + nosso contexto
+    const { data: config } = await supabase
       .from('configuracoes_ia')
       .select('*')
       .limit(1)
       .maybeSingle();
 
-    // Definição de valores (com fallback seguro caso o banco falhe momentaneamente)
     let systemInstruction = "Você é o assistente virtual QualyBot.";
-    let modelName = 'gemini-2.5-flash'; // O modelo que validamos que funciona para você
+    let modelName = 'gemini-2.5-flash'; // Modelo rápido e barato
     let temperature = 0.4;
 
     if (config) {
       systemInstruction = config.system_instruction;
-      modelName = config.model_name;
+      modelName = config.model_name || 'gemini-2.5-flash';
       temperature = config.temperature;
-    } else if (dbError) {
-      console.error("Alerta: Falha ao ler configurações do banco:", dbError);
     }
 
-    // 3. Preparar a requisição
-    const { prompt } = await req.json();
+    // Combina a instrução fixa com os dados dinâmicos do banco
+    const finalSystemInstruction = `${systemInstruction}\n\n${contextoDados}`;
 
     // 4. Chamar o Google Gemini
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
@@ -48,32 +78,29 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
+        systemInstruction: { parts: [{ text: finalSystemInstruction }] }, // Envia o contexto aqui
         generationConfig: { temperature: temperature, maxOutputTokens: 1000 }
       }),
     });
 
     if (!response.ok) {
       const errTxt = await response.text();
-      console.error("Erro na API do Google:", errTxt); // Loga no painel do Supabase, não no chat
+      console.error("Erro na API do Google:", errTxt);
       throw new Error("O serviço de IA está indisponível no momento.");
     }
 
     const data = await response.json();
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui formular uma resposta.";
 
-    // 5. Retornar a resposta limpa para o usuário
     return new Response(
       JSON.stringify({ reply }),
       { headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' } }
     );
 
   } catch (error) {
-    console.error("ERRO CRÍTICO:", error);
-    
-    // Retorna uma mensagem amigável para o usuário final, sem expor detalhes técnicos
+    console.error("ERRO NO CHAT:", error);
     return new Response(
-      JSON.stringify({ reply: "Desculpe, estou passando por uma instabilidade técnica. Tente novamente em instantes." }),
+      JSON.stringify({ reply: "Estou tendo dificuldades para acessar os dados agora. Tente novamente." }),
       { status: 200, headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' } }
     );
   }
