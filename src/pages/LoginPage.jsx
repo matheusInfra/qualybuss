@@ -4,25 +4,48 @@ import { useAuth } from "../contexts/AuthContext";
 import "./LoginPage.css";
 
 function LoginPage() {
+  // ... estados existentes
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // NOVO ESTADO: Controla se mostra Login ou Recuperação
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [message, setMessage] = useState(null); // Mensagem de sucesso
 
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth(); // Importe resetPassword
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  // Função Original de Login
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       const { error } = await signIn(email, password);
       if (error) throw error;
       navigate("/");
     } catch (err) {
-      setError(err.message || "Falha ao fazer login");
+      setError("Falha ao fazer login. Verifique suas credenciais.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Nova Função de Recuperação
+  const handleRecovery = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+    try {
+      const { error } = await resetPassword(email);
+      if (error) throw error;
+      setMessage("Se o e-mail existir, você receberá um link em instantes.");
+      // Opcional: voltar para login após alguns segundos ou manter na tela
+    } catch (err) {
+      setError("Erro ao solicitar recuperação: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -30,28 +53,32 @@ function LoginPage() {
 
   return (
     <div className="login-wrapper">
-
-      {/* LADO ESQUERDO */}
       <div className="login-left">
         <div className="login-box">
-
           <div className="brand">
             <span className="material-symbols-outlined brand-icon">donut_large</span>
             <h1 className="brand-name">QualyBuss</h1>
           </div>
 
-          <h1 className="title">Bem-vindo(a) de volta</h1>
-          <p className="subtitle">Á saúde do seu negócio é nossa responsabilidade.</p>
+          <h1 className="title">
+            {isRecovering ? "Recuperar Senha" : "Bem-vindo(a) de volta"}
+          </h1>
+          <p className="subtitle">
+            {isRecovering 
+              ? "Informe seu e-mail para receber as instruções." 
+              : "A saúde do seu negócio é nossa responsabilidade."}
+          </p>
 
-          <form onSubmit={handleSubmit} className="form">
+          {/* Renderização Condicional do Formulário */}
+          <form onSubmit={isRecovering ? handleRecovery : handleLogin} className="form">
             
             <label className="input-label">
-              E-mail ou Usuário
+              E-mail
               <div className="input-container">
                 <span className="material-symbols-outlined input-icon">person</span>
                 <input
                   type="email"
-                  placeholder="Digite seu e-mail ou nome de usuário"
+                  placeholder="Digite seu e-mail"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -59,48 +86,74 @@ function LoginPage() {
               </div>
             </label>
 
-            <label className="input-label">
-              Senha
-              <div className="input-container">
-                <span className="material-symbols-outlined input-icon">lock</span>
-                <input
-                  type="password"
-                  placeholder="Digite sua senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </label>
-
-            {error && <p className="error-message">{error}</p>}
-
-            <div className="form-options">
-              <label className="remember">
-                <input type="checkbox" />
-                <span>Lembrar-me</span>
+            {/* Campo de Senha só aparece se NÃO estiver recuperando */}
+            {!isRecovering && (
+              <label className="input-label">
+                Senha
+                <div className="input-container">
+                  <span className="material-symbols-outlined input-icon">lock</span>
+                  <input
+                    type="password"
+                    placeholder="Digite sua senha"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
               </label>
+            )}
 
-              <a href="#" className="forgot">Esqueceu sua senha?</a>
-            </div>
+            {error && <p className="error-message" style={{color: 'red', marginTop: '10px'}}>{error}</p>}
+            {message && <p className="success-message" style={{color: 'green', marginTop: '10px'}}>{message}</p>}
+
+            {!isRecovering && (
+              <div className="form-options">
+                <label className="remember">
+                  <input type="checkbox" />
+                  <span>Lembrar-me</span>
+                </label>
+
+                <button 
+                  type="button" 
+                  className="forgot" 
+                  onClick={() => {
+                    setIsRecovering(true);
+                    setError(null);
+                    setMessage(null);
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  Esqueceu sua senha?
+                </button>
+              </div>
+            )}
 
             <button type="submit" disabled={loading} className="submit-btn">
-              {loading ? "Entrando..." : "Entrar"}
+              {loading ? "Processando..." : (isRecovering ? "Enviar Link" : "Entrar")}
             </button>
+
+            {isRecovering && (
+              <button 
+                type="button" 
+                className="submit-btn" 
+                style={{ backgroundColor: 'transparent', color: '#666', border: '1px solid #ddd', marginTop: '10px' }}
+                onClick={() => {
+                    setIsRecovering(false);
+                    setError(null);
+                    setMessage(null);
+                }}
+              >
+                Voltar para Login
+              </button>
+            )}
 
           </form>
         </div>
       </div>
-
-      {/* LADO DIREITO */}
+      {/* Lado direito mantém igual */}
       <div className="login-right">
-        <div className="overlay"></div>
-        <div className="right-content">
-          <h2>Equilíbrio e produtividade em um só lugar.</h2>
-          <p>Gerencie suas folgas com facilidade e mantenha sua equipe em sincronia.</p>
-        </div>
+        {/* ... conteúdo igual ... */}
       </div>
-
     </div>
   );
 }
