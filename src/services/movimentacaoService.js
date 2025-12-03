@@ -71,66 +71,33 @@ export const getMovimentacoesFiltradas = async ({ funcionarioId, tipo, dataInici
   return data;
 };
 
-/**
- * Cria um novo registro de movimentação E atualiza o cadastro do funcionário.
- * Suporta alterações de Cargo, Salário, Departamento e Empresa.
- */
-export const createMovimentacao = async (dadosMovimentacao) => {
-  // 1. Grava o registro histórico
-  const { data: movData, error: movError } = await supabase
-    .from('movimentacoes')
-    .insert([dadosMovimentacao])
-    .select()
-    .single();
-  
-  if (movError) {
-    console.error("Erro ao criar movimentação:", movError.message);
-    throw movError;
-  }
+export const createMovimentacao = async (dados) => {
+  // Prepara os dados para a função SQL
+  // Enviamos apenas o que é novo. O que for null/undefined, a SQL mantém o atual.
+  const payload = {
+    p_funcionario_id: dados.id_funcionario,
+    p_tipo: dados.tipo,
+    p_data: dados.data_movimentacao,
+    p_descricao: dados.descricao,
+    p_cargo_novo: dados.cargo_novo || null,
+    p_salario_novo: dados.salario_novo ? parseFloat(dados.salario_novo) : null,
+    p_departamento_novo: dados.departamento_novo || null,
+    p_empresa_nova: dados.empresa_nova || null
+  };
 
-  // 2. ATUALIZAÇÃO SINCRONIZADA DO FUNCIONÁRIO
-  const updates = {};
-  
-  // Cargo
-  if (dadosMovimentacao.cargo_novo) {
-    updates.cargo = dadosMovimentacao.cargo_novo;
-  }
-  
-  // Salário
-  if (dadosMovimentacao.salario_novo) {
-    updates.salario_bruto = parseFloat(dadosMovimentacao.salario_novo);
-  }
+  const { data, error } = await supabase.rpc('registrar_movimentacao_segura', payload);
 
-  // Departamento
-  if (dadosMovimentacao.departamento_novo) {
-    updates.departamento = dadosMovimentacao.departamento_novo;
-  }
-
-  // Empresa
-  if (dadosMovimentacao.empresa_nova) {
-    updates.empresa_id = dadosMovimentacao.empresa_nova;
-  }
-
-  // Executa update se houver mudanças no cadastro
-  if (Object.keys(updates).length > 0) {
-    const { error: updateError } = await supabase
-      .from('funcionarios')
-      .update(updates)
-      .eq('id', dadosMovimentacao.id_funcionario);
-
-    if (updateError) {
-      console.error("ALERTA CRÍTICO: Movimentação salva, mas falha ao atualizar cadastro:", updateError.message);
-      // Em produção, isso seria tratado com rollback ou fila de retry
-      throw new Error("Movimentação registrada, mas houve erro ao atualizar o cadastro do funcionário.");
+  if (error) {
+    console.error("Erro na movimentação:", error.message);
+    // Tratamento de erro amigável para a regra CLT
+    if (error.message.includes('Irredutibilidade')) {
+        throw new Error("Ação bloqueada: Não é permitido reduzir o salário do colaborador.");
     }
+    throw error;
   }
 
-  return movData;
+  return data;
 };
-
-/**
- * [MÓDULO AVANÇADO] Simula um reajuste em massa.
- */
 export const simularReajusteMassa = async ({ departamento, tipoReajuste, valor, dataVigencia }) => {
   let query = supabase.from('funcionarios').select('id, nome_completo, salario_bruto, cargo, departamento, empresa_id').eq('status', 'Ativo');
   

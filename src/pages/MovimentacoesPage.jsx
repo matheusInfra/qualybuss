@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 // Services
 import { getFuncionarios } from '../services/funcionarioService';
 import { getEmpresas } from '../services/empresaService';
-import { createMovimentacao, getMovimentacoesFiltradas } from '../services/movimentacaoService';
+import { createMovimentacao, getMovimentacoesFiltradas } from '../services/movimentacaoService'; //
 
 // Estilos
 import './MovimentacoesPage.css';
@@ -138,29 +138,59 @@ function MovimentacoesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 1. Validação Básica
     if (!formData.id_funcionario || !formData.tipo || !formData.data_movimentacao) {
-      toast.error("Preencha os campos obrigatórios.");
+      toast.error("Por favor, preencha os campos obrigatórios (Colaborador, Data e Tipo).");
       return;
+    }
+
+    // 2. Validação de Regra de Negócio: Promoção exige cargo novo
+    if (formData.tipo === 'Promoção' && !formData.cargo_novo) {
+        toast.error("Para registrar uma Promoção, é obrigatório informar o Novo Cargo.");
+        return;
+    }
+
+    // 3. Validação Crítica: Redução Salarial (CLT)
+    if (formData.salario_novo && formData.salario_anterior) {
+       const novo = parseFloat(formData.salario_novo);
+       const antigo = parseFloat(formData.salario_anterior);
+       
+       // Se o novo for menor que o antigo e não for explicitamente uma 'Reclassificação' (ou correção)
+       if (novo < antigo && formData.tipo !== 'Reclassificação') {
+           const confirmar = window.confirm(
+               `⚠️ ALERTA DE COMPLIANCE ⚠️\n\n` +
+               `Você está reduzindo o salário de R$ ${antigo} para R$ ${novo}.\n` +
+               `Pela legislação (Princípio da Irredutibilidade), isso pode gerar passivo trabalhista, exceto em convenção coletiva.\n\n` +
+               `Tem certeza que deseja prosseguir com a redução?`
+           );
+           if (!confirmar) return; // Cancela envio
+       }
     }
 
     setIsSubmitting(true);
     try {
       const novosDados = { ...formData };
+      
+      // Limpeza de campos vazios para null (evita string vazia no banco)
       Object.keys(novosDados).forEach(key => {
         if (novosDados[key] === '') novosDados[key] = null;
       });
 
+      // Chama o serviço (que agora usa a RPC segura no backend)
       await createMovimentacao(novosDados);
 
-      mutate(['movimentacoes', JSON.stringify(filtros)]);
-      mutate('getFuncionarios');
-      mutate('dashboard_kpis');
+      // Atualiza caches para refletir a mudança instantaneamente
+      mutate(['movimentacoes', JSON.stringify(filtros)]); // Tabela local
+      mutate('getFuncionarios'); // Cache global de funcionários
+      mutate('dashboard_kpis');  // Dashboard
 
-      toast.success('Movimentação registrada e cadastro atualizado!');
-      setFormData(initialState);
+      toast.success('Movimentação registrada e cadastro atualizado com sucesso!');
+      setFormData(initialState); // Limpa o formulário
 
     } catch (err) {
-      toast.error(`Erro: ${err.message}`);
+      console.error(err);
+      toast.error(`Erro ao registrar: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,11 +203,11 @@ function MovimentacoesPage() {
         <>
           <div className="movimentacao-group">
             <label>Cargo Anterior</label>
-            <input type="text" value={formData.cargo_anterior} disabled />
+            <input type="text" value={formData.cargo_anterior} disabled className="input-readonly" />
           </div>
           <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)' }}>Novo Cargo</label>
-            <input type="text" name="cargo_novo" value={formData.cargo_novo} onChange={handleChange} placeholder="Novo cargo..." />
+            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Novo Cargo</label>
+            <input type="text" name="cargo_novo" value={formData.cargo_novo} onChange={handleChange} placeholder="Digite o novo cargo..." />
           </div>
         </>
       );
@@ -192,10 +222,10 @@ function MovimentacoesPage() {
         <>
           <div className="movimentacao-group">
             <label>Salário Anterior (R$)</label>
-            <input type="number" value={formData.salario_anterior} disabled />
+            <input type="number" value={formData.salario_anterior} disabled className="input-readonly" />
           </div>
           <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)' }}>Novo Salário (R$)</label>
+            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Novo Salário (R$)</label>
             <input type="number" step="0.01" name="salario_novo" value={formData.salario_novo} onChange={handleChange} placeholder="0.00" />
           </div>
         </>
@@ -211,19 +241,19 @@ function MovimentacoesPage() {
         <>
           <div className="movimentacao-group">
             <label>Departamento Atual</label>
-            <input type="text" value={formData.departamento_anterior} disabled />
+            <input type="text" value={formData.departamento_anterior} disabled className="input-readonly" />
           </div>
           <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)' }}>Novo Departamento</label>
+            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Novo Departamento</label>
             <input type="text" name="departamento_novo" value={formData.departamento_novo} onChange={handleChange} placeholder="Novo departamento..." />
           </div>
 
           <div className="movimentacao-group">
             <label>Empresa Atual</label>
-            <input type="text" value={empresas?.find(e => e.id === formData.empresa_anterior)?.nome_fantasia || 'Atual'} disabled />
+            <input type="text" value={empresas?.find(e => e.id === formData.empresa_anterior)?.nome_fantasia || 'Atual'} disabled className="input-readonly" />
           </div>
           <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)' }}>Nova Empresa</label>
+            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Nova Empresa</label>
             <select name="empresa_nova" value={formData.empresa_nova} onChange={handleChange}>
               <option value="">Selecione...</option>
               {empresas?.map(e => (
@@ -241,12 +271,15 @@ function MovimentacoesPage() {
     <div className="movimentacoes-container">
       <div className="movimentacoes-header">
         <h1>Gestão de Movimentações</h1>
-        <p>Registre promoções, alterações e transferências. O sistema atualiza o cadastro automaticamente.</p>
+        <p>Registre promoções, alterações e transferências. O sistema atualiza o cadastro automaticamente com segurança.</p>
       </div>
 
       {/* FORMULÁRIO DE REGISTRO */}
       <div className="movimentacao-form-wrapper">
-        <h3 className="form-section-title">Novo Registro Individual</h3>
+        <h3 className="form-section-title">
+            <span className="material-symbols-outlined">edit_document</span>
+            Novo Registro Individual
+        </h3>
         <form onSubmit={handleSubmit}>
           <div className="movimentacao-grid">
 
@@ -273,8 +306,8 @@ function MovimentacoesPage() {
 
             <div className="movimentacao-group">
               <label>Tipo de Ação *</label>
-              <select name="tipo" value={formData.tipo} onChange={handleChange} required style={{ borderColor: 'var(--primary-500)', backgroundColor: 'var(--primary-50)' }}>
-                <option value="Promoção">Promoção</option>
+              <select name="tipo" value={formData.tipo} onChange={handleChange} required style={{ borderColor: 'var(--primary-500)', backgroundColor: '#eff6ff' }}>
+                <option value="Promoção">Promoção (Cargo/Salário)</option>
                 <option value="Ajuste Salarial">Ajuste Salarial (Dissídio/Mérito)</option>
                 <option value="Transferência">Transferência (Depto/Empresa)</option>
                 <option value="Reclassificação">Reclassificação</option>
@@ -283,8 +316,8 @@ function MovimentacoesPage() {
             </div>
 
             <div className="movimentacao-group span-4">
-              <label>Justificativa *</label>
-              <input type="text" name="descricao" placeholder="Ex: Promoção por mérito..." value={formData.descricao} onChange={handleChange} required />
+              <label>Justificativa / Motivo *</label>
+              <input type="text" name="descricao" placeholder="Ex: Promoção por mérito após avaliação de desempenho..." value={formData.descricao} onChange={handleChange} required />
             </div>
 
             <div className="divider"></div>
@@ -296,7 +329,7 @@ function MovimentacoesPage() {
           </div>
           <div className="form-footer">
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? '...' : 'Confirmar e Salvar'}
+              {isSubmitting ? 'Processando...' : 'Confirmar e Salvar'}
             </button>
           </div>
         </form>
