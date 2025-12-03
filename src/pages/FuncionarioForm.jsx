@@ -13,6 +13,8 @@ import { getEmpresas } from '../services/empresaService';
 import { getBancos } from '../services/bancoService';
 import { buscarCep } from '../utils/formUtils'; 
 import './FuncionarioForm.css';
+import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes'; // O histórico de cargos/salários
+import TimelineAuditoria from '../components/Auditoria/TimelineAuditoria'; // A nova auditoria de campos
 
 function FuncionarioForm() {
   const { id } = useParams();
