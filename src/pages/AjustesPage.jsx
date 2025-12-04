@@ -1,51 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '../services/supabaseClient'; //
 import { getAjustesPendentes, aprovarAjuste, rejeitarAjuste } from '../services/ausenciaService';
 import { toast } from 'react-hot-toast';
-import TimelineAuditoria from '../components/Auditoria/TimelineAuditoria'; // [NOVO]
-import './AjustesPage.css';
+import TimelineAuditoria from '../components/Auditoria/TimelineAuditoria'; // Novo componente de auditoria
+import './AjustesPage.css'; //
 
 function AjustesPage() {
-  const [activeTab, setActiveTab] = useState('ausencias'); // 'ausencias' ou 'auditoria'
+  // Controle de Abas: 'ausencias' (Aprovações) ou 'auditoria' (Logs Globais)
+  const [activeTab, setActiveTab] = useState('ausencias');
+  
   const [ajustes, setAjustes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Carrega Ajustes de Ausência (Lógica existente)
+  // Carrega solicitações de ajuste de ponto
   const loadAjustes = async () => {
+    setLoading(true);
     try {
       const data = await getAjustesPendentes();
       setAjustes(data || []);
     } catch (error) {
       toast.error('Erro ao carregar ajustes.');
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
+  // Recarrega dados ao trocar para a aba de ausências
   useEffect(() => {
-    if (activeTab === 'ausencias') loadAjustes();
+    if (activeTab === 'ausencias') {
+      loadAjustes();
+    }
   }, [activeTab]);
 
-  // Handlers de Aprovação (Lógica existente)
+  // APROVAR AJUSTE DE PONTO
   const handleAprovar = async (id, novosDados, ausenciaId) => {
     try {
       await aprovarAjuste(id, novosDados, ausenciaId);
-      toast.success('Ajuste aprovado!');
-      loadAjustes();
+      toast.success('Ajuste aprovado e saldo atualizado!');
+      loadAjustes(); 
     } catch (error) {
       toast.error('Erro ao aprovar: ' + error.message);
     }
   };
 
+  // REJEITAR AJUSTE DE PONTO
   const handleRejeitar = async (id) => {
-    const motivo = window.prompt("Motivo da rejeição:");
+    const motivo = window.prompt("Motivo da rejeição (Obrigatório):");
     if (!motivo) return;
+
     try {
       await rejeitarAjuste(id, motivo);
-      toast.success('Ajuste rejeitado.');
-      loadAjustes();
+      toast.success('Solicitação rejeitada.');
+      loadAjustes(); 
     } catch (error) {
-      toast.error('Erro ao rejeitar.');
+      toast.error('Erro ao rejeitar: ' + error.message);
     }
   };
 
@@ -53,17 +62,17 @@ function AjustesPage() {
     <div className="ajustes-container">
       <div className="ajustes-header">
         <h1>Central de Ajustes e Auditoria</h1>
-        <p>Gerencie correções de ponto e monitore alterações sensíveis no sistema.</p>
+        <p>Gerencie correções de ponto e monitore a segurança dos dados cadastrais.</p>
       </div>
 
-      {/* Navegação por Abas */}
+      {/* NAVEGAÇÃO POR ABAS */}
       <div className="ajustes-tabs">
         <button 
           className={`tab-btn ${activeTab === 'ausencias' ? 'active' : ''}`}
           onClick={() => setActiveTab('ausencias')}
         >
           <span className="material-symbols-outlined">edit_calendar</span>
-          Ajustes de Ausência
+          Ajustes de Ponto
         </button>
         <button 
           className={`tab-btn ${activeTab === 'auditoria' ? 'active' : ''}`}
@@ -75,12 +84,22 @@ function AjustesPage() {
       </div>
 
       <div className="ajustes-content">
-        {/* ABA 1: AJUSTES DE AUSÊNCIA (Código Original) */}
+        
+        {/* ABA 1: AJUSTES DE AUSÊNCIA (Operacional) */}
         {activeTab === 'ausencias' && (
-          <div className="lista-ajustes">
-            <h3>Solicitações Pendentes de Retificação</h3>
-            {loading ? <p>Carregando...</p> : 
-             ajustes.length === 0 ? <p className="empty-msg">Nenhuma solicitação pendente.</p> : (
+          <div className="lista-ajustes fade-in">
+            <div className="section-info">
+               <h3>Solicitações Pendentes</h3>
+               <p>Colaboradores solicitando alteração em datas ou tipos de ausência.</p>
+            </div>
+            
+            {loading ? <p>Carregando solicitações...</p> : 
+             ajustes.length === 0 ? (
+                <div className="empty-state">
+                  <span className="material-symbols-outlined">check_circle</span>
+                  <p>Nenhuma pendência encontrada.</p>
+                </div>
+             ) : (
               <div className="cards-grid">
                 {ajustes.map(ajuste => (
                   <div key={ajuste.id} className="ajuste-card">
@@ -88,18 +107,23 @@ function AjustesPage() {
                       <span className="tipo-tag">{ajuste.tipo_ajuste}</span>
                       <span className="data-tag">{new Date(ajuste.created_at).toLocaleDateString()}</span>
                     </div>
-                    <p><strong>Colaborador:</strong> {ajuste.ausencia?.funcionarios?.nome_completo}</p>
-                    <p><strong>Motivo:</strong> {ajuste.justificativa}</p>
                     
-                    <div className="comparativo">
-                      <div className="bloco antigo">
-                        <small>Antes:</small>
-                        <span>{new Date(ajuste.dados_anteriores.data_inicio).toLocaleDateString()}</span>
-                      </div>
-                      <span className="arrow">➝</span>
-                      <div className="bloco novo">
-                        <small>Depois:</small>
-                        <span>{new Date(ajuste.novos_dados.data_inicio).toLocaleDateString()}</span>
+                    <div className="card-body">
+                      <p><strong>Colaborador:</strong> {ajuste.ausencia?.funcionarios?.nome_completo}</p>
+                      <p className="justificativa">"{ajuste.justificativa}"</p>
+                      
+                      <div className="comparativo-visual">
+                        <div className="bloco antigo">
+                          <small>ORIGINAL</small>
+                          <span>{ajuste.dados_anteriores.data_inicio ? new Date(ajuste.dados_anteriores.data_inicio).toLocaleDateString() : '-'}</span>
+                          <span className="badge-mini">{ajuste.dados_anteriores.tipo}</span>
+                        </div>
+                        <span className="arrow">➝</span>
+                        <div className="bloco novo">
+                          <small>SOLICITADO</small>
+                          <span>{ajuste.novos_dados.data_inicio ? new Date(ajuste.novos_dados.data_inicio).toLocaleDateString() : '-'}</span>
+                          <span className="badge-mini">{ajuste.novos_dados.tipo}</span>
+                        </div>
                       </div>
                     </div>
 
@@ -114,17 +138,19 @@ function AjustesPage() {
           </div>
         )}
 
-        {/* ABA 2: AUDITORIA GLOBAL (Novo Componente) */}
+        {/* ABA 2: AUDITORIA GLOBAL (Segurança) */}
         {activeTab === 'auditoria' && (
-          <div className="auditoria-global">
-            <h3>Monitoramento de Alterações (Últimos 50 eventos)</h3>
-            <p style={{marginBottom: '20px', color: '#64748b'}}>
-              Registro automático de todas as edições em cadastros de funcionários e tabelas críticas.
-            </p>
-            {/* Componente de Auditoria em Modo Global */}
+          <div className="auditoria-global fade-in">
+            <div className="auditoria-header-box">
+              <h3>Monitoramento de Segurança</h3>
+              <p>Histórico em tempo real de todas as alterações críticas realizadas no sistema (Salários, Cargos, Dados Pessoais).</p>
+            </div>
+            
+            {/* Componente que lê a tabela logs_auditoria */}
             <TimelineAuditoria global={true} />
           </div>
         )}
+
       </div>
     </div>
   );
