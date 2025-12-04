@@ -84,22 +84,31 @@ function FuncionarioForm() {
     try {
       let funcionarioId = id;
       
-      // Sincroniza email corporativo com email de sistema (para RLS)
-      if (data.email_corporativo && !data.email) {
-          data.email = data.email_corporativo;
+      // 1. LIMPEZA DE DADOS (CRUCIAL)
+      // Cria uma cópia dos dados para não alterar o original do formulário
+      const payload = { ...data };
+
+      // Remove campos que não existem na tabela 'funcionarios'
+      delete payload.inicio_periodo_migracao;
+      delete payload.saldo_inicial_migracao;
+      delete payload.banco_nome_display; // Se houver algum campo de display
+
+      // Lógica de Email (mantida)
+      if (payload.email_corporativo && !payload.email) {
+          payload.email = payload.email_corporativo;
       }
 
+      // 2. ENVIO
       if (isEditMode) {
-        await updateFuncionario(id, data);
-        toast.success('Cadastro atualizado com sucesso!');
+        await updateFuncionario(id, payload); // Envia o payload limpo
+        toast.success('Dados atualizados com sucesso!');
       } else {
-        const novoFunc = await createFuncionario(data);
+        const novoFunc = await createFuncionario(payload); // Envia o payload limpo
         funcionarioId = novoFunc.id;
-        toast.success('Novo colaborador cadastrado!');
+        toast.success('Colaborador cadastrado!');
 
-        // --- Lógica de Férias (Apenas na Criação) ---
+        // 3. Lógica de Férias (Usa os dados originais 'data', que ainda têm os campos)
         if (modoMigracao) {
-          // MODO MIGRAÇÃO: Cria período já aberto com saldo manual
           if (data.inicio_periodo_migracao && data.saldo_inicial_migracao) {
              const inicio = new Date(data.inicio_periodo_migracao);
              const fim = new Date(inicio);
@@ -115,7 +124,7 @@ function FuncionarioForm() {
              }]);
           }
         } else {
-          // MODO NOVO: Cria período bloqueado (Em Aquisição)
+          // ... lógica modo novo (igual)
           const admissao = new Date(data.data_admissao);
           const fimAquisitivo = new Date(admissao);
           fimAquisitivo.setFullYear(fimAquisitivo.getFullYear() + 1);
@@ -133,7 +142,9 @@ function FuncionarioForm() {
       navigate('/funcionarios');
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao salvar: ' + (error.message || 'Verifique os dados.'));
+      // Melhora a mensagem de erro para debug
+      const msg = error.message || error.details || 'Erro desconhecido';
+      toast.error(`Erro ao salvar: ${msg}`);
     } finally {
       setLoading(false);
     }

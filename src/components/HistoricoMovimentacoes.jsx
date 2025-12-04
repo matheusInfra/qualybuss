@@ -6,7 +6,7 @@ import './HistoricoMovimentacoes.css'; //
 // Helper para formatar data
 const formatarData = (dataStr) => {
   if (!dataStr) return '-';
-  // Ajuste para evitar problemas de fuso horário simples
+  // Ajuste simples para evitar problemas de fuso horário na visualização
   return new Date(dataStr.replace(/-/g, '/')).toLocaleDateString('pt-BR');
 };
 
@@ -17,17 +17,18 @@ const formatCurrency = (val) => {
 };
 
 function HistoricoMovimentacoes({ funcionarioId }) {
+  // Chave SWR única por funcionário
   const cacheKey = ['movimentacoes', funcionarioId];
 
+  // Busca os dados
   const { 
     data: movimentacoes, 
     error, 
     isLoading 
   } = useSWR(cacheKey, () => getMovimentacoesPorFuncionario(funcionarioId));
 
-  // Função Inteligente: Decide o que mostrar baseado no tipo
+  // Função Inteligente: Decide o que mostrar na célula de detalhes
   const renderDetalhes = (mov) => {
-    // Lista de mudanças para renderizar
     const mudancas = [];
 
     // 1. Mudança de Cargo
@@ -43,6 +44,7 @@ function HistoricoMovimentacoes({ funcionarioId }) {
     }
 
     // 2. Mudança de Salário
+    // Compara números para evitar falsos positivos com strings diferentes
     if (mov.salario_novo && Number(mov.salario_anterior) !== Number(mov.salario_novo)) {
       mudancas.push(
         <div key="salario" className="detalhe-item">
@@ -66,7 +68,7 @@ function HistoricoMovimentacoes({ funcionarioId }) {
       );
     }
 
-    // 4. Mudança de Empresa
+    // 4. Mudança de Empresa (Transferência)
     if (mov.empresa_nova && mov.empresa_anterior !== mov.empresa_nova) {
       mudancas.push(
         <div key="empresa" className="detalhe-item">
@@ -78,7 +80,7 @@ function HistoricoMovimentacoes({ funcionarioId }) {
       );
     }
 
-    // Fallback se nada específico for detectado (apenas exibe a descrição)
+    // Se nenhuma mudança específica for detectada, mostra traço (ou apenas descrição)
     if (mudancas.length === 0) {
       return <span className="text-muted">-</span>;
     }
@@ -89,26 +91,26 @@ function HistoricoMovimentacoes({ funcionarioId }) {
   return (
     <div className="historico-wrapper">
       <div className="historico-lista-container">
-        {/* Header removido para ficar limpo dentro do form, ou pode manter se quiser */}
-        
+        {/* Renderização Condicional de Estados */}
         {isLoading && <div className="loading-state">Carregando histórico...</div>}
-        {error && <div className="error-message">Erro ao carregar histórico.</div>}
+        {error && <div className="error-message">Erro ao carregar histórico: {error.message}</div>}
         
         {!isLoading && !error && movimentacoes?.length === 0 && (
           <div className="empty-state">
             <span className="material-symbols-outlined">history</span>
-            <p>Nenhuma movimentação registrada.</p>
+            <p>Nenhuma movimentação registrada para este colaborador.</p>
           </div>
         )}
         
+        {/* Tabela de Dados */}
         {!isLoading && movimentacoes?.length > 0 && (
           <table className="historico-tabela">
             <thead>
               <tr>
                 <th style={{width: '100px'}}>Data</th>
-                <th style={{width: '120px'}}>Tipo</th>
+                <th style={{width: '130px'}}>Tipo</th>
                 <th style={{width: '30%'}}>Motivo / Descrição</th>
-                <th>Detalhes da Alteração</th> {/* Coluna Dinâmica Unificada */}
+                <th>Detalhes da Alteração</th>
               </tr>
             </thead>
             <tbody>
