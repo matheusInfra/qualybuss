@@ -1,0 +1,151 @@
+.config-ia-container {
+  max-width: 900px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.ia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ia-info h3 {
+  margin: 0 0 8px 0;
+  color: #1e293b;
+  font-size: 1.25rem;
+}
+
+.ia-info p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.ia-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Área de Edição do Prompt */
+.ia-editor {
+  margin-bottom: 25px;
+}
+
+.ia-editor label {
+  display: block;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 10px;
+}
+
+.ia-editor textarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: 'Fira Code', 'Consolas', monospace; /* Fonte monoespaçada para código */
+  font-size: 0.9rem;
+  line-height: 1.6;
+  background-color: #f8fafc;
+  color: #334155;
+  resize: vertical;
+  min-height: 300px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+}
+
+.ia-editor textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Parâmetros (Modelo e Temperatura) */
+.ia-params {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  background-color: #f1f5f9;
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.param-group label {
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.param-group select {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #fff;
+  font-size: 0.95rem;
+}
+
+.param-group input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+.param-group small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+/* Botões */
+.btn-save-ia {
+  width: 100%;
+  padding: 14px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-save-ia:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.btn-save-ia:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.upload-btn {
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-box {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-style: italic;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
