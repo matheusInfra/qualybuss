@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.81.0",
+    "axios": "^1.13.2",
     "cpf-cnpj-validator": "^1.0.3",
     "date-fns": "^4.1.0",
     "pdf-lib": "^1.17.1",
