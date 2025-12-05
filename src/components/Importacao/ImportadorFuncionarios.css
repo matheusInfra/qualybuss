@@ -1,135 +1,275 @@
+/* Container Principal */
 .csv-importer {
-  max-width: 1000px;
+  max-width: 900px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease-out;
 }
 
-/* Área de Upload */
-.csv-header {
-  background-color: #fff;
-  border: 2px dashed #cbd5e1;
-  border-radius: 12px;
-  padding: 40px;
-  text-align: center;
-  margin-bottom: 30px;
-  transition: all 0.2s;
-}
-
-.csv-header:hover {
-  border-color: #2563eb;
-  background-color: #eff6ff;
-}
-
-.csv-header p {
-  color: #64748b;
-  margin-bottom: 20px;
-  line-height: 1.5;
-}
-
-.csv-header code {
-  background-color: #f1f5f9;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #0f172a;
-  font-family: monospace;
-  font-size: 0.9em;
-}
-
-/* Tabela de Preview */
-.csv-preview {
-  background: #fff;
-  border-radius: 8px;
+/* Header e Instruções */
+.csv-header-box {
+  background-color: #ffffff;
   border: 1px solid #e2e8f0;
-  padding: 20px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 30px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: center;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
-.csv-preview h4 {
-  margin: 0 0 15px 0;
-  color: #334155;
+.csv-instructions h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px 0;
+  color: #1e293b;
   font-size: 1.1rem;
 }
 
+.csv-instructions p {
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.btn-download-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #fff;
+  border: 1px solid #cbd5e1;
+  padding: 10px 16px;
+  border-radius: 6px;
+  color: #475569;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.btn-download-model:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+/* Área de Upload e Select */
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-left: 1px solid #f1f5f9;
+  padding-left: 30px;
+}
+
+.empresa-select-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.empresa-select-box label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.empresa-select-box select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.upload-btn-label {
+  background-color: #2563eb;
+  color: white;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.upload-btn-label:hover {
+  background-color: #1d4ed8;
+}
+
+.upload-btn-label.disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.upload-btn-label input {
+  display: none;
+}
+
+/* Relatório de Erros */
+.error-report {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 25px;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #991b1b;
+  margin-bottom: 10px;
+}
+
+.error-list {
+  margin: 0;
+  padding-left: 25px;
+  color: #b91c1c;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.fix-hint {
+  margin-top: 15px;
+  font-weight: 700;
+  color: #7f1d1d;
+  font-size: 0.9rem;
+}
+
+/* Preview de Sucesso */
+.csv-preview {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.preview-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.success-icon {
+  font-size: 2rem;
+  color: #10b981;
+}
+
+.preview-title h4 {
+  margin: 0;
+  color: #1e293b;
+}
+
+.preview-title small {
+  color: #64748b;
+}
+
+/* Botão de Ação Final */
+.btn-confirmar-importacao {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-confirmar-importacao:hover {
+  background-color: #059669;
+}
+
+/* Barra de Progresso */
+.progress-container {
+  width: 200px;
+}
+
+.progress-text {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 4px;
+  text-align: right;
+}
+
+.progress-track {
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #2563eb;
+  transition: width 0.3s ease;
+}
+
+/* Tabela */
 .table-responsive {
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  max-height: 400px; /* Scroll vertical se for muito grande */
 }
 
-.csv-preview table {
+table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
-.csv-preview th {
+th {
   background-color: #f8fafc;
   color: #475569;
   font-weight: 600;
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
 }
 
-.csv-preview td {
-  padding: 10px 12px;
+td {
+  padding: 12px;
   border-bottom: 1px solid #f1f5f9;
   color: #334155;
-  white-space: nowrap;
 }
 
-.csv-preview tr:last-child td {
-  border-bottom: none;
-}
-
-.more-rows {
+.more-rows-badge {
   text-align: center;
   padding: 10px;
+  font-size: 0.85rem;
   color: #94a3b8;
   font-style: italic;
-  font-size: 0.9rem;
+  background-color: #fcfcfc;
+  border-top: 1px dashed #e2e8f0;
 }
 
-/* Ações e Progresso */
-.csv-actions {
-  margin-top: 25px;
-  display: flex;
-  justify-content: flex-end;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.progress-bar {
-  width: 100%;
-  height: 24px;
-  background-color: #e2e8f0;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-}
-
-.progress-bar .fill {
-  height: 100%;
-  background-color: #10b981;
-  transition: width 0.3s ease-out;
-  background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
-  background-size: 1rem 1rem;
-  animation: progress-stripe 1s linear infinite;
-}
-
-.progress-bar span {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-@keyframes progress-stripe {
-  from { background-position: 1rem 0; }
-  to { background-position: 0 0; }
+@media (max-width: 768px) {
+  .csv-header-box {
+    grid-template-columns: 1fr;
+  }
+  .upload-section {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 20px;
+  }
 }
