@@ -1,0 +1,99 @@
+.gestao-salarios-container {
+  padding: 30px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.header-salarios {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.header-salarios h1 { color: #1e293b; margin: 0; }
+.header-salarios p { color: #64748b; margin: 5px 0 0 0; }
+
+.btn-reajuste {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reajuste:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.kpi-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.kpi-card.dark { background: #1e293b; color: white; }
+.kpi-card.dark h3 { color: #fff; }
+.kpi-card h3 { font-size: 1.8rem; margin: 10px 0 5px 0; color: #334155; }
+.kpi-card span { font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+
+.tabela-custos { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.tabela-custos th { text-align: left; padding: 15px; background: #f1f5f9; color: #475569; font-weight: 600; font-size: 0.9rem; }
+.tabela-custos td { padding: 15px; border-bottom: 1px solid #e2e8f0; color: #334155; font-size: 0.95rem; }
+
+.user-info { display: flex; flex-direction: column; }
+.user-info small { color: #64748b; }
+
+.text-danger { color: #ef4444; }
+.text-success { color: #16a34a; }
+.text-muted { color: #64748b; font-style: italic; }
+
+.simulacao-box {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.simulacao-box h4 { margin: 0 0 15px 0; color: #9a3412; display: flex; align-items: center; gap: 8px; }
+
+.simulacao-controls { display: flex; gap: 15px; margin-top: 15px; align-items: center; }
+.simulacao-controls input, .simulacao-controls select { padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 1rem; }
+
+.resultado-simulacao {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed #fed7aa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-primary { background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+.btn-success { background-color: #16a34a; color: white; padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+
+.highlight-row { background-color: #fffbeb; }
+.diff-tag { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; font-weight: 600; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.3s ease-out; }
