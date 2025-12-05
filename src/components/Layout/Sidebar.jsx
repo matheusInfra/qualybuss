@@ -6,13 +6,14 @@ import './Layout.css';
 function Sidebar({ isCollapsed, toggleSidebar }) {
   const { signOut, user } = useAuth();
 
-  // Atualizado para usar Material Symbols em todos os itens para consistência visual
+  // Atualizado: Inserido o módulo de Salários
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/funcionarios', label: 'Funcionários', icon: 'group' },
     { path: '/ausencias', label: 'Ausências', icon: 'event_busy' },
     { path: '/ferias', label: 'Férias', icon: 'beach_access' },
     { path: '/movimentacoes', label: 'Movimentações', icon: 'trending_up' },
+    { path: '/salarios', label: 'Salários & Custos', icon: 'payments' }, // [NOVO]
     { path: '/documentos', label: 'Documentos', icon: 'folder' },
     { path: '/importador', label: 'Importar Holerites', icon: 'cloud_upload' },
     { path: '/ajustes', label: 'Ajustes', icon: 'build' },

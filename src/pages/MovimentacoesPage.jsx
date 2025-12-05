@@ -1,401 +1,302 @@
-// src/pages/MovimentacoesPage.jsx
-import React, { useState } from 'react';
-import useSWR, { useSWRConfig } from 'swr';
-import { toast } from 'react-hot-toast';
+import React, { useState, useEffect } from 'react';
+import api from '../services/api'; // Assumindo sua instância axios padrão
+import funcionarioService from '../services/funcionarioService';
 
-// Services
-import { getFuncionarios } from '../services/funcionarioService';
-import { getEmpresas } from '../services/empresaService';
-import { createMovimentacao, getMovimentacoesFiltradas } from '../services/movimentacaoService'; //
+const MovimentacoesPage = () => {
+  // Estados para dados
+  const [movimentacoes, setMovimentacoes] = useState([]);
+  const [funcionarios, setFuncionarios] = useState([]);
+  
+  // Estados de controle de UI
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-// Estilos
-import './MovimentacoesPage.css';
-
-const initialState = {
-  id_funcionario: '',
-  data_movimentacao: new Date().toISOString().split('T')[0],
-  tipo: 'Promoção',
-  descricao: '',
-  cargo_anterior: '',
-  cargo_novo: '',
-  salario_anterior: '',
-  salario_novo: '',
-  empresa_anterior: '',
-  empresa_nova: '',
-  departamento_anterior: '',
-  departamento_novo: ''
-};
-
-// --- COMPONENTE DE HISTÓRICO INTELIGENTE (COM FILTROS) ---
-function HistoricoMovimentacoes({ filtros }) {
-  const cacheKey = ['movimentacoes', JSON.stringify(filtros)];
-
-  const { data: movimentacoes, error, isLoading } = useSWR(cacheKey, () => getMovimentacoesFiltradas(filtros));
-
-  if (isLoading) return <div className="loading-state">Carregando análises...</div>;
-  if (error) return <div className="error-state">Erro ao carregar: {error.message}</div>;
-
-  if (!movimentacoes || movimentacoes.length === 0) {
-    return (
-      <div className="empty-state-ajustes">
-        <span className="material-symbols-outlined">history_edu</span>
-        <p>Nenhum registro encontrado para este filtro.</p>
-      </div>
-    );
-  }
-
-  const formatCurrency = (val) => val ? `R$ ${parseFloat(val).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-';
-
-  return (
-    <div className="tabela-container fade-in">
-      <div className="kpi-resumo" style={{ marginBottom: '1rem', color: 'var(--slate-500)', fontSize: '0.85rem', textAlign: 'right' }}>
-        Total: <strong>{movimentacoes.length}</strong> registros encontrados.
-      </div>
-
-      <table className="historico-table">
-        <thead>
-          <tr>
-            <th>Colaborador</th>
-            <th>Data</th>
-            <th>Tipo</th>
-            <th>Detalhes da Mudança</th>
-          </tr>
-        </thead>
-        <tbody>
-          {movimentacoes.map(mov => {
-            const func = mov.funcionarios;
-
-            let detalhes = mov.descricao;
-            if (mov.tipo === 'Promoção' || mov.tipo.includes('Cargo')) {
-              detalhes = `${mov.cargo_anterior || '?'} ➝ ${mov.cargo_novo || '?'}`;
-            } else if (mov.tipo.includes('Salarial') || mov.tipo.includes('Reajuste')) {
-              detalhes = `${formatCurrency(mov.salario_anterior)} ➝ ${formatCurrency(mov.salario_novo)}`;
-            } else if (mov.tipo === 'Transferência') {
-              detalhes = `${mov.departamento_anterior || 'Antigo'} ➝ ${mov.departamento_novo || 'Novo'}`;
-            }
-
-            return (
-              <tr key={mov.id}>
-                <td>
-                  <div className="colaborador-cell">
-                    {func?.avatar_url ? (
-                      <img src={func.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      <div className="avatar-placeholder-small" style={{ width: 28, height: 28, background: 'var(--slate-200)', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>{func?.nome_completo?.charAt(0)}</div>
-                    )}
-                    <span className="colaborador-nome">{func?.nome_completo || 'Desconhecido'}</span>
-                  </div>
-                </td>
-                <td>{new Date(mov.data_movimentacao.replace(/-/g, '/')).toLocaleDateString('pt-BR')}</td>
-                <td><span className={`tipo-pill ${mov.tipo === 'Desligamento' ? 'danger' : ''}`}>{mov.tipo}</span></td>
-                <td>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--slate-700)' }}>{detalhes}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--slate-400)' }}>{mov.descricao}</span>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function MovimentacoesPage() {
-  const [formData, setFormData] = useState(initialState);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { mutate } = useSWRConfig();
-
-  const [filtros, setFiltros] = useState({
-    funcionarioId: '',
-    tipo: '',
-    dataInicio: '',
-    dataFim: ''
+  // Estado do Formulário
+  const [formData, setFormData] = useState({
+    id: null,
+    descricao: '',
+    tipo: 'SAIDA', // ou 'ENTRADA'
+    valor: '',
+    data: '',
+    funcionarioId: ''
   });
 
-  const { data: funcionarios, isLoading: isLoadingFunc } = useSWR('getFuncionarios', getFuncionarios);
-  const { data: empresas } = useSWR('getEmpresas', getEmpresas);
+  // --- Carregamento Inicial ---
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleChange = (e) => {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Carrega movimentações e funcionários em paralelo
+      const [movResponse, funcResponse] = await Promise.all([
+        api.get('/movimentacoes'),
+        funcionarioService.getAll()
+      ]);
+      
+      setMovimentacoes(movResponse.data);
+      setFuncionarios(funcResponse || []);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      alert("Erro ao carregar dados. Verifique o console.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Manipuladores do Formulário ---
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-    if (name === 'id_funcionario') {
-      const func = funcionarios?.find(f => f.id === value);
-      if (func) {
-        setFormData(prev => ({
-          ...prev,
-          cargo_anterior: func.cargo || '',
-          salario_anterior: func.salario_bruto || '',
-          departamento_anterior: func.departamento || '',
-          empresa_anterior: func.empresa_id || ''
-        }));
+  const openModal = (movimentacao = null) => {
+    if (movimentacao) {
+      // Modo Edição: Preenche o form e formata a data para o input date (YYYY-MM-DD)
+      setIsEditing(true);
+      setFormData({
+        ...movimentacao,
+        data: movimentacao.data ? movimentacao.data.split('T')[0] : '',
+        funcionarioId: movimentacao.funcionarioId || ''
+      });
+    } else {
+      // Modo Criação: Limpa o form
+      setIsEditing(false);
+      setFormData({
+        id: null,
+        descricao: '',
+        tipo: 'SAIDA',
+        valor: '',
+        data: new Date().toISOString().split('T')[0], // Data de hoje
+        funcionarioId: ''
+      });
+    }
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    try {
+      // Prepara payload (converte valor para número se necessário)
+      const payload = {
+        ...formData,
+        valor: parseFloat(formData.valor),
+        funcionarioId: formData.funcionarioId ? parseInt(formData.funcionarioId) : null
+      };
+
+      if (isEditing && formData.id) {
+        await api.put(`/movimentacoes/${formData.id}`, payload);
+        alert('Movimentação atualizada com sucesso!');
+      } else {
+        await api.post('/movimentacoes', payload);
+        alert('Movimentação criada com sucesso!');
+      }
+      
+      closeModal();
+      loadData(); // Recarrega a tabela
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      alert("Erro ao salvar movimentação.");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Tem certeza que deseja excluir esta movimentação?")) {
+      try {
+        await api.delete(`/movimentacoes/${id}`);
+        loadData();
+      } catch (error) {
+        console.error("Erro ao deletar:", error);
+        alert("Erro ao excluir item.");
       }
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // 1. Validação Básica
-    if (!formData.id_funcionario || !formData.tipo || !formData.data_movimentacao) {
-      toast.error("Por favor, preencha os campos obrigatórios (Colaborador, Data e Tipo).");
-      return;
-    }
-
-    // 2. Validação de Regra de Negócio: Promoção exige cargo novo
-    if (formData.tipo === 'Promoção' && !formData.cargo_novo) {
-        toast.error("Para registrar uma Promoção, é obrigatório informar o Novo Cargo.");
-        return;
-    }
-
-    // 3. Validação Crítica: Redução Salarial (CLT)
-    if (formData.salario_novo && formData.salario_anterior) {
-       const novo = parseFloat(formData.salario_novo);
-       const antigo = parseFloat(formData.salario_anterior);
-       
-       // Se o novo for menor que o antigo e não for explicitamente uma 'Reclassificação' (ou correção)
-       if (novo < antigo && formData.tipo !== 'Reclassificação') {
-           const confirmar = window.confirm(
-               `⚠️ ALERTA DE COMPLIANCE ⚠️\n\n` +
-               `Você está reduzindo o salário de R$ ${antigo} para R$ ${novo}.\n` +
-               `Pela legislação (Princípio da Irredutibilidade), isso pode gerar passivo trabalhista, exceto em convenção coletiva.\n\n` +
-               `Tem certeza que deseja prosseguir com a redução?`
-           );
-           if (!confirmar) return; // Cancela envio
-       }
-    }
-
-    setIsSubmitting(true);
-    try {
-      const novosDados = { ...formData };
-      
-      // Limpeza de campos vazios para null (evita string vazia no banco)
-      Object.keys(novosDados).forEach(key => {
-        if (novosDados[key] === '') novosDados[key] = null;
-      });
-
-      // Chama o serviço (que agora usa a RPC segura no backend)
-      await createMovimentacao(novosDados);
-
-      // Atualiza caches para refletir a mudança instantaneamente
-      mutate(['movimentacoes', JSON.stringify(filtros)]); // Tabela local
-      mutate('getFuncionarios'); // Cache global de funcionários
-      mutate('dashboard_kpis');  // Dashboard
-
-      toast.success('Movimentação registrada e cadastro atualizado com sucesso!');
-      setFormData(initialState); // Limpa o formulário
-
-    } catch (err) {
-      console.error(err);
-      toast.error(`Erro ao registrar: ${err.message}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+  // --- Formatadores ---
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const renderCamposDinamicos = () => {
-    const tipo = formData.tipo;
-    if (['Promoção', 'Reclassificação', 'Outro'].includes(tipo)) {
-      return (
-        <>
-          <div className="movimentacao-group">
-            <label>Cargo Anterior</label>
-            <input type="text" value={formData.cargo_anterior} disabled className="input-readonly" />
-          </div>
-          <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Novo Cargo</label>
-            <input type="text" name="cargo_novo" value={formData.cargo_novo} onChange={handleChange} placeholder="Digite o novo cargo..." />
-          </div>
-        </>
-      );
-    }
-    return null;
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const renderCamposSalario = () => {
-    const tipo = formData.tipo;
-    if (['Ajuste Salarial', 'Promoção', 'Mérito'].includes(tipo)) {
-      return (
-        <>
-          <div className="movimentacao-group">
-            <label>Salário Anterior (R$)</label>
-            <input type="number" value={formData.salario_anterior} disabled className="input-readonly" />
-          </div>
-          <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Novo Salário (R$)</label>
-            <input type="number" step="0.01" name="salario_novo" value={formData.salario_novo} onChange={handleChange} placeholder="0.00" />
-          </div>
-        </>
-      );
-    }
-    return null;
+  const getFuncionarioName = (id) => {
+    const func = funcionarios.find(f => f.id === id);
+    return func ? func.nome : 'N/A';
   };
 
-  const renderCamposTransferencia = () => {
-    const tipo = formData.tipo;
-    if (['Transferência'].includes(tipo)) {
-      return (
-        <>
-          <div className="movimentacao-group">
-            <label>Departamento Atual</label>
-            <input type="text" value={formData.departamento_anterior} disabled className="input-readonly" />
-          </div>
-          <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Novo Departamento</label>
-            <input type="text" name="departamento_novo" value={formData.departamento_novo} onChange={handleChange} placeholder="Novo departamento..." />
-          </div>
-
-          <div className="movimentacao-group">
-            <label>Empresa Atual</label>
-            <input type="text" value={empresas?.find(e => e.id === formData.empresa_anterior)?.nome_fantasia || 'Atual'} disabled className="input-readonly" />
-          </div>
-          <div className="movimentacao-group">
-            <label style={{ color: 'var(--primary-600)', fontWeight: 600 }}>Nova Empresa</label>
-            <select name="empresa_nova" value={formData.empresa_nova} onChange={handleChange}>
-              <option value="">Selecione...</option>
-              {empresas?.map(e => (
-                <option key={e.id} value={e.id}>{e.nome_fantasia}</option>
-              ))}
-            </select>
-          </div>
-        </>
-      );
-    }
-    return null;
-  };
-
+  // --- Renderização ---
   return (
-    <div className="movimentacoes-container">
-      <div className="movimentacoes-header">
-        <h1>Gestão de Movimentações</h1>
-        <p>Registre promoções, alterações e transferências. O sistema atualiza o cadastro automaticamente com segurança.</p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Gestão de Movimentações</h1>
+        <button 
+          onClick={() => openModal()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition"
+        >
+          + Nova Movimentação
+        </button>
       </div>
 
-      {/* FORMULÁRIO DE REGISTRO */}
-      <div className="movimentacao-form-wrapper">
-        <h3 className="form-section-title">
-            <span className="material-symbols-outlined">edit_document</span>
-            Novo Registro Individual
-        </h3>
-        <form onSubmit={handleSubmit}>
-          <div className="movimentacao-grid">
-
-            <div className="movimentacao-group span-2">
-              <label>Colaborador *</label>
-              <select
-                name="id_funcionario"
-                value={formData.id_funcionario}
-                onChange={handleChange}
-                disabled={isLoadingFunc}
-                required
-              >
-                <option value="">{isLoadingFunc ? 'Carregando...' : 'Selecione um colaborador'}</option>
-                {funcionarios?.map(f => (
-                  <option key={f.id} value={f.id}>{f.nome_completo}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="movimentacao-group">
-              <label>Data Efetiva *</label>
-              <input type="date" name="data_movimentacao" value={formData.data_movimentacao} onChange={handleChange} required />
-            </div>
-
-            <div className="movimentacao-group">
-              <label>Tipo de Ação *</label>
-              <select name="tipo" value={formData.tipo} onChange={handleChange} required style={{ borderColor: 'var(--primary-500)', backgroundColor: '#eff6ff' }}>
-                <option value="Promoção">Promoção (Cargo/Salário)</option>
-                <option value="Ajuste Salarial">Ajuste Salarial (Dissídio/Mérito)</option>
-                <option value="Transferência">Transferência (Depto/Empresa)</option>
-                <option value="Reclassificação">Reclassificação</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-
-            <div className="movimentacao-group span-4">
-              <label>Justificativa / Motivo *</label>
-              <input type="text" name="descricao" placeholder="Ex: Promoção por mérito após avaliação de desempenho..." value={formData.descricao} onChange={handleChange} required />
-            </div>
-
-            <div className="divider"></div>
-
-            {renderCamposTransferencia()}
-            {renderCamposDinamicos()}
-            {renderCamposSalario()}
-
-          </div>
-          <div className="form-footer">
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Processando...' : 'Confirmar e Salvar'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* ÁREA DE ANÁLISE E FILTROS */}
-      <div className="analise-section">
-        <div className="analise-header">
-          <span className="material-symbols-outlined">analytics</span>
-          <h2>Histórico e Análise</h2>
+      {loading ? (
+        <p className="text-center text-gray-500">Carregando dados...</p>
+      ) : (
+        <div className="overflow-x-auto bg-white rounded-lg shadow">
+          <table className="min-w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+              <tr>
+                <th className="px-6 py-3">Data</th>
+                <th className="px-6 py-3">Descrição</th>
+                <th className="px-6 py-3">Funcionário</th>
+                <th className="px-6 py-3">Tipo</th>
+                <th className="px-6 py-3">Valor</th>
+                <th className="px-6 py-3 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movimentacoes.length > 0 ? (
+                movimentacoes.map((mov) => (
+                  <tr key={mov.id} className="border-b hover:bg-gray-50">
+                    <td className="px-6 py-4">{formatDate(mov.data)}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{mov.descricao}</td>
+                    <td className="px-6 py-4">{getFuncionarioName(mov.funcionarioId)}</td>
+                    <td className={`px-6 py-4 font-bold ${mov.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}`}>
+                      {mov.tipo}
+                    </td>
+                    <td className="px-6 py-4">{formatCurrency(mov.valor)}</td>
+                    <td className="px-6 py-4 text-center space-x-2">
+                      <button 
+                        onClick={() => openModal(mov)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Editar
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(mov.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="px-6 py-4 text-center">Nenhuma movimentação encontrada.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
+      )}
 
-        {/* BARRA DE FILTROS */}
-        <div className="filtros-bar">
-          <div className="filtro-group">
-            <label>Filtrar por Colaborador</label>
-            <select
-              value={filtros.funcionarioId}
-              onChange={(e) => setFiltros({ ...filtros, funcionarioId: e.target.value })}
-            >
-              <option value="">Todos os Colaboradores</option>
-              {funcionarios?.map(f => (
-                <option key={f.id} value={f.id}>{f.nome_completo}</option>
-              ))}
-            </select>
-          </div>
+      {/* Modal / Formulário */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <h2 className="text-xl font-bold mb-4">
+              {isEditing ? 'Editar Movimentação' : 'Nova Movimentação'}
+            </h2>
+            
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Descrição</label>
+                <input
+                  type="text"
+                  name="descricao"
+                  value={formData.descricao}
+                  onChange={handleInputChange}
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                />
+              </div>
 
-          <div className="filtro-group">
-            <label>Tipo</label>
-            <select
-              value={filtros.tipo}
-              onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })}
-            >
-              <option value="">Todos</option>
-              <option value="Promoção">Promoção</option>
-              <option value="Ajuste Salarial">Ajuste Salarial</option>
-              <option value="Transferência">Transferência</option>
-              <option value="Reajuste Coletivo">Reajuste Coletivo</option>
-              <option value="Desligamento">Desligamento</option>
-            </select>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Tipo</label>
+                  <select
+                    name="tipo"
+                    value={formData.tipo}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                  >
+                    <option value="SAIDA">Saída</option>
+                    <option value="ENTRADA">Entrada</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Valor (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="valor"
+                    value={formData.valor}
+                    onChange={handleInputChange}
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                  />
+                </div>
+              </div>
 
-          <div className="filtro-group">
-            <label>De</label>
-            <input
-              type="date"
-              value={filtros.dataInicio}
-              onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Data</label>
+                  <input
+                    type="date"
+                    name="data"
+                    value={formData.data}
+                    onChange={handleInputChange}
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Funcionário</label>
+                  <select
+                    name="funcionarioId"
+                    value={formData.funcionarioId}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                  >
+                    <option value="">-- Selecione --</option>
+                    {funcionarios.map(func => (
+                      <option key={func.id} value={func.id}>
+                        {func.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          <div className="filtro-group">
-            <label>Até</label>
-            <input
-              type="date"
-              value={filtros.dataFim}
-              onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
-            />
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Salvar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-
-        {/* TABELA REATIVA */}
-        <HistoricoMovimentacoes filtros={filtros} />
-      </div>
+      )}
     </div>
   );
-}
+};
 
 export default MovimentacoesPage;

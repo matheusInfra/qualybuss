@@ -17,13 +17,13 @@ import {
   deleteFuncionario
 } from '../services/funcionarioService';
 import { getEmpresas } from '../services/empresaService'; 
-import { getBancos } from '../services/bancoService'; // Certifique-se que o service exporta getBancos
+import { getBancos } from '../services/bancoService'; 
 
-// Componentes
+// Componentes Visuais e Funcionais
 import ModalConfirmacao from '../components/Modal/ModalConfirmacao';
 import HistoricoMovimentacoes from '../components/HistoricoMovimentacoes';
 import TimelineAuditoria from '../components/Auditoria/TimelineAuditoria';
-import AvatarUpload from '../components/Upload/AvatarUpload'; // Novo componente de Avatar
+import AvatarUpload from '../components/Upload/AvatarUpload';
 
 import './FuncionarioForm.css';
 
@@ -75,7 +75,7 @@ const funcionarioSchema = z.object({
   banco_conta_numero: z.string().nullish().or(z.literal('')),
   banco_tipo_conta: z.string().nullish().or(z.literal('')),
   
-  // Campos Virtuais (Não salvos em 'funcionarios', usados para lógica)
+  // Campos Virtuais
   inicio_periodo_migracao: z.string().optional(),
   saldo_inicial_migracao: z.string().optional(),
   observacoes: z.string().optional(),
@@ -87,10 +87,9 @@ function FuncionarioForm() {
   const [pageError, setPageError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Estados Extras
   const [listaBancos, setListaBancos] = useState([]);
-  const [avatarUrl, setAvatarUrl] = useState(null); // Gerenciado pelo AvatarUpload
-  const [modoMigracao, setModoMigracao] = useState(false); // Lógica de Férias
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [modoMigracao, setModoMigracao] = useState(false);
 
   const numeroInputRef = useRef(null);
   const { id } = useParams();
@@ -153,12 +152,10 @@ function FuncionarioForm() {
     getEmpresas
   );
 
-  // Carrega Bancos
   useEffect(() => {
     getBancos().then(data => setListaBancos(data || []));
   }, []);
 
-  // Popula Formulário na Edição
   useEffect(() => {
     if (funcionarioData) {
       const formattedData = {
@@ -167,7 +164,6 @@ function FuncionarioForm() {
         data_admissao: funcionarioData.data_admissao ? funcionarioData.data_admissao.split('T')[0] : '',
         salario_bruto: funcionarioData.salario_bruto || '',
         empresa_id: funcionarioData.empresa_id || '',
-        // Campos Opcionais
         rg: funcionarioData.rg || '',
         genero: funcionarioData.genero || '',
         estado_civil: funcionarioData.estado_civil || '',
@@ -221,30 +217,31 @@ function FuncionarioForm() {
     setPageError(null);
 
     try {
-      // 1. Limpeza do Payload (Remove campos virtuais e vazios)
       let payload = { ...data };
       
-      // Injeta Avatar URL atualizada
+      // Injeta Avatar URL
       payload.avatar_url = avatarUrl; 
       
-      // Remove campos que não existem na tabela 'funcionarios'
+      // Remove campos virtuais
       delete payload.inicio_periodo_migracao;
       delete payload.saldo_inicial_migracao;
 
-      // Garante email para RLS
+      // Sincronia de email
       if (payload.email_corporativo && !payload.email) {
         payload.email = payload.email_corporativo;
       }
 
-      // Trata campos vazios como null
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') payload[key] = null;
       });
 
       let funcionarioId = id;
 
-      // 2. Salvar ou Atualizar
       if (isEditMode) {
+        // [SEGURANÇA] Se estiver editando, remove o salário do payload para não sobrescrever
+        // (Apenas se o backend não tiver trigger, mas é bom garantir no front também)
+        delete payload.salario_bruto; 
+        
         await updateFuncionario(id, payload);
         toast.success('Atualizado com sucesso!');
       } else {
@@ -252,9 +249,7 @@ function FuncionarioForm() {
         funcionarioId = novoFunc.id;
         toast.success('Cadastrado com sucesso!');
 
-        // 3. Lógica de Férias (Apenas na Criação)
         if (modoMigracao) {
-          // MODO MIGRAÇÃO
           if (data.inicio_periodo_migracao && data.saldo_inicial_migracao) {
              const inicio = new Date(data.inicio_periodo_migracao);
              const fim = new Date(inicio);
@@ -270,7 +265,6 @@ function FuncionarioForm() {
              }]);
           }
         } else {
-          // MODO NOVO (Automático)
           const admissao = new Date(data.data_admissao);
           const fimAquisitivo = new Date(admissao);
           fimAquisitivo.setFullYear(fimAquisitivo.getFullYear() + 1);
@@ -353,7 +347,6 @@ function FuncionarioForm() {
           </div>
         </div>
 
-        {/* --- AVATAR UPLOAD --- */}
         <div className="avatar-section-wrapper">
           <AvatarUpload 
             url={avatarUrl} 
@@ -518,9 +511,37 @@ function FuncionarioForm() {
                 </select>
               </div>
               
+              {/* --- SALÁRIO BLINDADO --- */}
               <div className="form-group">
-                <label>Salário Bruto</label>
-                <input type="number" step="0.01" {...register("salario_bruto")} />
+                <label style={{display:'flex', alignItems:'center', gap:'5px'}}>
+                  Salário Bruto 
+                  {isEditMode && <span className="material-symbols-outlined icon-small" title="Campo Protegido">lock</span>}
+                </label>
+                
+                <div style={{display:'flex', gap:'5px'}}>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    {...register("salario_bruto")} 
+                    disabled={isEditMode} // Bloqueado se for edição
+                    style={isEditMode ? {backgroundColor: '#f3f4f6', cursor: 'not-allowed'} : {}}
+                  />
+                  {isEditMode && (
+                    <button 
+                      type="button" 
+                      className="btn-icon-action" 
+                      title="Gerenciar Salário e Reajustes"
+                      onClick={() => navigate('/salarios')}
+                      style={{
+                        background: '#eff6ff', border: '1px solid #bfdbfe', color:'#2563eb', 
+                        borderRadius:'6px', padding:'0 10px', cursor:'pointer'
+                      }}
+                    >
+                      <span className="material-symbols-outlined">payments</span>
+                    </button>
+                  )}
+                </div>
+                {isEditMode && <small style={{color:'#64748b', fontSize:'0.8em'}}>Gerencie reajustes no módulo de Salários.</small>}
               </div>
               
               <div className="form-group">

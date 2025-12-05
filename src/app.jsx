@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
 import ImportadorPage from './pages/ImportadorPage';
+import GestaoSalariosPage from './pages/GestaoSalariosPage';
 // Components
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -64,6 +65,9 @@ function App() {
                 
                 {/* --- MÓDULO MOVIMENTAÇÕES --- */}
                 <Route path="/movimentacoes" element={<MovimentacoesPage />} />
+
+                {/* --- MÓDULO SALÁRIOS E CUSTOS (NOVO) --- */}
+                <Route path="/salarios" element={<GestaoSalariosPage />} />
                 
                 {/* --- MÓDULO FÉRIAS --- */}
                 <Route path="/ferias" element={<FeriasPage />} />
