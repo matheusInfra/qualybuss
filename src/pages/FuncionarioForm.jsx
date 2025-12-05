@@ -207,7 +207,7 @@ function FuncionarioForm() {
       toast.error("Verifique os erros na aba 'Dados Bancários'");
     } else {
       setActiveTab('pessoal');
-      toast.error("Verifique os erros na aba 'Dados Pessoais'");
+      toast.error("Verifique os erros na aba 'Dados Pessoais'. O CPF pode estar inválido.");
     }
   };
 
@@ -239,7 +239,7 @@ function FuncionarioForm() {
 
       if (isEditMode) {
         // [SEGURANÇA] Se estiver editando, remove o salário do payload para não sobrescrever
-        // (Apenas se o backend não tiver trigger, mas é bom garantir no front também)
+        // (Isso protege contra alterações indevidas via inspeção)
         delete payload.salario_bruto; 
         
         await updateFuncionario(id, payload);
@@ -397,26 +397,30 @@ function FuncionarioForm() {
                       name={field.name}
                       value={field.value || ''}
                       onAccept={(value) => field.onChange(value)}
+                      className="form-control"
                     />
                   )}
                 />
               </div>
 
+              {/* CORREÇÃO CRÍTICA DO CPF: Renderização mais robusta para permitir edição em caso de erro */}
               <div className="form-group">
-                <label>CPF</label>
+                <label>CPF {errors.cpf && <span style={{color: 'red', fontSize: '0.8em'}}>* {errors.cpf.message}</span>}</label>
                 <Controller
                   name="cpf"
                   control={control}
-                  render={({ field }) => (
+                  render={({ field: { onChange, value, ref, ...fieldRest } }) => (
                     <IMaskInput
+                      {...fieldRest}
                       mask="000.000.000-00"
-                      name={field.name}
-                      value={field.value || ''}
-                      onAccept={(value) => field.onChange(value)}
+                      value={value || ''} // Garante string vazia se for null
+                      inputRef={ref}      // Passa a ref corretamente para o IMask
+                      onAccept={(val) => onChange(val)} // Atualiza o form a cada tecla
+                      className={`form-control ${errors.cpf ? 'border-red-500' : ''}`}
+                      style={errors.cpf ? { borderColor: '#ef4444' } : {}}
                     />
                   )}
                 />
-                {errors.cpf && <span className="error-message">{errors.cpf.message}</span>}
               </div>
               
               <div className="form-group"><label>RG</label><input type="text" {...register("rg")} /></div>
@@ -448,13 +452,16 @@ function FuncionarioForm() {
                 <Controller
                   name="endereco_cep"
                   control={control}
-                  render={({ field }) => (
+                  render={({ field: { onChange, value, ref, ...fieldRest } }) => (
                     <IMaskInput
+                      {...fieldRest}
                       mask="00000-000"
-                      name={field.name}
-                      value={field.value || ''}
-                      onAccept={(value) => field.onChange(value)}
+                      name={fieldRest.name}
+                      value={value || ''}
+                      inputRef={ref}
+                      onAccept={(val) => onChange(val)}
                       onBlur={handleCepBlur} 
+                      className="form-control"
                     />
                   )}
                 />
@@ -523,7 +530,7 @@ function FuncionarioForm() {
                     type="number" 
                     step="0.01" 
                     {...register("salario_bruto")} 
-                    disabled={isEditMode} // Bloqueado se for edição
+                    disabled={isEditMode} // Bloqueado se for edição para segurança
                     style={isEditMode ? {backgroundColor: '#f3f4f6', cursor: 'not-allowed'} : {}}
                   />
                   {isEditMode && (

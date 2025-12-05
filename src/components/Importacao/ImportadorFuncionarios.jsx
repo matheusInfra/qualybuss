@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
+
+// Caminhos ajustados para sair de components/Importacao/ e chegar em services/
 import { parseAndValidateCSV, downloadModeloCSV } from '../../services/importacaoService';
+// Importação nomeada correta do serviço
 import { createFuncionario } from '../../services/funcionarioService';
 import { getEmpresas } from '../../services/empresaService';
-import { toast } from 'react-hot-toast';
 import './ImportadorFuncionarios.css';
 
-export default function ImportadorFuncionarios() {
+export default function ImportadorFuncionarios({ onSuccess }) {
   const [data, setData] = useState([]);
   const [validationErrors, setValidationErrors] = useState([]);
   const [importing, setImporting] = useState(false);
@@ -20,7 +23,6 @@ export default function ImportadorFuncionarios() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Segurança: Valida extensão
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error("Por favor, envie um arquivo .csv");
       e.target.value = '';
@@ -67,8 +69,7 @@ export default function ImportadorFuncionarios() {
       try {
         const func = data[i];
         
-        // Monta payload compatível com a tabela 'funcionarios'
-        // Limpa caracteres especiais de CPF/Telefone para evitar erros de formato
+        // Monta payload compatível com a tabela 'funcionarios' e com o schema do serviço
         const payload = {
           nome_completo: func.nome_completo,
           cpf: func.cpf ? func.cpf.replace(/\D/g, '') : null,
@@ -81,10 +82,10 @@ export default function ImportadorFuncionarios() {
           
           cargo: func.cargo,
           departamento: func.departamento || 'Geral',
-          salario_bruto: parseFloat(func.salario_bruto),
+          salario_bruto: func.salario_bruto ? parseFloat(func.salario_bruto) : 0,
           data_admissao: func.data_admissao,
           
-          // Endereço (Novos campos mapeados)
+          // Endereço
           endereco_cep: func.endereco_cep ? func.endereco_cep.replace(/\D/g, '') : null,
           endereco_rua: func.endereco_rua,
           endereco_numero: func.endereco_numero,
@@ -93,7 +94,7 @@ export default function ImportadorFuncionarios() {
           endereco_estado: func.endereco_estado,
 
           status: 'Ativo',
-          tipo_contrato: 'CLT', // Padrão, pode vir do CSV se adicionar a coluna
+          tipo_contrato: 'CLT',
           empresa_id: empresaDestino
         };
 
@@ -113,6 +114,7 @@ export default function ImportadorFuncionarios() {
     if (errorsCount === 0) {
       toast.success("Importação concluída com sucesso total!");
       setData([]); // Limpa a tela
+      if (onSuccess) onSuccess();
     } else {
       toast.error(`Processo finalizado com ${errorsCount} falhas. Verifique o console.`);
     }
@@ -157,7 +159,7 @@ export default function ImportadorFuncionarios() {
         </div>
       </div>
 
-      {/* PAINEL DE ERROS (Se houver) */}
+      {/* PAINEL DE ERROS */}
       {validationErrors.length > 0 && (
         <div className="error-report fade-in">
           <div className="error-header">

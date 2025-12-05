@@ -1,295 +1,341 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api'; // Assumindo sua instância axios padrão
-import funcionarioService from '../services/funcionarioService';
+import { toast } from 'react-hot-toast';
+import { getMovimentacoesFiltradas, createMovimentacao } from '../services/movimentacaoService';
+import { getFuncionarios } from '../services/funcionarioService';
+import { getEmpresas } from '../services/empresaService';
+import './MovimentacoesPage.css';
 
 const MovimentacoesPage = () => {
-  // Estados para dados
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [funcionarios, setFuncionarios] = useState([]);
-  
-  // Estados de controle de UI
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Estado do Formulário
-  const [formData, setFormData] = useState({
-    id: null,
-    descricao: '',
-    tipo: 'SAIDA', // ou 'ENTRADA'
-    valor: '',
-    data: '',
-    funcionarioId: ''
+  // --- Filtros (Performance: Padrão 30 dias) ---
+  const [filtros, setFiltros] = useState({
+    funcionarioId: '',
+    tipo: 'Todos',
+    dataInicio: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
+    dataFim: new Date().toISOString().split('T')[0]
   });
 
-  // --- Carregamento Inicial ---
+  // --- Dados ---
+  const [movimentacoes, setMovimentacoes] = useState([]);
+  const [funcionarios, setFuncionarios] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // --- Formulário Inteligente ---
+  const [formData, setFormData] = useState({
+    id_funcionario: '',
+    tipo: 'Promoção', // Valor inicial
+    data_movimentacao: new Date().toISOString().split('T')[0],
+    descricao: '',
+    // Campos dinâmicos (opcionais dependendo do tipo)
+    cargo_novo: '',
+    departamento_novo: '',
+    empresa_nova: ''
+  });
+
+  // Carga Inicial de Listas Auxiliares
   useEffect(() => {
-    loadData();
+    Promise.all([
+      getFuncionarios(),
+      getEmpresas()
+    ]).then(([funcs, emps]) => {
+      setFuncionarios(funcs || []);
+      setEmpresas(emps || []);
+    });
   }, []);
 
-  const loadData = async () => {
+  // Recarrega lista principal quando filtros mudam
+  useEffect(() => {
+    carregarMovimentacoes();
+  }, [filtros]);
+
+  const carregarMovimentacoes = async () => {
     setLoading(true);
     try {
-      // Carrega movimentações e funcionários em paralelo
-      const [movResponse, funcResponse] = await Promise.all([
-        api.get('/movimentacoes'),
-        funcionarioService.getAll()
-      ]);
-      
-      setMovimentacoes(movResponse.data);
-      setFuncionarios(funcResponse || []);
+      const dados = await getMovimentacoesFiltradas({
+        funcionarioId: filtros.funcionarioId || null,
+        tipo: filtros.tipo === 'Todos' ? null : filtros.tipo,
+        dataInicio: filtros.dataInicio,
+        dataFim: filtros.dataFim
+      });
+      setMovimentacoes(dados || []);
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
-      alert("Erro ao carregar dados. Verifique o console.");
+      console.error("Erro ao buscar:", error);
+      toast.error("Erro ao carregar histórico.");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Manipuladores do Formulário ---
+  // --- Lógica do Formulário Inteligente ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const openModal = (movimentacao = null) => {
-    if (movimentacao) {
-      // Modo Edição: Preenche o form e formata a data para o input date (YYYY-MM-DD)
-      setIsEditing(true);
-      setFormData({
-        ...movimentacao,
-        data: movimentacao.data ? movimentacao.data.split('T')[0] : '',
-        funcionarioId: movimentacao.funcionarioId || ''
-      });
-    } else {
-      // Modo Criação: Limpa o form
-      setIsEditing(false);
-      setFormData({
-        id: null,
-        descricao: '',
-        tipo: 'SAIDA',
-        valor: '',
-        data: new Date().toISOString().split('T')[0], // Data de hoje
-        funcionarioId: ''
-      });
-    }
+  const openModal = () => {
+    setFormData({
+      id_funcionario: '',
+      tipo: 'Promoção',
+      data_movimentacao: new Date().toISOString().split('T')[0],
+      descricao: '',
+      cargo_novo: '',
+      departamento_novo: '',
+      empresa_nova: ''
+    });
     setModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!formData.id_funcionario) return toast.error("Selecione o colaborador.");
+    if (!formData.descricao) return toast.error("A justificativa é obrigatória.");
+
     try {
-      // Prepara payload (converte valor para número se necessário)
+      // Prepara payload inteligente: envia NULL nos campos que não pertencem ao tipo escolhido
       const payload = {
-        ...formData,
-        valor: parseFloat(formData.valor),
-        funcionarioId: formData.funcionarioId ? parseInt(formData.funcionarioId) : null
+        id_funcionario: formData.id_funcionario,
+        tipo: formData.tipo,
+        data_movimentacao: formData.data_movimentacao,
+        descricao: formData.descricao,
+        
+        // Só envia cargo se for Promoção ou Alteração
+        cargo_novo: ['Promoção', 'Alteração de Cargo'].includes(formData.tipo) ? formData.cargo_novo : null,
+        
+        // Só envia departamento se for Transferência
+        departamento_novo: formData.tipo === 'Transferência' ? formData.departamento_novo : null,
+        
+        // Só envia empresa se for Transferência
+        empresa_nova: formData.tipo === 'Transferência' ? formData.empresa_nova : null,
+        
+        // Salário sempre null aqui (Gerenciado no outro módulo)
+        salario_novo: null 
       };
 
-      if (isEditing && formData.id) {
-        await api.put(`/movimentacoes/${formData.id}`, payload);
-        alert('Movimentação atualizada com sucesso!');
-      } else {
-        await api.post('/movimentacoes', payload);
-        alert('Movimentação criada com sucesso!');
-      }
+      await createMovimentacao(payload);
       
-      closeModal();
-      loadData(); // Recarrega a tabela
+      toast.success("Movimentação registrada!");
+      setModalOpen(false);
+      carregarMovimentacoes();
     } catch (error) {
-      console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar movimentação.");
+      toast.error("Erro: " + error.message);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Tem certeza que deseja excluir esta movimentação?")) {
-      try {
-        await api.delete(`/movimentacoes/${id}`);
-        loadData();
-      } catch (error) {
-        console.error("Erro ao deletar:", error);
-        alert("Erro ao excluir item.");
-      }
+  // Renderiza campos específicos baseados no TIPO
+  const renderCamposDinamicos = () => {
+    switch (formData.tipo) {
+      case 'Promoção':
+      case 'Alteração de Cargo':
+        return (
+          <div className="form-group span-2 highlight-box">
+            <label>Novo Cargo *</label>
+            <input 
+              type="text" 
+              name="cargo_novo" 
+              value={formData.cargo_novo} 
+              onChange={handleInputChange} 
+              placeholder="Ex: Gerente Sênior"
+              className="form-control"
+            />
+          </div>
+        );
+      
+      case 'Transferência':
+        return (
+          <>
+            <div className="form-group highlight-box">
+              <label>Novo Departamento</label>
+              <input 
+                type="text" 
+                name="departamento_novo" 
+                value={formData.departamento_novo} 
+                onChange={handleInputChange} 
+                className="form-control"
+              />
+            </div>
+            <div className="form-group highlight-box">
+              <label>Nova Unidade/Empresa</label>
+              <select 
+                name="empresa_nova" 
+                value={formData.empresa_nova} 
+                onChange={handleInputChange} 
+                className="form-control"
+              >
+                <option value="">Manter atual</option>
+                {empresas.map(e => (
+                  <option key={e.id} value={e.id}>{e.nome_fantasia}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        );
+
+      case 'Advertência':
+      case 'Suspensão':
+        return (
+          <div className="form-group span-2 alert-box">
+            <p className="info-text">?? Esta ação ficará registrada no histórico disciplinar do colaborador.</p>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
-  // --- Formatadores ---
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : '-';
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
-
-  const getFuncionarioName = (id) => {
-    const func = funcionarios.find(f => f.id === id);
-    return func ? func.nome : 'N/A';
-  };
-
-  // --- Renderização ---
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Gestão de Movimentações</h1>
-        <button 
-          onClick={() => openModal()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition"
-        >
-          + Nova Movimentação
+    <div className="movimentacoes-container">
+      <div className="movimentacoes-header">
+        <div>
+          <h1>Histórico Funcional</h1>
+          <p>Gestão de cargos, transferências e ocorrências.</p>
+        </div>
+        <button onClick={openModal} className="btn-novo">
+          <span className="material-symbols-outlined">add_circle</span> Nova Movimentação
         </button>
       </div>
 
-      {loading ? (
-        <p className="text-center text-gray-500">Carregando dados...</p>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="min-w-full text-sm text-left text-gray-500">
-            <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+      {/* BARRA DE FILTROS */}
+      <div className="filtros-wrapper">
+        <div className="filtro-item">
+          <label>Período</label>
+          <div className="date-range">
+            <input type="date" value={filtros.dataInicio} onChange={e => setFiltros({...filtros, dataInicio: e.target.value})} />
+            <span>até</span>
+            <input type="date" value={filtros.dataFim} onChange={e => setFiltros({...filtros, dataFim: e.target.value})} />
+          </div>
+        </div>
+        
+        <div className="filtro-item grow">
+          <label>Colaborador</label>
+          <select value={filtros.funcionarioId} onChange={e => setFiltros({...filtros, funcionarioId: e.target.value})}>
+            <option value="">Todos os Colaboradores</option>
+            {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome_completo}</option>)}
+          </select>
+        </div>
+
+        <div className="filtro-item">
+          <label>Tipo</label>
+          <select value={filtros.tipo} onChange={e => setFiltros({...filtros, tipo: e.target.value})}>
+            <option>Todos</option>
+            <option>Promoção</option>
+            <option>Transferência</option>
+            <option>Mérito</option>
+            <option>Advertência</option>
+            <option>Desligamento</option>
+          </select>
+        </div>
+      </div>
+
+      {/* TABELA */}
+      <div className="table-container">
+        {loading ? <div className="loading">Carregando dados...</div> : 
+         movimentacoes.length === 0 ? <div className="empty">Nenhum registro encontrado neste período.</div> : (
+          <table className="mov-table">
+            <thead>
               <tr>
-                <th className="px-6 py-3">Data</th>
-                <th className="px-6 py-3">Descrição</th>
-                <th className="px-6 py-3">Funcionário</th>
-                <th className="px-6 py-3">Tipo</th>
-                <th className="px-6 py-3">Valor</th>
-                <th className="px-6 py-3 text-center">Ações</th>
+                <th>Data</th>
+                <th>Colaborador</th>
+                <th>Tipo</th>
+                <th>Detalhes / Histórico</th>
               </tr>
             </thead>
             <tbody>
-              {movimentacoes.length > 0 ? (
-                movimentacoes.map((mov) => (
-                  <tr key={mov.id} className="border-b hover:bg-gray-50">
-                    <td className="px-6 py-4">{formatDate(mov.data)}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{mov.descricao}</td>
-                    <td className="px-6 py-4">{getFuncionarioName(mov.funcionarioId)}</td>
-                    <td className={`px-6 py-4 font-bold ${mov.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}`}>
-                      {mov.tipo}
-                    </td>
-                    <td className="px-6 py-4">{formatCurrency(mov.valor)}</td>
-                    <td className="px-6 py-4 text-center space-x-2">
-                      <button 
-                        onClick={() => openModal(mov)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Editar
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(mov.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center">Nenhuma movimentação encontrada.</td>
+              {movimentacoes.map(mov => (
+                <tr key={mov.id}>
+                  <td style={{whiteSpace:'nowrap'}}>{formatDate(mov.data_movimentacao)}</td>
+                  <td>
+                    <div className="colab-info">
+                      <div className="avatar-xs">{mov.funcionarios?.nome_completo?.charAt(0)}</div>
+                      <span>{mov.funcionarios?.nome_completo}</span>
+                    </div>
+                  </td>
+                  <td><span className={`badge-tipo ${mov.tipo}`}>{mov.tipo}</span></td>
+                  <td>
+                    <div className="detalhe-conteudo">
+                      {mov.cargo_novo && mov.cargo_anterior !== mov.cargo_novo && (
+                        <div className="mudanca-tag">Cargo: {mov.cargo_anterior} ? <strong>{mov.cargo_novo}</strong></div>
+                      )}
+                      {mov.departamento_novo && (
+                        <div className="mudanca-tag">Depto: ? <strong>{mov.departamento_novo}</strong></div>
+                      )}
+                      <span className="motivo-texto">"{mov.descricao}"</span>
+                    </div>
+                  </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Modal / Formulário */}
+      {/* MODAL INTELIGENTE */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-4">
-              {isEditing ? 'Editar Movimentação' : 'Nova Movimentação'}
-            </h2>
+        <div className="modal-overlay">
+          <div className="modal-smart">
+            <div className="modal-smart-header">
+              <h3>Registrar Movimentação</h3>
+              <button onClick={() => setModalOpen(false)}>×</button>
+            </div>
             
-            <form onSubmit={handleSave} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Descrição</label>
-                <input
-                  type="text"
-                  name="descricao"
-                  value={formData.descricao}
-                  onChange={handleInputChange}
-                  required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                  <select
-                    name="tipo"
-                    value={formData.tipo}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  >
-                    <option value="SAIDA">Saída</option>
-                    <option value="ENTRADA">Entrada</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Valor (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="valor"
-                    value={formData.valor}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Data</label>
-                  <input
-                    type="date"
-                    name="data"
-                    value={formData.data}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Funcionário</label>
-                  <select
-                    name="funcionarioId"
-                    value={formData.funcionarioId}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  >
-                    <option value="">-- Selecione --</option>
-                    {funcionarios.map(func => (
-                      <option key={func.id} value={func.id}>
-                        {func.nome}
-                      </option>
+            <form onSubmit={handleSave} className="modal-smart-body">
+              <div className="form-smart-grid">
+                
+                {/* Linha 1: Quem e O Quê */}
+                <div className="form-group span-2">
+                  <label>Colaborador</label>
+                  <select name="id_funcionario" value={formData.id_funcionario} onChange={handleInputChange} required>
+                    <option value="">Selecione...</option>
+                    {funcionarios.map(f => (
+                      <option key={f.id} value={f.id}>{f.nome_completo} - {f.cargo}</option>
                     ))}
                   </select>
                 </div>
+
+                <div className="form-group">
+                  <label>Tipo de Ação</label>
+                  <select name="tipo" value={formData.tipo} onChange={handleInputChange} className="select-tipo">
+                    <option>Promoção</option>
+                    <option>Transferência</option>
+                    <option>Alteração de Cargo</option>
+                    <option>Mérito</option>
+                    <option>Advertência</option>
+                    <option>Suspensão</option>
+                    <option>Outros</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Data Efetiva</label>
+                  <input type="date" name="data_movimentacao" value={formData.data_movimentacao} onChange={handleInputChange} required />
+                </div>
+
+                {/* ÁREA DINÂMICA (A Mágica acontece aqui) */}
+                <div className="dynamic-area span-2">
+                  {renderCamposDinamicos()}
+                </div>
+
+                {/* Descrição sempre visível */}
+                <div className="form-group span-2">
+                  <label>Justificativa / Observação *</label>
+                  <textarea 
+                    name="descricao" 
+                    rows="3" 
+                    value={formData.descricao} 
+                    onChange={handleInputChange} 
+                    placeholder="Descreva o motivo desta alteração..."
+                    required
+                  ></textarea>
+                </div>
+
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Salvar
-                </button>
+              <div className="modal-smart-footer">
+                <button type="button" onClick={() => setModalOpen(false)} className="btn-cancel">Cancelar</button>
+                <button type="submit" className="btn-confirm">Salvar Registro</button>
               </div>
             </form>
           </div>
