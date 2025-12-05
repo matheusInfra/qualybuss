@@ -1,11 +1,21 @@
-/* --- Formulário de Upload --- */
+/* src/components/Documentos/Documentos.css */
+
+/* =========================================
+   1. ÁREA DE UPLOAD (FORMULÁRIO)
+   ========================================= */
 .doc-upload-form {
   background: #fff;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   padding: 24px;
   margin-bottom: 32px;
+  position: relative; /* Necessário para o overlay de loading */
+  transition: box-shadow 0.2s ease;
+}
+
+.doc-upload-form:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .doc-upload-grid {
@@ -18,210 +28,455 @@
   grid-column: span 2;
 }
 
-/* Reutilização de estilos de formulário que já temos */
 .doc-form-group {
   display: flex;
   flex-direction: column;
+  margin-bottom: 12px;
 }
+
 .doc-form-group label {
   margin-bottom: 6px;
-  font-size: 14px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #4a5568;
+  color: #475569; /* Slate-600 */
 }
+
 .doc-form-group input[type="text"],
 .doc-form-group input[type="date"],
 .doc-form-group select {
   width: 100%;
   padding: 10px 12px;
-  font-size: 15px;
-  border: 1px solid #e0e0e0; 
-  border-radius: 4px;
-  box-sizing: border-box; 
-  background-color: #f5f8fa; 
+  font-size: 0.95rem;
+  border: 1px solid #cbd5e1; 
+  border-radius: 6px;
+  background-color: #fff; 
+  color: #1e293b;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Campo de Upload (reutilizado de Ausencias) */
+.doc-form-group input:focus,
+.doc-form-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Área Drag & Drop */
 .doc-upload-label {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   width: 100%;
-  height: 128px;
-  background-color: #f5f8fa;
-  border: 2px dashed #e0e0e0;
+  height: 140px;
+  background-color: #f8fafc;
+  border: 2px dashed #cbd5e1;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .doc-upload-label:hover {
-  border-color: #137fec;
+  border-color: #2563eb;
+  background-color: #eff6ff;
 }
-.doc-upload-label input[type="file"] { display: none; }
-.doc-upload-text .semibold { font-weight: 600; }
-.doc-file-name { font-size: 14px; font-weight: 600; color: #137fec; }
+
+.doc-upload-label input[type="file"] { 
+  display: none; 
+}
+
+.doc-upload-text {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.doc-upload-text .semibold { 
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.doc-file-name { 
+  font-size: 0.95rem; 
+  font-weight: 600; 
+  color: #2563eb; 
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .doc-upload-footer {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+  gap: 10px;
 }
 
-/* Botão de Salvar (reutilizado) */
 .doc-button-primary {
   padding: 10px 24px; 
-  font-size: 15px;
+  font-size: 0.95rem;
   font-weight: 600;
-  border-radius: 4px;
-  border: 1px solid #28a745; 
-  background-color: #28a745;
+  border-radius: 6px;
+  border: none;
+  background-color: #2563eb; /* Azul Primário */
   color: white;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.doc-button-primary:hover { background-color: #218838; }
-.doc-button-primary:disabled { background-color: #a0aec0; border-color: #a0aec0; }
+
+.doc-button-primary:hover:not(:disabled) { 
+  background-color: #1d4ed8; 
+  transform: translateY(-1px);
+}
+
+.doc-button-primary:disabled { 
+  background-color: #94a3b8; 
+  cursor: not-allowed; 
+  opacity: 0.7;
+}
+
+/* Overlay de Loading do Upload */
+.doc-form-loading-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+
+.doc-form-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #2563eb;
+  border-radius: 50%;
+  animation: doc-spin 0.8s linear infinite;
+}
+
+@keyframes doc-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 
-/* --- Lista de Documentos --- */
+/* =========================================
+   2. BARRA DE AÇÕES (TOOLBAR & EXPORT)
+   ========================================= */
+.toolbar-exportacao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  position: sticky;
+  top: 0;
+  z-index: 20; /* Fica acima da lista ao rolar */
+}
+
+.selection-info {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.btn-exportar-lote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #f1f5f9;
+  color: #94a3b8;
+  font-weight: 600;
+  cursor: not-allowed;
+  transition: all 0.2s;
+}
+
+.btn-exportar-lote.active {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.btn-exportar-lote.active:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+
+/* =========================================
+   3. LISTA DE DOCUMENTOS E CATEGORIAS
+   ========================================= */
 .doc-list-container {
   width: 100%;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .doc-list-empty {
-  padding: 40px;
+  padding: 60px;
   text-align: center;
-  color: #777;
-  background-color: #fff;
-  border-radius: 8px;
-  border: 1px dashed #ddd;
+  color: #94a3b8;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  border: 2px dashed #e2e8f0;
+  font-style: italic;
 }
 
-/* Categoria (A "Pasta") */
+/* Grupo de Categoria */
 .doc-category-group {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
-.doc-category-header {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1a202c;
+.doc-category-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #eee;
+  border-bottom: 2px solid #f1f5f9;
 }
 
-/* Itens de Documento */
+.doc-category-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  color: #1e293b;
+  font-weight: 700;
+  margin: 0;
+}
+
+.doc-category-title .count {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.btn-select-all {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.btn-select-all:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+
+/* =========================================
+   4. ITEM DO DOCUMENTO (CARD)
+   ========================================= */
+.doc-grid-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .doc-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
   background-color: #fff;
-  border: 1px solid #eee;
+  border: 2px solid transparent; /* Borda invisível para evitar pulo no hover/select */
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
-  margin-bottom: 8px;
-  transition: all 0.2s;
-}
-.doc-item:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  transform: translateY(-2px);
+  margin-bottom: 0; /* Controlado pelo grid-gap */
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: pointer;
 }
 
+.doc-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+  border-color: #cbd5e1;
+}
+
+/* Estado Selecionado */
+.doc-item.selected {
+  background-color: #eff6ff; /* Azul bem claro */
+  border-color: #bfdbfe;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+
+/* Checkbox Customizado */
+.doc-checkbox-wrapper {
+  margin-right: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.custom-checkbox {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  transition: all 0.2s;
+  color: transparent;
+}
+
+.doc-item:hover .custom-checkbox {
+  border-color: #94a3b8;
+}
+
+.custom-checkbox.checked {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.custom-checkbox .material-symbols-outlined {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Detalhes do Arquivo */
 .doc-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  flex: 1;
+  overflow: hidden; /* Para o texto não estourar */
 }
+
 .doc-icon {
   font-size: 32px;
-  color: #777;
+  color: #94a3b8;
+  flex-shrink: 0;
 }
-.doc-icon.pdf { color: #E53E3E; }
-.doc-icon.image { color: #137fec; }
+.doc-icon.pdf { color: #ef4444; }
+.doc-icon.image { color: #3b82f6; }
 
 .doc-details {
   display: flex;
   flex-direction: column;
-}
-.doc-name {
-  font-weight: 600;
-  color: #2d3748;
-}
-.doc-date {
-  font-size: 13px;
-  color: #718096;
+  overflow: hidden;
 }
 
+.doc-name {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-date {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* Ações (Download/Delete) */
 .doc-actions {
   display: flex;
   gap: 8px;
+  margin-left: 16px;
 }
+
 .doc-action-button {
-  background: none;
-  border: none;
+  background: transparent;
+  border: 1px solid transparent;
   padding: 6px;
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  color: #64748b;
 }
+
 .doc-action-button:hover {
-  background-color: #f0f2f5;
+  background-color: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
 }
+
+.doc-action-button.delete:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+  border-color: #fecaca;
+}
+
 .doc-action-button .material-symbols-outlined {
   font-size: 20px;
-  color: #4a5568;
-}
-.doc-action-button.delete:hover {
-  background-color: #fff1f0;
-  color: #E53E3E;
-}
-.doc-action-button.delete:hover .material-symbols-outlined {
-  color: #E53E3E;
-}
-/* --- APRIMORAMENTO: OVERLAY DE CARREGAMENTO --- */
-
-/* 1. O container do formulário precisa ser 'relative'
-   para que o overlay 'absolute' funcione dentro dele */
-.doc-upload-form {
-  /* ... (outros estilos que já estão aqui) ... */
-  position: relative; /* <-- Adicione/Garanta que esta linha exista */
 }
 
-/* 2. O Overlay (fundo semi-transparente) */
-.doc-form-loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.75); /* Branco com 75% de opacidade */
-  border-radius: 8px; /* Para bater com as bordas do container */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10; /* Para ficar por cima de tudo */
+
+/* =========================================
+   5. MODAL DE EXPORTAÇÃO & PROGRESSO
+   ========================================= */
+/* Reutiliza classes de Modal existentes, mas adiciona específicos */
+
+.manual-mode-info {
+  text-align: center;
 }
 
-/* 3. O Spinner (a "rodinha") */
-.doc-form-spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid #f3f3f3; /* Cinza claro */
-  border-top: 5px solid #137fec; /* Cor primária (azul) */
-  border-radius: 50%;
-  animation: doc-spin 1s linear infinite;
+.progress-track {
+  height: 10px;
+  background-color: #e2e8f0;
+  border-radius: 5px;
+  overflow: hidden;
+  width: 100%;
+  margin-bottom: 8px;
 }
 
-/* 4. A Animação de giro */
-@keyframes doc-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.progress-fill {
+  height: 100%;
+  background-color: #2563eb;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent);
+  background-size: 1rem 1rem;
+}
+
+
+/* =========================================
+   6. RESPONSIVIDADE
+   ========================================= */
+@media (max-width: 768px) {
+  .doc-upload-grid {
+    grid-template-columns: 1fr; /* Empilha inputs */
+  }
+  
+  .doc-upload-span-2 {
+    grid-column: span 1;
+  }
+
+  .toolbar-exportacao {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .btn-exportar-lote {
+    width: 100%;
+    justify-content: center;
+  }
 }

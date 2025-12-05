@@ -1,123 +1,134 @@
-// src/services/dashboardService.js
 import { supabase } from './supabaseClient';
+import { differenceInMonths, parseISO } from 'date-fns';
 
-/**
- * Busca os KPIs principais.
- * CORREÇÃO: Calcula Total e Folha manualmente filtrando por 'Ativo'
- * para ignorar funcionários desligados.
- */
-export const getDashboardKPIs = async () => {
-  // 1. Busca KPIs complexos (Ausentes e Pendentes) via RPC
-  // Mantemos a RPC para esses pois envolvem lógica de datas/tabelas cruzadas
-  const { data: kpisRPC, error: errorRPC } = await supabase.rpc('get_dashboard_kpis');
-  
-  if (errorRPC) {
-    console.warn("Aviso: Falha ao carregar KPIs via RPC, tentando fallback manual.", errorRPC.message);
+export const getDashboardKPIs = async (empresaId = null) => {
+  let queryFunc = supabase.from('funcionarios').select('salario_bruto', { count: 'exact' }).eq('status', 'Ativo');
+  let queryAus = supabase.from('solicitacoes_ausencia').select('funcionario_id, funcionarios!inner(empresa_id)').eq('status', 'Aprovado').lte('data_inicio', new Date().toISOString()).gte('data_fim', new Date().toISOString());
+  let queryPend = supabase.from('solicitacoes_ausencia').select('funcionario_id, funcionarios!inner(empresa_id)').eq('status', 'Pendente');
+
+  if (empresaId && empresaId !== 'todas') {
+    queryFunc = queryFunc.eq('empresa_id', empresaId);
   }
 
-  // 2. Busca TOTAL DE COLABORADORES (Apenas Ativos)
-  const { count: totalAtivos, error: errorCount } = await supabase
-    .from('funcionarios')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'Ativo'); // <--- O filtro que faltava
+  const [resFunc, resAus, resPend] = await Promise.all([queryFunc, queryAus, queryPend]);
 
-  if (errorCount) throw errorCount;
+  const funcionarios = resFunc.data || [];
+  const totalAtivos = resFunc.count || 0;
+  const folhaReal = funcionarios.reduce((acc, curr) => acc + (Number(curr.salario_bruto) || 0), 0);
 
-  // 3. Busca FOLHA DE PAGAMENTO (Apenas Ativos)
-  const { data: salarios, error: errorSalarios } = await supabase
-    .from('funcionarios')
-    .select('salario_bruto')
-    .eq('status', 'Ativo'); // <--- O filtro que faltava
+  // Filtragem de relação segura
+  const filterEmpresa = (items) => {
+    if (!empresaId || empresaId === 'todas') return items?.length || 0;
+    return items?.filter(i => i.funcionarios?.empresa_id === empresaId).length || 0;
+  };
 
-  if (errorSalarios) throw errorSalarios;
-
-  // Soma os salários
-  const folhaReal = salarios?.reduce((acc, curr) => acc + (Number(curr.salario_bruto) || 0), 0) || 0;
-
-  // 4. Monta o objeto final
-  // Sobrescrevemos os valores da RPC com os nossos valores filtrados e corretos
   return {
-    ausentes_hoje: kpisRPC?.ausentes_hoje || 0,
-    pendentes: kpisRPC?.pendentes || 0,
-    total_colaboradores: totalAtivos || 0,
+    ausentes_hoje: filterEmpresa(resAus.data),
+    pendentes: filterEmpresa(resPend.data),
+    total_colaboradores: totalAtivos,
     folha_pagamento: folhaReal
   };
 };
 
-/**
- * Busca o histórico de KPIs.
- * Nota: O histórico antigo no banco não mudará, mas os novos registros
- * dependerão de como a procedure 'get_dashboard_kpis' salva os dados.
- */
-export const getHistoricoKPIs = async () => {
-  const { data, error } = await supabase
-    .from('historico_kpis')
-    .select('data_referencia, total_colaboradores, total_folha')
-    .order('data_referencia', { ascending: true }) 
-    .limit(30);
+export const getKPIsEstrategicos = async (empresaId = null) => {
+  const hoje = new Date();
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString();
+  const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString();
 
-  if (error) {
-    console.warn("Histórico indisponível:", error.message);
-    return [];
+  let queryFunc = supabase.from('funcionarios').select('id, data_admissao, departamento, status, salario_bruto, empresa_id').eq('status', 'Ativo');
+  let queryMov = supabase.from('movimentacoes').select('id_funcionario, funcionarios!inner(empresa_id)').eq('tipo', 'Desligamento').gte('data_movimentacao', primeiroDiaMes).lte('data_movimentacao', ultimoDiaMes);
+
+  if (empresaId && empresaId !== 'todas') {
+    queryFunc = queryFunc.eq('empresa_id', empresaId);
+  }
+
+  const [resFunc, resMov] = await Promise.all([queryFunc, queryMov]);
+
+  const funcionarios = resFunc.data || [];
+  // Filtro manual de desligamentos por empresa se necessário (devido ao join)
+  const demissoes = (resMov.data || []).filter(m => !empresaId || empresaId === 'todas' || m.funcionarios?.empresa_id === empresaId).length;
+  
+  const totalAtivos = funcionarios.length;
+  const admissoes = funcionarios.filter(f => f.data_admissao >= primeiroDiaMes && f.data_admissao <= ultimoDiaMes).length;
+  
+  const turnover = totalAtivos > 0 ? (((admissoes + demissoes) / 2) / totalAtivos) * 100 : 0;
+
+  let somaMesesCasa = 0;
+  funcionarios.forEach(f => {
+    if (f.data_admissao) somaMesesCasa += differenceInMonths(hoje, parseISO(f.data_admissao));
+  });
+  const tempoMedioAnos = totalAtivos > 0 ? (somaMesesCasa / totalAtivos / 12).toFixed(1) : 0;
+
+  const totalSalario = funcionarios.reduce((acc, curr) => acc + (Number(curr.salario_bruto) || 0), 0);
+  const ticketMedio = totalAtivos > 0 ? totalSalario / totalAtivos : 0;
+
+  const porDepartamento = funcionarios.reduce((acc, curr) => {
+    const depto = curr.departamento || 'Geral';
+    acc[depto] = (acc[depto] || 0) + 1;
+    return acc;
+  }, {});
+
+  const dadosGraficoPizza = Object.entries(porDepartamento).map(([name, value]) => ({ name, value }));
+
+  return {
+    turnover: turnover.toFixed(2),
+    admissoes_mes: admissoes,
+    demissoes_mes: demissoes,
+    tempo_medio: tempoMedioAnos,
+    ticket_medio: ticketMedio,
+    grafico_deptos: dadosGraficoPizza || [] // Garante array
+  };
+};
+
+export const getHistoricoKPIs = async (empresaId = null) => {
+  let query = supabase.from('historico_kpis').select('*').order('data_referencia', { ascending: true }).limit(30);
+  const { data } = await query;
+  
+  if (!data) return [];
+
+  if (empresaId && empresaId !== 'todas') {
+    return data.filter(d => d.empresa_id === empresaId);
   }
   return data;
 };
 
-/**
- * Busca as próximas férias aprovadas.
- * Adicionado filtro de status do funcionário para garantir (via inner join).
- */
-export const getProximasFerias = async () => {
+export const getProximasFerias = async (empresaId = null) => {
   const hoje = new Date().toISOString();
-  const futuro = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-
-  const { data, error } = await supabase
+  let query = supabase
     .from('solicitacoes_ausencia')
-    .select(`
-      data_inicio,
-      funcionario_id:funcionarios!inner ( nome_completo, avatar_url, status )
-    `) 
+    .select('data_inicio, funcionario_id:funcionarios!inner(nome_completo, avatar_url, empresa_id)')
     .eq('tipo', 'Férias')
     .eq('status', 'Aprovado')
-    .eq('funcionarios.status', 'Ativo') // Garante que só traga de ativos
     .gte('data_inicio', hoje)
-    .lte('data_inicio', futuro)
     .order('data_inicio', { ascending: true })
     .limit(5);
 
-  if (error) {
-    console.error("Erro ao buscar próximas férias:", error.message);
-    throw error;
+  const { data } = await query;
+  
+  if (!data) return [];
+  
+  if (empresaId && empresaId !== 'todas') {
+    return data.filter(f => f.funcionario_id.empresa_id === empresaId);
   }
   return data;
 };
 
-/**
- * Busca aniversariantes do mês.
- * REESCRITO para filtrar por status 'Ativo' no client-side,
- * substituindo a RPC que trazia desligados.
- */
-export const getAniversariantesMes = async () => {
-  const mesAtual = new Date().getMonth() + 1; // 1 (Jan) a 12 (Dez)
+export const getAniversariantesMes = async (empresaId = null) => {
+  const mesAtual = new Date().getMonth() + 1;
+  let query = supabase.from('funcionarios').select('id, nome_completo, cargo, avatar_url, data_nascimento, empresa_id').eq('status', 'Ativo').not('data_nascimento', 'is', null);
 
-  // Busca todos os ativos que têm data de nascimento
-  const { data, error } = await supabase
-    .from('funcionarios')
-    .select('id, nome_completo, cargo, avatar_url, data_nascimento')
-    .eq('status', 'Ativo') // <--- Filtro crucial
-    .not('data_nascimento', 'is', null);
-  
-  if (error) throw error;
+  if (empresaId && empresaId !== 'todas') {
+    query = query.eq('empresa_id', empresaId);
+  }
 
-  // Filtra o mês no JavaScript
-  const aniversariantes = data.filter(f => {
-    const parts = f.data_nascimento.split('-'); // YYYY-MM-DD
-    const mesNasc = parseInt(parts[1], 10);
-    return mesNasc === mesAtual;
+  const { data } = await query;
+  if (!data) return [];
+
+  return data.filter(f => {
+    const parts = f.data_nascimento.split('-');
+    return parseInt(parts[1], 10) === mesAtual;
   }).map(f => ({
     ...f,
     dia_aniversario: f.data_nascimento.split('-')[2]
   })).sort((a, b) => parseInt(a.dia_aniversario) - parseInt(b.dia_aniversario));
-
-  return aniversariantes;
 };

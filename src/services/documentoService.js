@@ -5,9 +5,6 @@ const BUCKET_NAME = 'documentos_pessoais';
 /**
  * 1. FAZ O UPLOAD DO ARQUIVO
  * Envia o arquivo físico para o Supabase Storage
- * @param {File} file - O arquivo (ex: 'contrato.pdf')
- * @param {string} funcionarioId - O ID do funcionário (para criar a pasta)
- * @returns {string} - O 'path' completo do arquivo salvo (ex: 'uuid-do-matheus/123456.pdf')
  */
 export const uploadDocumento = async (file, funcionarioId) => {
   const fileExt = file.name.split('.').pop();
@@ -29,7 +26,6 @@ export const uploadDocumento = async (file, funcionarioId) => {
 /**
  * 2. SALVA O REGISTRO DO DOCUMENTO
  * Salva as informações (categoria, nome, etc.) na tabela 'documentos'
- * @param {object} dadosDocumento - { funcionario_id, nome_arquivo, path_storage, categoria, data_documento }
  */
 export const createDocumentoRegistro = async (dadosDocumento) => {
   const { data, error } = await supabase
@@ -47,7 +43,6 @@ export const createDocumentoRegistro = async (dadosDocumento) => {
 /**
  * 3. BUSCA OS DOCUMENTOS DE UM FUNCIONÁRIO
  * Pega a lista de todos os documentos de um único funcionário
- * @param {string} funcionarioId - O ID do funcionário
  */
 export const getDocumentosPorFuncionario = async (funcionarioId) => {
   const { data, error } = await supabase
@@ -64,9 +59,8 @@ export const getDocumentosPorFuncionario = async (funcionarioId) => {
 };
 
 /**
- * 4. BAIXA O ARQUIVO FÍSICO
- * Gera um link temporário e seguro para download
- * @param {string} pathStorage - O 'path' do arquivo (ex: 'uuid-do-matheus/123456.pdf')
+ * 4. BAIXA O ARQUIVO FÍSICO (LINK)
+ * Gera um link temporário e seguro para download (visualização/download direto)
  */
 export const getDocumentoDownloadUrl = async (pathStorage) => {
   const { data, error } = await supabase.storage
@@ -81,10 +75,24 @@ export const getDocumentoDownloadUrl = async (pathStorage) => {
 };
 
 /**
+ * [NOVO] 4.1 BAIXA O CONTEÚDO DO ARQUIVO (BLOB)
+ * Baixa o binário do arquivo para ser usado na geração do ZIP.
+ */
+export const downloadArquivoParaBlob = async (pathStorage) => {
+  const { data, error } = await supabase.storage
+    .from(BUCKET_NAME)
+    .download(pathStorage);
+
+  if (error) {
+    console.error("Erro ao baixar blob do arquivo:", error.message);
+    throw error;
+  }
+  return data; // Retorna o objeto Blob
+};
+
+/**
  * 5. DELETA UM DOCUMENTO
  * Apaga o registro da tabela E o arquivo do Storage
- * @param {string} docId - O ID do registro na tabela 'documentos'
- * @param {string} pathStorage - O 'path' do arquivo no Storage
  */
 export const deleteDocumento = async (docId, pathStorage) => {
   // Passo 1: Deletar o arquivo do Storage
@@ -94,7 +102,7 @@ export const deleteDocumento = async (docId, pathStorage) => {
 
   if (storageError) {
     console.error("Erro ao deletar arquivo do storage:", storageError.message);
-    // (Pode-se decidir parar aqui ou continuar para deletar o registro mesmo assim)
+    // Continua para tentar deletar o registro do banco mesmo assim
   }
 
   // Passo 2: Deletar o registro da tabela 'documentos'
