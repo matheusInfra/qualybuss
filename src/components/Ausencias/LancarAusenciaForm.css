@@ -1,0 +1,192 @@
+/* src/components/Ausencias/LancarAusenciaForm.css */
+
+/* Container Limpo */
+.ausencia-form-container {
+  background: #ffffff;
+  /* Removemos bordas e sombras aqui pois o Modal já as tem */
+  padding: 0; 
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ausencia-form-content {
+  padding: 32px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Títulos de Seção dentro do Form */
+.form-section-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 8px;
+  grid-column: 1 / -1; /* Ocupa toda a largura */
+}
+
+/* Grid Moderno */
+.ausencia-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px; /* Espaçamento maior entre colunas */
+}
+
+.ausencia-form-span-2 {
+  grid-column: span 2;
+}
+
+/* Estilo dos Campos */
+.ausencia-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.ausencia-form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ausencia-form-group input,
+.ausencia-form-group select,
+.ausencia-form-group textarea {
+  width: 100%;
+  padding: 12px 16px; /* Inputs mais altos */
+  font-size: 0.95rem;
+  color: #1e293b;
+  background-color: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+.ausencia-form-group input:hover,
+.ausencia-form-group select:hover,
+.ausencia-form-group textarea:hover {
+  border-color: #cbd5e0;
+}
+
+.ausencia-form-group input:focus,
+.ausencia-form-group select:focus,
+.ausencia-form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6; /* Azul foco */
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Ícones dentro dos inputs */
+.input-with-icon {
+  position: relative;
+}
+.input-with-icon input {
+  padding-left: 44px;
+}
+.input-with-icon .input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 20px;
+  pointer-events: none;
+}
+
+/* Upload Area (Drag & Drop Style) */
+.ausencia-upload-label {
+  border: 2px dashed #cbd5e0;
+  border-radius: 12px;
+  background-color: #f8fafc;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ausencia-upload-label:hover {
+  background-color: #f1f5f9;
+  border-color: #3b82f6;
+}
+.ausencia-file-name {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Footer com ações */
+.ausencia-form-footer {
+  padding: 20px 32px;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-radius: 0 0 8px 8px;
+}
+
+.button-secondary {
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #cbd5e0;
+  color: #475569;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.button-secondary:hover { background: #f1f5f9; }
+
+.button-primary {
+  padding: 10px 24px;
+  background: #0f172a; /* Preto/Azul escuro moderno */
+  border: 1px solid #0f172a;
+  color: white;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.button-primary:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+.button-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Overlay de Loading */
+.form-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  border-radius: 8px;
+}
+.form-spinner {
+  width: 40px; height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #0f172a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

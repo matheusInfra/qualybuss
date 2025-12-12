@@ -1,0 +1,80 @@
+.gestao-saldos-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.gestao-saldos-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-size: 14px;
+}
+
+.gestao-saldos-table th,
+.gestao-saldos-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+
+.gestao-saldos-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+/* Célula Colaborador */
+.colaborador-cell-saldos {
+  /* Reutiliza o estilo que já temos, se houver */
+  display: flex;
+  flex-direction: column;
+}
+.colaborador-nome-saldos {
+  font-weight: 600;
+  color: #2d3748;
+}
+.colaborador-cargo-saldos {
+  font-size: 12px;
+  color: #777;
+}
+
+/* Célula de Saldo */
+.saldo-cell {
+  font-weight: 600;
+  font-size: 15px;
+}
+.saldo-dias {
+  color: #137fec; /* Azul */
+}
+.saldo-horas {
+  color: #28a745; /* Verde */
+}
+
+/* Célula de Ações */
+.acoes-cell {
+  text-align: right;
+}
+.button-ajustar {
+  background-color: #f0f2f5;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.button-ajustar .material-symbols-outlined {
+  font-size: 16px;
+}
+.button-ajustar:hover {
+  background-color: #e0e0e0;
+}

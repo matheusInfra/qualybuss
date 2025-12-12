@@ -1,0 +1,155 @@
+.painel-saldos-container {
+  padding: 10px;
+  animation: fadeIn 0.4s ease;
+}
+
+.painel-header-control {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 600px;
+  margin: 0 auto 30px auto;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.painel-header-control label {
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.select-funcionario {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.empty-state-saldos {
+  text-align: center;
+  color: #94a3b8;
+  padding: 60px;
+}
+
+.empty-state-saldos span {
+  font-size: 48px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.loading-saldos {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Grid de Cards */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.saldo-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
+}
+
+.saldo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.card-icon {
+  font-size: 2.5rem;
+  background: #f8fafc;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-label {
+  display: block;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 8px;
+  color: #1e293b;
+}
+
+.card-value small {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-left: 4px;
+}
+
+.card-value.text-red { color: #ef4444; }
+.card-value.text-green { color: #10b981; }
+
+.card-obs {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Cores específicas de borda/bg */
+.saldo-card.ferias { border-bottom: 4px solid #3b82f6; }
+.saldo-card.banco { border-bottom: 4px solid #f59e0b; }
+.saldo-card.folga { border-bottom: 4px solid #8b5cf6; }
+
+.actions-bar {
+  text-align: right;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+}
+
+.btn-ajuste-manual {
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 10px 20px;
+  border-radius: 8px;
+  color: #475569;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-ajuste-manual:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

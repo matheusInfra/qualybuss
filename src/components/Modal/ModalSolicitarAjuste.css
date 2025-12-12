@@ -1,0 +1,214 @@
+/* src/components/Modal/ModalSolicitarAjuste.css */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  width: 95%;
+  max-width: 550px;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease-out;
+  border: 1px solid var(--border-color);
+}
+
+/* --- CABEÇALHO DE ALERTA (WARNING) --- */
+.warning-header {
+  background: linear-gradient(to right, #fff7ed, #ffedd5);
+  border-bottom: 1px solid #fdba74;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.warning-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #9a3412;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #9a3412;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.close-btn:hover {
+  opacity: 1;
+}
+
+/* --- CORPO DO MODAL --- */
+.modal-body {
+  padding: 1.5rem;
+}
+
+.step-container {
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+/* --- FORMULÁRIOS --- */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--slate-700);
+  margin-bottom: 0.5rem;
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--slate-300);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  color: var(--slate-900);
+  background-color: white;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group select:focus,
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #f97316;
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* --- BOTÕES --- */
+.button-primary,
+.button-secondary {
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+/* Botão Padrão (Continuar) */
+.button-primary {
+  background-color: #f97316;
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.button-primary:hover {
+  background-color: #ea580c;
+  transform: translateY(-1px);
+}
+
+.button-primary:disabled {
+  background-color: #fdba74;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Botão de Perigo/Confirmação Final (Vermelho) */
+.bg-red-600 {
+  background-color: var(--danger) !important;
+}
+
+.bg-red-600:hover {
+  background-color: #b91c1c !important;
+}
+
+/* Botão Voltar/Cancelar */
+.button-secondary {
+  background-color: white;
+  border: 1px solid var(--slate-300);
+  color: var(--slate-700);
+}
+
+.button-secondary:hover {
+  background-color: var(--slate-50);
+  color: var(--slate-900);
+}
+
+/* --- GRID UTILITÁRIOS --- */
+.grid {
+  display: grid;
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.flex {
+  display: flex;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+/* --- ANIMAÇÕES --- */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

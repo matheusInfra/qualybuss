@@ -1,0 +1,92 @@
+/* src/pages/AusenciasPage.css */
+
+.ausencias-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  animation: fadeIn 0.4s ease;
+}
+
+.ausencias-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.ausencias-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  color: var(--text-main);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* Estilo das Abas */
+.ausencias-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+}
+
+.ausencias-tabs button {
+  padding: 0.75rem 0.5rem;
+  border: none;
+  background: none;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.ausencias-tabs button:hover {
+  color: var(--text-main);
+}
+
+.ausencias-tabs button.active {
+  color: var(--primary-600);
+  border-bottom: 2px solid var(--primary-600);
+  font-weight: 600;
+}
+
+/* Conteúdo da Aba */
+.ausencias-tab-content {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.button-novo-lancamento {
+  padding: 0.625rem 1.25rem;
+  background-color: var(--success);
+  color: white;
+  text-decoration: none;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+
+.button-novo-lancamento:hover {
+  background-color: #059669;
+  /* Emerald 600 */
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}

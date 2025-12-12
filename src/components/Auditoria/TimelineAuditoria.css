@@ -1,0 +1,100 @@
+/* src/components/Auditoria/TimelineAuditoria.css */
+
+.timeline-container {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.timeline-container h4 {
+  margin-top: 0;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 15px;
+  position: relative;
+}
+
+.timeline-marker {
+  width: 12px;
+  height: 12px;
+  background-color: var(--slate-300);
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+/* Linha conectora */
+.timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 18px;
+  bottom: -20px;
+  width: 2px;
+  background-color: var(--border-color);
+}
+
+.timeline-content {
+  flex: 1;
+  background-color: var(--slate-50);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.change-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.field-name {
+  font-weight: 600;
+  color: var(--text-main);
+  min-width: 100px;
+}
+
+.old-val {
+  color: var(--danger);
+  text-decoration: line-through;
+  background: var(--danger-bg);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.new-val {
+  color: var(--success);
+  background: var(--success-bg);
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.arrow {
+  color: var(--slate-400);
+  font-size: 0.8rem;
+}

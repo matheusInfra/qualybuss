@@ -1,0 +1,126 @@
+/* src/components/Ferias/ControlesCalendario.css */
+/* Baseado em: */
+
+.calendar-controls-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #fff;
+  border-radius: 0.75rem; /* 12px (xl) */
+  border: 1px solid #e0e0e0;
+}
+
+@media (min-width: 768px) { /* md: */
+  .calendar-controls-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) { /* lg: */
+  .calendar-controls-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 1. Navegação de Data */
+.date-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.control-button {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 0.5rem; /* lg */
+  background-color: #f3f4f6; /* gray-100 */
+  padding: 0 12px 0 16px;
+  color: #1a202c; /* gray-800 */
+  border: none;
+  cursor: pointer;
+}
+.control-button:hover {
+  background-color: #e5e7eb; /* gray-200 */
+}
+.control-button .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.arrow-buttons {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+.arrow-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: #4a5568; /* gray-600 */
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.arrow-button:hover {
+  color: #135bec; /* primary */
+  background-color: #f3f4f6; /* gray-100 */
+}
+
+/* 2. Barra de Busca */
+.search-bar {
+  display: flex;
+  height: 40px;
+  width: 100%;
+}
+.search-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 12px;
+  background-color: #f3f4f6; /* gray-100 */
+  border-radius: 0.5rem 0 0 0.5rem;
+  color: #718096; /* gray-500 */
+}
+.search-input {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background-color: #f3f4f6; /* gray-100 */
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0 16px;
+  font-size: 0.875rem; /* sm */
+}
+.search-input:focus {
+  outline: 2px solid #135bec; /* primary */
+  outline-offset: 2px;
+}
+
+/* 3. Filtros */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (min-width: 1024px) { /* lg: */
+  .filters {
+    justify-content: flex-end;
+  }
+}
+.clear-filters-button {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 0.875rem; /* sm */
+  font-weight: 500;
+  color: #135bec; /* primary */
+  background: none;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+.clear-filters-button:hover {
+  background-color: rgba(19, 91, 236, 0.1); /* primary/10 */
+}

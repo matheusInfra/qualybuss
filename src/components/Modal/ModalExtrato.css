@@ -1,0 +1,234 @@
+/* src/components/Modal/ModalExtrato.css */
+
+.modal-content-extrato {
+  background: var(--bg-card);
+  width: 90%;
+  max-width: 900px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid var(--border-color);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.extrato-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background-color: var(--slate-50);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.extrato-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.extrato-subtitle {
+  margin: 0.25rem 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.close-btn {
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--slate-400);
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: var(--text-main);
+}
+
+.extrato-body {
+  padding: 0;
+  overflow-y: auto;
+}
+
+.extrato-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.extrato-table th {
+  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 700;
+  z-index: 1;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.extrato-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+  color: var(--text-main);
+}
+
+/* Zebrado suave */
+.extrato-table tr:nth-child(even) {
+  background-color: var(--slate-50);
+}
+
+.extrato-table tr:hover {
+  background-color: var(--primary-50);
+}
+
+/* Estilos de Texto */
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.text-green {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.text-red {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.extrato-desc {
+  display: flex;
+  flex-direction: column;
+}
+
+.extrato-desc strong {
+  font-size: 0.9375rem;
+  color: var(--text-main);
+}
+
+.extrato-desc span {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-badge.aprovado {
+  background: var(--success-bg);
+  color: #065f46;
+}
+
+.status-badge.concluído {
+  background: var(--slate-100);
+  color: var(--slate-600);
+  border: 1px solid var(--border-color);
+}
+
+.status-badge.pendente {
+  background: var(--warning-bg);
+  color: #92400e;
+}
+
+/* Linha Bloqueada (Locked) */
+.row-locked td {
+  color: var(--text-secondary);
+  background-color: var(--slate-50);
+}
+
+.icon-locked {
+  font-size: 1.125rem;
+  color: var(--slate-300);
+}
+
+/* Botão de Baixa */
+.btn-baixa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: var(--success-bg);
+  border: 1px solid var(--success);
+  color: var(--success);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.btn-baixa:hover {
+  background-color: var(--success);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-baixa:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.btn-text {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .btn-text {
+    display: inline;
+  }
+}
+
+.extrato-footer {
+  padding: 1rem 1.5rem;
+  background-color: var(--slate-50);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.info-audit {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

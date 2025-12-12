@@ -1,0 +1,163 @@
+/* Container que ocupa toda a tela */
+.update-password-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #f0f2f5; /* Fundo neutro suave */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* O cartão central */
+.update-box {
+  background: #ffffff;
+  width: 100%;
+  max-width: 450px;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Animação de entrada suave */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Títulos e Textos */
+.update-title {
+  font-size: 1.8rem;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.update-subtitle {
+  font-size: 0.95rem;
+  color: #666;
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+
+/* Formulário */
+.update-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Labels e Inputs (Estilo consistente com o Login) */
+.input-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+  gap: 8px;
+  width: 100%;
+}
+
+.input-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: #888;
+  font-size: 1.2rem;
+  pointer-events: none; /* Permite clicar através do ícone */
+}
+
+.input-container input {
+  width: 100%;
+  padding: 12px 12px 12px 40px; /* Espaço para o ícone */
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  outline: none;
+  background-color: #fafafa;
+}
+
+.input-container input:focus {
+  border-color: #2563eb; /* Azul primário */
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background-color: #fff;
+}
+
+/* Botão de Ação */
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.submit-btn:disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+}
+
+/* Mensagens de Feedback */
+.error-message {
+  color: #dc2626;
+  background-color: #fef2f2;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #fee2e2;
+}
+
+.success-message {
+  color: #16a34a;
+  background-color: #f0fdf4;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #dcfce7;
+}
+
+/* Responsividade Mobile */
+@media (max-width: 480px) {
+  .update-password-wrapper {
+    padding: 15px;
+    background-color: #fff; /* Fundo branco no mobile para parecer app nativo */
+  }
+
+  .update-box {
+    box-shadow: none;
+    padding: 20px 0;
+  }
+
+  .update-title {
+    font-size: 1.5rem;
+  }
+}

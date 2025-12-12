@@ -1,0 +1,176 @@
+/* Container da Grade */
+.mural-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.mural-empty {
+  color: #718096;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* O Cartão de Ausência */
+.ausencia-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ausencia-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Cabeçalho (Avatar + Nome) */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+.card-avatar-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.card-header-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.funcionario-nome {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.ausencia-tipo {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+/* Corpo (Datas) */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.data-row .label {
+  color: #718096;
+}
+.data-row .value {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.data-badge {
+  align-self: flex-start;
+  background-color: #ebf8ff;
+  color: #3182ce;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+/* Rodapé e Tooltip */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto; /* Empurra rodapé para o fim do card */
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+/* Cores dos status */
+.status-aprovado { background-color: #c6f6d5; color: #276749; }
+.status-pendente { background-color: #fefcbf; color: #975a16; }
+.status-rejeitado { background-color: #fed7d7; color: #9b2c2c; }
+
+/* --- TOOLTIP (A div flutuante) --- */
+.tooltip-container {
+  position: relative; /* Essencial para posicionar o filho absolute */
+  cursor: help;
+}
+
+.info-icon {
+  font-size: 1.2rem;
+  color: #4a5568;
+  transition: color 0.2s;
+}
+
+.info-icon:hover {
+  color: #3182ce;
+}
+
+/* O texto escondido */
+.tooltip-content {
+  visibility: hidden;
+  opacity: 0;
+  width: 220px;
+  background-color: #2d3748;
+  color: #fff;
+  text-align: left;
+  border-radius: 6px;
+  padding: 10px;
+  
+  /* Posicionamento flutuante */
+  position: absolute;
+  z-index: 100;
+  bottom: 125%; /* Aparece acima do ícone */
+  right: 0;     /* Alinha à direita do ícone */
+  
+  /* Efeito suave */
+  transition: opacity 0.3s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  font-size: 0.85rem;
+  pointer-events: none; /* Para não atrapalhar o mouse */
+}
+
+/* A setinha do tooltip (opcional) */
+.tooltip-content::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 10px; /* Alinha com o ícone */
+  border-width: 5px;
+  border-style: solid;
+  border-color: #2d3748 transparent transparent transparent;
+}
+
+/* Mostrar ao passar o mouse */
+.tooltip-container:hover .tooltip-content {
+  visibility: visible;
+  opacity: 1;
+}

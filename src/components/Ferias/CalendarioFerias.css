@@ -1,0 +1,150 @@
+/* Container do Calendário */
+.calendario-container {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.calendario-header-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.calendario-header-info h3 {
+  margin: 0;
+  color: #1e293b;
+}
+
+/* Legendas */
+.calendario-legenda {
+  margin-top: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-size: 0.8rem;
+  color: #64748b;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  align-items: center;
+}
+
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-border {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #94a3b8;
+  border-radius: 4px;
+}
+
+.dot-border.solid { border-style: solid; background: #cbd5e1; }
+.dot-border.dashed { border-style: dashed; background: transparent; }
+
+/* --- NOVO: ESTILOS DO FERIADO ANIMADO --- */
+
+/* O container do evento customizado */
+.holiday-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  overflow: visible !important; /* Permite o tooltip sair da caixa */
+}
+
+/* A Bolinha (Dot) */
+.holiday-dot {
+  width: 24px;
+  height: 24px;
+  background-color: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fda4af;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: help;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.holiday-dot:hover {
+  transform: scale(1.1);
+  background-color: #f43f5e;
+  color: white;
+  border-color: #e11d48;
+}
+
+/* O Tooltip (A caixa que cresce/aparece) */
+.holiday-tooltip {
+  position: absolute;
+  bottom: 30px; /* Acima da bolinha */
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  width: max-content;
+  max-width: 200px;
+  text-align: center;
+  
+  /* Animação */
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+  pointer-events: none; /* Não atrapalha o mouse */
+}
+
+/* Seta do Tooltip */
+.holiday-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: white transparent transparent transparent;
+}
+
+/* Estado Hover: Mostra o tooltip */
+.holiday-wrapper:hover .holiday-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+  bottom: 35px; /* Sobe um pouquinho */
+}
+
+.tooltip-title {
+  display: block;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+}
+
+.tooltip-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+}

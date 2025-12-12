@@ -1,0 +1,255 @@
+.aprovacao-container {
+  padding: 10px 0;
+  animation: fadeIn 0.4s ease;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #64748b;
+  padding: 40px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state-aprovacao {
+  text-align: center;
+  padding: 80px 20px;
+  background: white;
+  border-radius: 16px;
+  border: 1px dashed #e2e8f0;
+  color: #64748b;
+}
+
+.icon-empty {
+  font-size: 4rem;
+  color: #10b981;
+  margin-bottom: 16px;
+}
+
+.pendencias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+}
+
+.pendencia-card {
+  background: white;
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.pendencia-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: #e2e8f0;
+}
+
+.pendencia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.tag-tipo {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.tag-tipo.ferias {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.pendencia-data {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.pendencia-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.avatar-small, .avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #64748b;
+  font-size: 1.2rem;
+  border: 1px solid #e2e8f0;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-details strong {
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.user-details small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.pendencia-detalhes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.data-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.data-block .label {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.data-block .value {
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.data-arrow {
+  color: #cbd5e1;
+}
+
+.dias-badge {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.pendencia-motivo {
+  font-size: 0.85rem;
+  color: #475569;
+  background: #fffbeb;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 3px solid #f59e0b;
+}
+
+.pendencia-motivo .label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.pendencia-motivo p {
+  margin: 0;
+  font-style: italic;
+}
+
+.pendencia-anexo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #2563eb;
+  margin-bottom: 16px;
+}
+
+.pendencia-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.btn-reject {
+  background: white;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reject:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.btn-approve {
+  background: #10b981;
+  border: none;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+}
+
+.btn-approve:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3);
+}
+
+.btn-approve:disabled, .btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
