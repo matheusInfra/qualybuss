@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+// A importação abaixo agora vai funcionar porque atualizamos o arquivo acima
 import { recalcularDiaManual } from '../utils/calculadoraPonto';
 
 // --- JORNADAS ---
@@ -34,7 +35,7 @@ export const salvarImportacaoPonto = async (meta, batidas, resumoDiario) => {
   if (errImp) throw new Error("Erro ao criar importação: " + errImp.message);
 
   // 2. Salva Batidas Cruas (em lotes para não falhar com arquivos grandes)
-  if (batidas.length > 0) {
+  if (batidas && batidas.length > 0) {
     const batidasFormatadas = batidas.map(b => ({
       importacao_id: importacao.id,
       funcionario_id: b.funcionario_id,
@@ -112,7 +113,7 @@ export const updatePontoDia = async (resumoId, dadosInputs, jornadaFuncionario) 
   return data[0];
 };
 
-// Fechamento de Mês
+// Fechamento de Mês (Integração com Salário)
 export const fecharMesPonto = async (funcionarioId, competencia) => {
   const [ano, mes] = competencia.split('-');
   const inicio = `${competencia}-01`;
