@@ -1,0 +1,333 @@
+/* src/pages/PontoPage.css */
+
+/* Container Principal */
+.ponto-container {
+  max-width: 1600px; /* Largura expandida para caber a tabela */
+  margin: 0 auto;
+  padding: 1.5rem;
+  padding-bottom: 80px; /* Espaço para o footer fixo */
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* --- HEADER & CONTROLES --- */
+.ponto-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.ponto-title h1 {
+  font-size: 1.75rem;
+  color: var(--text-main);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.ponto-title p {
+  color: var(--text-secondary);
+  margin: 4px 0 0 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Upload Mini (Botão disfarçado) */
+.btn-upload-mini {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: white;
+  border: 1px dashed var(--slate-300);
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: var(--slate-600);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upload-mini:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-600);
+  background-color: var(--primary-50);
+}
+
+/* --- FILTROS --- */
+.ponto-filters {
+  display: flex;
+  gap: 16px;
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.filter-group label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+}
+
+.filter-input {
+  padding: 10px;
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  background-color: var(--slate-50);
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  background-color: white;
+}
+
+/* --- KPIS (CARDS DE RESUMO) --- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-label {
+  font-size: 0.85rem;
+  color: var(--slate-500);
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+/* Cores dos KPIs */
+.kpi-card.blue .kpi-icon-box { background: #eff6ff; color: #3b82f6; }
+.kpi-card.green .kpi-icon-box { background: #f0fdf4; color: #10b981; }
+.kpi-card.yellow .kpi-icon-box { background: #fefce8; color: #f59e0b; }
+.kpi-card.red .kpi-icon-box { background: #fef2f2; color: #ef4444; }
+
+/* --- TABELA DE ESPELHO --- */
+.ponto-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.ponto-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ponto-table th {
+  background: var(--slate-50);
+  padding: 14px 20px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--slate-600);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ponto-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--slate-100);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+
+.ponto-table tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Coluna Colaborador */
+.colab-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.colab-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.colab-name { font-weight: 600; color: var(--text-main); }
+.colab-role { font-size: 0.75rem; color: var(--slate-500); }
+
+/* Coluna Jornada (Tags de Horário) */
+.jornada-tags {
+  display: flex;
+  gap: 4px;
+}
+
+.time-tag {
+  background: var(--slate-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--slate-700);
+  border: 1px solid var(--slate-200);
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-normal { background: #dcfce7; color: #166534; }
+.status-falta { background: #fee2e2; color: #991b1b; }
+.status-atraso { background: #fff7ed; color: #9a3412; }
+.status-extra { background: #eff6ff; color: #1e40af; }
+.status-incompleto { background: #fefce8; color: #854d0e; border: 1px solid #fde047; }
+
+/* Ações */
+.btn-icon-edit {
+  background: white;
+  border: 1px solid var(--slate-300);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--slate-500);
+  transition: all 0.2s;
+}
+
+.btn-icon-edit:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-600);
+  background: var(--primary-50);
+}
+
+/* --- STICKY FOOTER --- */
+.sticky-footer {
+  position: fixed;
+  bottom: 0;
+  left: 280px; /* Largura do Sidebar */
+  right: 0;
+  background: white;
+  padding: 16px 32px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+  z-index: 50;
+  transition: left 0.3s ease;
+}
+
+/* Ajuste quando sidebar fecha */
+.sidebar-collapsed + .content-area .sticky-footer {
+  left: 80px;
+}
+
+.footer-summary {
+  display: flex;
+  gap: 20px;
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--slate-600);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.btn-process-month {
+  background: var(--primary-600);
+  color: white;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+
+.btn-process-month:hover {
+  background: var(--primary-700);
+  transform: translateY(-1px);
+  box-shadow: var(--glow-primary);
+}
+
+@media (max-width: 1024px) {
+  .sticky-footer { left: 0 !important; }
+}

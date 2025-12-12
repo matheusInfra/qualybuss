@@ -54,12 +54,45 @@ export const salvarImportacaoPonto = async (meta, batidas, resumoDiario) => {
   return importacao;
 };
 
-export const getEspelhoPonto = async (mes, ano) => {
-  // Retorna os dados calculados para exibir na tela
-  // (Simplificado para o exemplo, idealmente filtra por mês)
+// --- TRATAMENTO E ESPELHO (FUNÇÕES FALTANTES) ---
+
+/**
+ * Busca o espelho de ponto filtrando por mês e opcionalmente por funcionário.
+ */
+export const getEspelhoPonto = async (funcionarioId, mes, ano) => {
+  // Define o intervalo do mês (Primeiro ao Último dia)
+  const inicio = `${ano}-${String(mes).padStart(2, '0')}-01`;
+  // Truque para pegar o último dia do mês: dia 0 do mês seguinte
+  const fim = new Date(ano, mes, 0).toISOString().split('T')[0];
+
+  let query = supabase
+    .from('ponto_resumo_diario')
+    .select('*, funcionarios(nome_completo, cargo)')
+    .gte('data', inicio)
+    .lte('data', fim)
+    .order('data', { ascending: true });
+
+  // Se um funcionário específico for passado, filtra por ele
+  if (funcionarioId) {
+    query = query.eq('funcionario_id', funcionarioId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Atualiza um dia específico no espelho (Tratamento manual: ajuste de horários, abono, etc.)
+ */
+export const updatePontoDia = async (resumoId, dadosAtualizados) => {
   const { data, error } = await supabase
     .from('ponto_resumo_diario')
-    .select('*, funcionarios(nome_completo)')
-    .order('data', { ascending: false });
-  return data;
+    .update(dadosAtualizados)
+    .eq('id', resumoId)
+    .select();
+
+  if (error) throw error;
+  return data[0];
 };
