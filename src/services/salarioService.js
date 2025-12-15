@@ -7,10 +7,19 @@ import {
   calcularDescontoFaltas 
 } from '../utils/calculadoraSalario';
 
-// Busca Configurações
+// --- CONFIGURAÇÕES ---
 export const getConfigFolha = async () => {
   const { data, error } = await supabase.from('config_folha').select('*').eq('ativo', true).single();
-  if (error) throw new Error("Erro ao carregar taxas. Configure o sistema.");
+  if (error) {
+    // Retorna fallback se não tiver config (evita crash)
+    return { 
+      tabela_inss: [], 
+      tabela_irrf: [], 
+      aliquota_patronal: 20, 
+      aliquota_rat: 2, 
+      aliquota_fgts: 8 
+    };
+  }
   return data;
 };
 
@@ -20,6 +29,7 @@ export const saveConfigFolha = async (novasConfig) => {
   return data;
 };
 
+// --- LEITURA DE FOLHA E PONTO ---
 export const getFolhaPagamento = async (funcionarioId, mes, ano) => {
   const competencia = `${ano}-${String(mes).padStart(2, '0')}-01`;
   const { data, error } = await supabase
@@ -32,10 +42,9 @@ export const getFolhaPagamento = async (funcionarioId, mes, ano) => {
   return data;
 };
 
-// [INTEGRAÇÃO] Busca dados fechados do ponto
-const getIntegracaoPonto = async (funcionarioId, competencia) => {
+const getMedicaoPonto = async (funcionarioId, competencia) => {
   const { data } = await supabase
-    .from('integracao_ponto_folha')
+    .from('medicao_mensal')
     .select('*')
     .eq('funcionario_id', funcionarioId)
     .eq('competencia', competencia)
@@ -43,85 +52,84 @@ const getIntegracaoPonto = async (funcionarioId, competencia) => {
   return data;
 };
 
-/**
- * CÁLCULO INTELIGENTE DA FOLHA
- * Integra: Cadastro + Configurações + Ponto Eletrônico
- */
-export const calcularESalvarFolha = async (funcionario, mes, ano) => {
+// --- MOTOR DE CÁLCULO (PREVISÃO) ---
+export const calcularPreviaFolha = async (funcionario, mes, ano) => {
   const competencia = `${ano}-${String(mes).padStart(2, '0')}-01`;
   
-  // 1. Carrega dependências
-  const config = await getConfigFolha();
-  const dadosPonto = await getIntegracaoPonto(funcionario.id, competencia); // <--- AQUI A MÁGICA
+  // 1. Busca Dados Necessários
+  const config = await getConfigFolha(); 
+  const medicao = await getMedicaoPonto(funcionario.id, competencia);
   
   const salarioBase = parseFloat(funcionario.salario_bruto || 0);
   const dependentes = funcionario.qtd_dependentes || 0;
 
-  // 2. Calcula Variáveis (Vindas do Ponto)
+  // 2. Calcula Proventos (Salário + Extras do Ponto)
   let totalProventos = salarioBase;
-  let totalDescontos = 0;
-  const itensFolha = []; // Array para guardar os eventos
+  const itens = [];
+  
+  itens.push({ descricao: 'Salário Base', tipo: 'Provento', valor: salarioBase, referencia: 30 });
 
-  // Item 1: Salário Base
-  itensFolha.push({ descricao: 'Salário Base', tipo: 'Provento', valor: salarioBase, referencia: 30 });
+  if (medicao) {
+    // Horas Extras 50%
+    if (medicao.qtd_horas_extras_50 > 0) {
+      // Converte hora decimal para minutos para o calculo
+      const minutosHE = medicao.qtd_horas_extras_50 * 60;
+      const valorHE = calcularHoraExtra(salarioBase, minutosHE, 50);
+      
+      itens.push({ 
+        descricao: 'Horas Extras 50%', 
+        tipo: 'Provento', 
+        valor: valorHE, 
+        referencia: medicao.qtd_horas_extras_50.toFixed(2) + 'h' 
+      });
+      totalProventos += valorHE;
 
-  // Item 2: Horas Extras (Se houver no ponto)
-  let valorHE = 0;
-  if (dadosPonto && dadosPonto.total_extras_50_minutos > 0) {
-    valorHE = calcularHoraExtra(salarioBase, dadosPonto.total_extras_50_minutos, 50);
-    const qtdHoras = (dadosPonto.total_extras_50_minutos / 60).toFixed(2);
-    
-    itensFolha.push({ descricao: 'Horas Extras 50%', tipo: 'Provento', valor: valorHE, referencia: qtdHoras });
-    totalProventos += valorHE;
-
-    // Reflexo DSR sobre HE
-    const valorDSR = calcularDSR(valorHE); // Usando padrão 25/5 dias, ideal parametrizar
-    itensFolha.push({ descricao: 'DSR s/ Horas Extras', tipo: 'Provento', valor: valorDSR, referencia: 0 });
-    totalProventos += valorDSR;
+      // DSR sobre HE
+      const valorDSR = calcularDSR(valorHE);
+      itens.push({ descricao: 'DSR s/ Horas Extras', tipo: 'Provento', valor: valorDSR, referencia: 0 });
+      totalProventos += valorDSR;
+    }
   }
 
-  // Item 3: Atrasos/Faltas (Se houver)
+  // 3. Calcula Descontos (Faltas do Ponto)
+  let totalDescontos = 0;
   let valorFaltas = 0;
-  if (dadosPonto && (dadosPonto.total_atrasos_minutos > 0 || dadosPonto.total_faltas_dias > 0)) {
-    // Converte dias de falta em minutos (apenas para unificar cálculo, ou trata separado)
-    const minutosFaltas = (dadosPonto.total_faltas_dias * 440) + (dadosPonto.total_atrasos_minutos || 0); // 7h20m = 440min
-    
-    valorFaltas = calcularDescontoFaltas(salarioBase, minutosFaltas);
-    const qtdHorasFalta = (minutosFaltas / 60).toFixed(2);
 
-    itensFolha.push({ descricao: 'Faltas / Atrasos', tipo: 'Desconto', valor: valorFaltas, referencia: qtdHorasFalta });
+  if (medicao && (medicao.qtd_faltas_dias > 0 || medicao.qtd_atrasos_minutos > 0)) {
+    const minutosFaltas = (medicao.qtd_faltas_dias * 440) + (medicao.qtd_atrasos_minutos || 0);
+    valorFaltas = calcularDescontoFaltas(salarioBase, minutosFaltas);
+    
+    itens.push({ descricao: 'Faltas / Atrasos', tipo: 'Desconto', valor: valorFaltas, referencia: `${medicao.qtd_faltas_dias}d` });
     totalDescontos += valorFaltas;
   }
 
-  // 3. Base de Cálculo de Impostos (Salário + Extras + DSR - Faltas)
-  // Importante: INSS e IRRF incidem sobre o total bruto variável
-  const baseTributavel = totalProventos - valorFaltas; // Faltas abatem a base
-
-  // 4. Calcula Impostos (Sobre a nova base)
+  // 4. Calcula Impostos (INSS/IRRF) sobre Base Ajustada
+  const baseTributavel = totalProventos - valorFaltas;
+  
   const inss = calcularINSS(baseTributavel, config.tabela_inss);
-  itensFolha.push({ descricao: 'INSS', tipo: 'Desconto', valor: inss, referencia: 0 });
+  itens.push({ descricao: 'INSS', tipo: 'Desconto', valor: inss, referencia: 0 });
   totalDescontos += inss;
 
   const irrfObj = calcularMelhorIRRF(baseTributavel, inss, dependentes, config);
-  const irrf = irrfObj.valor;
-  if (irrf > 0) {
-    itensFolha.push({ descricao: 'IRRF', tipo: 'Desconto', valor: irrf, referencia: 0 });
-    totalDescontos += irrf;
+  if (irrfObj.valor > 0) {
+    itens.push({ descricao: 'IRRF', tipo: 'Desconto', valor: irrfObj.valor, referencia: 0 });
+    totalDescontos += irrfObj.valor;
   }
 
-  // 5. Custos Empresa
+  const liquidoPrevisto = totalProventos - totalDescontos;
+
+  // Custos Empresa
   const fgts = baseTributavel * (config.aliquota_fgts / 100);
   const patronal = baseTributavel * (config.aliquota_patronal / 100);
   const rat = baseTributavel * (config.aliquota_rat / 100);
-  const custoTotal = baseTributavel + fgts + patronal + rat;
+  const custoTotal = totalProventos + fgts + patronal + rat; // (Proventos já incluem DSR/HE)
 
-  const liquido = totalProventos - totalDescontos;
-
-  // 6. Salva Cabeçalho
+  // 5. Salva (Upsert)
   const memoria = {
     tabela_inss_usada: config.tabela_inss,
     metodo_irrf: irrfObj.metodo,
-    origem_dados: dadosPonto ? 'Integrado Ponto' : 'Manual/Contratual',
+    base_irrf: irrfObj.base,
+    origem_dados: medicao ? 'Integrado Ponto' : 'Manual',
     aliquotas_empresa: { patronal: config.aliquota_patronal, rat: config.aliquota_rat, fgts: config.aliquota_fgts }
   };
 
@@ -131,10 +139,10 @@ export const calcularESalvarFolha = async (funcionario, mes, ano) => {
     salario_base: salarioBase,
     total_proventos: totalProventos,
     total_descontos: totalDescontos,
-    liquido_receber: liquido,
+    liquido_receber: liquidoPrevisto,
     custo_total_empresa: custoTotal,
     memoria_calculo: memoria,
-    status: 'Rascunho'
+    status: 'Previa'
   };
 
   const { data: folha, error: errFolha } = await supabase
@@ -145,12 +153,27 @@ export const calcularESalvarFolha = async (funcionario, mes, ano) => {
 
   if (errFolha) throw errFolha;
 
-  // 7. Salva Itens Detalhados
+  // Salva Itens
   await supabase.from('folha_itens').delete().eq('folha_id', folha.id);
-  
-  // Adiciona ID da folha em cada item
-  const itensParaSalvar = itensFolha.map(i => ({ ...i, folha_id: folha.id }));
-  await supabase.from('folha_itens').insert(itensParaSalvar);
+  const itensFinal = itens.map(i => ({ ...i, folha_id: folha.id }));
+  await supabase.from('folha_itens').insert(itensFinal);
 
   return folha;
+};
+
+// --- CONFERÊNCIA (O TIRA-TEIMA) ---
+export const salvarConferencia = async (folhaId, valorContabilidade) => {
+  const { data: folha } = await supabase.from('folha_pagamento').select('liquido_receber').eq('id', folhaId).single();
+  
+  const diferenca = Math.abs(folha.liquido_receber - valorContabilidade);
+  const status = diferenca < 0.05 ? 'Ok' : 'Divergente';
+
+  const { error } = await supabase.from('folha_pagamento').update({
+    valor_contabilidade_liquido: valorContabilidade,
+    diferenca_identificada: diferenca,
+    status_conferencia: status
+  }).eq('id', folhaId);
+
+  if (error) throw error;
+  return status;
 };

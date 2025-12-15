@@ -1,8 +1,10 @@
 import { supabase } from './supabaseClient';
-// A importação abaixo agora vai funcionar porque atualizamos o arquivo acima
 import { recalcularDiaManual } from '../utils/calculadoraPonto';
 
-// --- JORNADAS ---
+// ==============================================================================
+// 1. GESTÃO DE JORNADAS
+// ==============================================================================
+
 export const getJornadas = async () => {
   const { data, error } = await supabase.from('jornadas').select('*');
   if (error) throw error;
@@ -23,7 +25,10 @@ export const vincularJornada = async (funcionarioId, jornadaId) => {
   if (error) throw error;
 };
 
-// --- IMPORTAÇÃO ---
+// ==============================================================================
+// 2. IMPORTAÇÃO (ARQUIVO AFD)
+// ==============================================================================
+
 export const salvarImportacaoPonto = async (meta, batidas, resumoDiario) => {
   // 1. Salva cabeçalho
   const { data: importacao, error: errImp } = await supabase
@@ -34,7 +39,7 @@ export const salvarImportacaoPonto = async (meta, batidas, resumoDiario) => {
 
   if (errImp) throw new Error("Erro ao criar importação: " + errImp.message);
 
-  // 2. Salva Batidas Cruas (em lotes para não falhar com arquivos grandes)
+  // 2. Salva Batidas Cruas (Em lotes para segurança)
   if (batidas && batidas.length > 0) {
     const batidasFormatadas = batidas.map(b => ({
       importacao_id: importacao.id,
@@ -45,29 +50,31 @@ export const salvarImportacaoPonto = async (meta, batidas, resumoDiario) => {
       tipo_registro: '3'
     }));
 
-    // Envia em chunks de 100
-    const CHUNK_SIZE = 100;
+    const CHUNK_SIZE = 500;
     for (let i = 0; i < batidasFormatadas.length; i += CHUNK_SIZE) {
       const chunk = batidasFormatadas.slice(i, i + CHUNK_SIZE);
       const { error: errBat } = await supabase.from('ponto_batidas').insert(chunk);
       if (errBat) {
-        // Se falhar, tenta limpar a importação
         await supabase.from('ponto_importacoes').delete().eq('id', importacao.id);
-        throw new Error("Erro ao salvar lote de batidas: " + errBat.message);
+        throw new Error("Erro ao salvar batidas: " + errBat.message);
       }
     }
   }
 
-  // 3. Salva o Espelho Calculado
+  // 3. Salva o Espelho (Resumo Diário)
   if (resumoDiario && resumoDiario.length > 0) {
-    const { error: errRes } = await supabase.from('ponto_resumo_diario').insert(resumoDiario);
-    if (errRes) console.error("Erro ao salvar resumo (mas batidas foram salvas):", errRes);
+    // Importante: Upsert para não duplicar dias se reimportar
+    const { error: errRes } = await supabase.from('ponto_resumo_diario').upsert(resumoDiario, { onConflict: 'funcionario_id, data' });
+    if (errRes) console.error("Erro ao salvar resumo:", errRes);
   }
 
   return importacao;
 };
 
-// --- TRATAMENTO E ESPELHO ---
+// ==============================================================================
+// 3. TRATAMENTO E ESPELHO
+// ==============================================================================
+
 export const getEspelhoPonto = async (funcionarioId, mes, ano) => {
   const inicio = `${ano}-${String(mes).padStart(2, '0')}-01`;
   const fim = new Date(ano, mes, 0).toISOString().split('T')[0];
@@ -88,11 +95,18 @@ export const getEspelhoPonto = async (funcionarioId, mes, ano) => {
   return data;
 };
 
-// Edição Manual de um Dia
+// Atualização Manual de Dia (Com Verificação de Bloqueio)
 export const updatePontoDia = async (resumoId, dadosInputs, jornadaFuncionario) => {
+  // 1. Verifica se o dia está bloqueado (Mês fechado)
+  const { data: diaAtual } = await supabase.from('ponto_resumo_diario').select('bloqueado').eq('id', resumoId).single();
+  
+  if (diaAtual?.bloqueado) {
+    throw new Error("Este dia pertence a uma competência fechada. Reabra o mês para editar.");
+  }
+
+  // 2. Prepara atualização
   let payload = { ...dadosInputs };
 
-  // Se tiver jornada, recalcula matematicamente
   if (jornadaFuncionario) {
     const calculo = recalcularDiaManual(dadosInputs, jornadaFuncionario);
     payload = {
@@ -113,12 +127,16 @@ export const updatePontoDia = async (resumoId, dadosInputs, jornadaFuncionario) 
   return data[0];
 };
 
-// Fechamento de Mês (Integração com Salário)
-export const fecharMesPonto = async (funcionarioId, competencia) => {
+// ==============================================================================
+// 4. FECHAMENTO E INTEGRAÇÃO (HANDOFF PARA SALÁRIO)
+// ==============================================================================
+
+export const fecharCompetenciaPonto = async (funcionarioId, competencia) => {
   const [ano, mes] = competencia.split('-');
   const inicio = `${competencia}-01`;
   const fim = new Date(ano, mes, 0).toISOString().split('T')[0];
 
+  // 1. Busca dias para apuração
   const { data: dias } = await supabase
     .from('ponto_resumo_diario')
     .select('*')
@@ -128,30 +146,72 @@ export const fecharMesPonto = async (funcionarioId, competencia) => {
 
   if (!dias || dias.length === 0) throw new Error("Sem dados para fechar.");
 
-  let extras = 0;
-  let atrasos = 0;
-  let faltas = 0;
+  // 2. Apuração Quantitativa
+  let horasExtras50 = 0;
+  let atrasosMinutos = 0;
+  let faltasDias = 0;
 
   dias.forEach(d => {
-    if (d.status === 'Falta' || d.status?.includes('Incompleto')) faltas++;
-    if (d.saldo_minutos > 0) extras += d.saldo_minutos;
-    if (d.saldo_minutos < 0) atrasos += Math.abs(d.saldo_minutos);
+    if (d.status === 'Falta') faltasDias++;
+    
+    // Soma saldo em minutos
+    if (d.saldo_minutos > 0) horasExtras50 += d.saldo_minutos;
+    if (d.saldo_minutos < 0) atrasosMinutos += Math.abs(d.saldo_minutos);
   });
 
-  const payloadIntegra = {
+  // Converte para horas decimais
+  const qtdHorasExtras50 = horasExtras50 / 60;
+
+  // 3. Salva na Tabela de Medição Mensal
+  const payloadMedicao = {
     funcionario_id: funcionarioId,
-    competencia: competencia,
-    total_extras_50_minutos: extras,
-    total_atrasos_minutos: atrasos,
-    total_faltas_dias: faltas,
-    status: 'Pronto_Para_Folha',
-    updated_at: new Date()
+    competencia,
+    qtd_horas_extras_50: qtdHorasExtras50,
+    qtd_atrasos_minutos: atrasosMinutos,
+    qtd_faltas_dias: faltasDias,
+    status: 'Fechado',
+    created_at: new Date()
   };
 
-  const { error } = await supabase
-    .from('integracao_ponto_folha')
-    .upsert(payloadIntegra, { onConflict: 'funcionario_id, competencia' });
+  const { error: errMed } = await supabase
+    .from('medicao_mensal') // Nova tabela de integração
+    .upsert(payloadMedicao, { onConflict: 'funcionario_id, competencia' });
 
-  if (error) throw error;
-  return payloadIntegra;
+  if (errMed) throw new Error("Erro ao salvar medição: " + errMed.message);
+
+  // 4. Bloqueia os dias (Trava de Segurança)
+  await supabase
+    .from('ponto_resumo_diario')
+    .update({ bloqueado: true })
+    .eq('funcionario_id', funcionarioId)
+    .gte('data', inicio)
+    .lte('data', fim);
+
+  return payloadMedicao;
+};
+
+// Reabrir Mês (Desfaz Fechamento)
+export const reabrirCompetenciaPonto = async (funcionarioId, competencia) => {
+  const [ano, mes] = competencia.split('-');
+  const inicio = `${competencia}-01`;
+  const fim = new Date(ano, mes, 0).toISOString().split('T')[0];
+
+  // 1. Remove medição
+  const { error: errDel } = await supabase
+    .from('medicao_mensal')
+    .delete()
+    .eq('funcionario_id', funcionarioId)
+    .eq('competencia', competencia);
+
+  if (errDel) throw new Error("Erro ao reabrir: " + errDel.message);
+
+  // 2. Desbloqueia dias
+  await supabase
+    .from('ponto_resumo_diario')
+    .update({ bloqueado: false })
+    .eq('funcionario_id', funcionarioId)
+    .gte('data', inicio)
+    .lte('data', fim);
+
+  return true;
 };
