@@ -9,10 +9,11 @@ import {
   getConfigFolha,
   saveConfigFolha
 } from '../services/salarioService';
-import './FuncionariosPage.css'; // Reutiliza estilo base
+import './FuncionariosPage.css'; // Reutiliza CSS existente
 
 export default function SalariosPage() {
-  const [activeTab, setActiveTab] = useState('conferencia');
+  // --- ESTADOS ---
+  const [activeTab, setActiveTab] = useState('conferencia'); // 'conferencia', 'transparencia', 'config'
   const [loading, setLoading] = useState(false);
   
   // Filtros
@@ -25,14 +26,19 @@ export default function SalariosPage() {
   const [config, setConfig] = useState(null);
   const [valorContabilidadeInput, setValorContabilidadeInput] = useState('');
 
+  // Hooks
   const { data: funcionarios } = useSWR('getFuncionariosDropdown', getFuncionariosDropdown);
 
-  // Carrega Config ao montar
+  // --- EFEITOS ---
+  
+  // Carregar Configurações ao montar
   useEffect(() => {
-    getConfigFolha().then(setConfig).catch(console.error);
+    getConfigFolha()
+      .then(setConfig)
+      .catch(err => console.error("Erro ao carregar configs:", err));
   }, []);
 
-  // Recarrega folha ao mudar filtros
+  // Recarregar dados se filtros mudarem
   useEffect(() => {
     if (selectedFuncionario) carregarDados();
   }, [selectedFuncionario, mes, ano]);
@@ -49,6 +55,8 @@ export default function SalariosPage() {
     } catch (error) { console.error(error); }
   };
 
+  // --- HANDLERS ---
+
   const handleCalcularPrevia = async () => {
     if (!selectedFuncionario) return toast.error("Selecione um colaborador");
     setLoading(true);
@@ -56,9 +64,9 @@ export default function SalariosPage() {
       const func = funcionarios.find(f => f.id === selectedFuncionario);
       await calcularPreviaFolha(func, mes, ano);
       await carregarDados();
-      toast.success("Prévia calculada com base no Ponto!");
+      toast.success("Prévia gerada com base no ponto!");
     } catch (error) {
-      toast.error("Erro: " + error.message);
+      toast.error("Erro ao calcular: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -67,6 +75,7 @@ export default function SalariosPage() {
   const handleSalvarConferencia = async () => {
     if (!folha) return;
     try {
+      // Troca vírgula por ponto para float
       const valor = parseFloat(valorContabilidadeInput.toString().replace(',', '.'));
       if (isNaN(valor)) return toast.error("Valor inválido");
 
@@ -74,7 +83,7 @@ export default function SalariosPage() {
       await carregarDados();
       
       if (status === 'Ok') toast.success("Valores batem! Conferência concluída.");
-      else toast.error("Valores divergentes. Verifique a diferença.");
+      else toast.error("Valores divergentes. Verifique diferenças.");
     } catch (error) {
       toast.error("Erro ao salvar conferência.");
     }
@@ -82,11 +91,20 @@ export default function SalariosPage() {
 
   const handleSalvarConfig = async (e) => {
     e.preventDefault();
-    try { await saveConfigFolha(config); toast.success("Taxas atualizadas!"); } catch(e){ toast.error("Erro ao salvar."); }
+    try { 
+      await saveConfigFolha(config); 
+      toast.success("Taxas e configurações atualizadas!"); 
+    } catch (e) { 
+      toast.error("Erro ao salvar."); 
+    }
   };
+
+  // --- RENDER ---
 
   return (
     <div className="funcionarios-container">
+      
+      {/* HEADER */}
       <div className="page-header" style={{borderBottom:'none', paddingBottom:0}}>
         <div>
           <h1>Gestão de Folha</h1>
@@ -105,12 +123,13 @@ export default function SalariosPage() {
           </button>
         </div>
       </div>
-      <hr style={{border:0, borderTop:'1px solid #e2e8f0', margin:'20px 0'}}/>
+      
+      <hr style={{margin:'20px 0', border:0, borderTop:'1px solid #e2e8f0'}}/>
 
       {/* --- ABA CONFERÊNCIA --- */}
       {activeTab === 'conferencia' && (
         <div className="fade-in">
-          {/* Barra Filtros */}
+          {/* Barra de Filtros */}
           <div className="filter-bar" style={{background:'white', padding:'20px', borderRadius:'12px', border:'1px solid #e2e8f0', marginBottom:'20px', display:'flex', gap:'15px', alignItems:'flex-end'}}>
             <div style={{flex:1}}>
               <label>Colaborador</label>
@@ -126,20 +145,24 @@ export default function SalariosPage() {
           {folha ? (
             <div className="grid-2-col" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'30px'}}>
               
-              {/* ESQUERDA: SISTEMA */}
+              {/* LADO ESQUERDO: SISTEMA */}
               <div className="holerite-card" style={{background:'white', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
                 <div style={{padding:'15px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0', display:'flex', justifyContent:'space-between'}}>
                   <strong>Cálculo do Sistema (Sombra)</strong>
-                  {folha.memoria_calculo?.origem_dados === 'Integrado Ponto' && <span style={{fontSize:'0.7rem', background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:'10px'}}>Integrado Ponto</span>}
+                  {folha.memoria_calculo?.origem_dados === 'Integrado Ponto' && 
+                    <span style={{fontSize:'0.7rem', background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:'10px', display:'flex', alignItems:'center'}}>
+                      <span className="material-symbols-outlined" style={{fontSize:'12px', marginRight:2}}>sync</span>Ponto
+                    </span>
+                  }
                 </div>
                 <div style={{padding:'20px'}}>
                   <table style={{width:'100%', fontSize:'0.9rem'}}>
                     <tbody>
                       {folha.folha_itens?.map(item => (
                         <tr key={item.id} style={{borderBottom:'1px dashed #eee'}}>
-                          <td style={{padding:'8px 0'}}>{item.descricao} <span style={{color:'#94a3b8', fontSize:'0.8em'}}>{item.referencia ? `(${item.referencia})` : ''}</span></td>
+                          <td style={{padding:'8px 0'}}>{item.descricao}</td>
                           <td style={{textAlign:'right', color: item.tipo==='Provento'?'#166534':'#dc2626'}}>
-                            {item.tipo==='Desconto' ? '-' : ''} {item.valor.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}
+                            {item.tipo==='Desconto' ? '-' : ''} R$ {item.valor.toFixed(2)}
                           </td>
                         </tr>
                       ))}
@@ -148,7 +171,7 @@ export default function SalariosPage() {
                       <tr style={{borderTop:'2px solid #e2e8f0'}}>
                         <td style={{padding:'15px 0', fontWeight:'bold'}}>Líquido Previsto</td>
                         <td style={{padding:'15px 0', textAlign:'right', fontWeight:'bold', fontSize:'1.2rem', color:'#0f172a'}}>
-                          {folha.liquido_receber.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}
+                          R$ {folha.liquido_receber.toFixed(2)}
                         </td>
                       </tr>
                     </tfoot>
@@ -156,14 +179,14 @@ export default function SalariosPage() {
                 </div>
               </div>
 
-              {/* DIREITA: CONFERÊNCIA */}
+              {/* LADO DIREITO: CONTABILIDADE */}
               <div className="conferencia-card" style={{background:'#f8fafc', borderRadius:'12px', border:'1px solid #cbd5e1', padding:'25px', display:'flex', flexDirection:'column', gap:'20px'}}>
-                <h3 style={{marginTop:0, color:'#334155'}}>Conferência com Contabilidade</h3>
+                <h3 style={{marginTop:0, color:'#334155'}}>Conferência Contabilidade</h3>
                 
                 <div>
                   <label style={{display:'block', marginBottom:'5px', fontWeight:600}}>Valor Líquido (Holerite Oficial)</label>
                   <div style={{display:'flex', gap:'10px'}}>
-                    <input type="number" step="0.01" className="form-control" style={{fontSize:'1.2rem', fontWeight:'bold', color:'#334155'}} placeholder="0.00" value={valorContabilidadeInput} onChange={e=>setValorContabilidadeInput(e.target.value)} />
+                    <input className="form-control" style={{fontSize:'1.2rem', fontWeight:'bold', color:'#334155'}} placeholder="0.00" value={valorContabilidadeInput} onChange={e=>setValorContabilidadeInput(e.target.value)} />
                     <button className="btn-primary" onClick={handleSalvarConferencia}>Validar</button>
                   </div>
                 </div>
@@ -172,16 +195,13 @@ export default function SalariosPage() {
                   <div style={{marginTop:'auto', padding:'20px', borderRadius:'8px', textAlign:'center', background: folha.status_conferencia==='Ok'?'#dcfce7':'#fee2e2', border: `1px solid ${folha.status_conferencia==='Ok'?'#86efac':'#fca5a5'}`}}>
                     {folha.status_conferencia === 'Ok' ? (
                       <>
-                        <span className="material-symbols-outlined" style={{fontSize:'48px', color:'#166534'}}>check_circle</span>
-                        <h2 style={{color:'#166534', margin:'10px 0 0 0'}}>Valores Batem!</h2>
+                        <h2 style={{color:'#166534', margin:'0'}}>Valores Batem!</h2>
                         <p style={{color:'#15803d', margin:0}}>Diferença: R$ {folha.diferenca_identificada?.toFixed(2)}</p>
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined" style={{fontSize:'48px', color:'#dc2626'}}>error</span>
-                        <h2 style={{color:'#991b1b', margin:'10px 0 0 0'}}>Divergência</h2>
-                        <p style={{color:'#b91c1c', margin:0, fontWeight:'bold', fontSize:'1.2rem'}}>Diferença: R$ {folha.diferenca_identificada?.toFixed(2)}</p>
-                        <small style={{display:'block', marginTop:'10px', color:'#7f1d1d'}}>Verifique VT ou Coparticipação.</small>
+                        <h2 style={{color:'#991b1b', margin:'0'}}>Divergência</h2>
+                        <p style={{color:'#b91c1c', margin:0, fontWeight:'bold', fontSize:'1.2rem'}}>Diff: R$ {folha.diferenca_identificada?.toFixed(2)}</p>
                       </>
                     )}
                   </div>
@@ -197,36 +217,37 @@ export default function SalariosPage() {
         </div>
       )}
 
-      {/* --- ABA CONFIG --- */}
+      {/* --- ABA MEMÓRIA DE CÁLCULO --- */}
+      {activeTab === 'transparencia' && folha && (
+        <div className="fade-in" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
+          <div style={{background:'white', padding:'20px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
+            <h3>Dados Usados</h3>
+            <pre style={{fontSize:'0.8rem', background:'#f8fafc', padding:10, borderRadius:6, overflow:'auto'}}>{JSON.stringify(folha.memoria_calculo, null, 2)}</pre>
+          </div>
+          <div style={{background:'#fff7ed', padding:'20px', borderRadius:'12px', border:'1px solid #fed7aa'}}>
+            <h3>Custos Empresa</h3>
+            <p>Total: <strong>R$ {folha.custo_total_empresa.toFixed(2)}</strong></p>
+          </div>
+        </div>
+      )}
+
+      {/* --- ABA CONFIGURAÇÃO --- */}
       {activeTab === 'config' && config && (
         <div className="fade-in">
           <form onSubmit={handleSalvarConfig} style={{background:'white', padding:'30px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
-            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'30px'}}>
-              <h3>Parâmetros Fiscais</h3>
-              <button type="submit" className="btn-primary">Salvar Alterações</button>
-            </div>
+            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'30px'}}><h3>Parâmetros Fiscais</h3><button className="btn-primary">Salvar</button></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'40px'}}>
               <div>
                 <h4>Encargos Empresa (%)</h4>
                 <div className="form-group"><label>INSS Patronal</label><input type="number" step="0.1" className="form-control" value={config.aliquota_patronal} onChange={e=>setConfig({...config, aliquota_patronal:e.target.value})} /></div>
-                <div className="form-group"><label>RAT</label><input type="number" step="0.1" className="form-control" value={config.aliquota_rat} onChange={e=>setConfig({...config, aliquota_rat:e.target.value})} /></div>
                 <div className="form-group"><label>FGTS</label><input type="number" step="0.1" className="form-control" value={config.aliquota_fgts} onChange={e=>setConfig({...config, aliquota_fgts:e.target.value})} /></div>
               </div>
               <div>
                 <h4>Deduções (R$)</h4>
-                <div className="form-group"><label>Por Dependente (IRRF)</label><input type="number" step="0.01" className="form-control" value={config.deducao_por_dependente} onChange={e=>setConfig({...config, deducao_por_dependente:e.target.value})} /></div>
-                <div style={{marginTop:20, padding:15, background:'#f0f9ff', borderRadius:8, color:'#0369a1', fontSize:'0.9rem'}}><span className="material-symbols-outlined" style={{verticalAlign:'bottom', marginRight:5}}>info</span> Tabelas progressivas de INSS/IRRF são gerenciadas no banco.</div>
+                <div className="form-group"><label>Por Dependente</label><input type="number" step="0.01" className="form-control" value={config.deducao_por_dependente} onChange={e=>setConfig({...config, deducao_por_dependente:e.target.value})} /></div>
               </div>
             </div>
           </form>
-        </div>
-      )}
-      
-      {/* Aba Transparência simplificada para brevidade, segue lógica similar de exibição do jsonb */}
-      {activeTab === 'transparencia' && folha && (
-        <div className="fade-in" style={{background:'white', padding:'20px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
-          <h3>Memória de Cálculo</h3>
-          <pre style={{background:'#f8fafc', padding:'15px', borderRadius:'8px', overflow:'auto', fontSize:'0.85rem'}}>{JSON.stringify(folha.memoria_calculo, null, 2)}</pre>
         </div>
       )}
     </div>
