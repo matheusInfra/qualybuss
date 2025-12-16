@@ -1,255 +1,229 @@
 import React, { useState, useEffect } from 'react';
-import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
-import { getFuncionariosDropdown } from '../services/funcionarioService';
 import { 
-  calcularPreviaFolha, 
-  getFolhaPagamento, 
-  salvarConferencia,
-  getConfigFolha,
-  saveConfigFolha
+  calcularEListarFolha, 
+  getAnalyticsFolha, 
+  getConfigFolha, 
+  saveConfigFolha 
 } from '../services/salarioService';
-import './FuncionariosPage.css'; // Reutiliza CSS existente
+import './SalariosPage.css'; // Criar este arquivo com o CSS abaixo
 
 export default function SalariosPage() {
-  // --- ESTADOS ---
-  const [activeTab, setActiveTab] = useState('conferencia'); // 'conferencia', 'transparencia', 'config'
+  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, analytics, config
   const [loading, setLoading] = useState(false);
-  
-  // Filtros
-  const [selectedFuncionario, setSelectedFuncionario] = useState('');
-  const [mes, setMes] = useState(new Date().getMonth() + 1);
-  const [ano, setAno] = useState(new Date().getFullYear());
-  
+  const [dataCompetencia, setDataCompetencia] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+
   // Dados
-  const [folha, setFolha] = useState(null);
+  const [listaFolha, setListaFolha] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [config, setConfig] = useState(null);
-  const [valorContabilidadeInput, setValorContabilidadeInput] = useState('');
 
-  // Hooks
-  const { data: funcionarios } = useSWR('getFuncionariosDropdown', getFuncionariosDropdown);
-
-  // --- EFEITOS ---
-  
-  // Carregar Configurações ao montar
+  // --- CARGA DE DADOS ---
   useEffect(() => {
-    getConfigFolha()
-      .then(setConfig)
-      .catch(err => console.error("Erro ao carregar configs:", err));
-  }, []);
-
-  // Recarregar dados se filtros mudarem
-  useEffect(() => {
-    if (selectedFuncionario) carregarDados();
-  }, [selectedFuncionario, mes, ano]);
+    carregarDados();
+  }, [dataCompetencia, activeTab]);
 
   const carregarDados = async () => {
-    try {
-      const data = await getFolhaPagamento(selectedFuncionario, mes, ano);
-      setFolha(data);
-      if (data?.valor_contabilidade_liquido) {
-        setValorContabilidadeInput(data.valor_contabilidade_liquido);
-      } else {
-        setValorContabilidadeInput('');
-      }
-    } catch (error) { console.error(error); }
-  };
-
-  // --- HANDLERS ---
-
-  const handleCalcularPrevia = async () => {
-    if (!selectedFuncionario) return toast.error("Selecione um colaborador");
     setLoading(true);
     try {
-      const func = funcionarios.find(f => f.id === selectedFuncionario);
-      await calcularPreviaFolha(func, mes, ano);
-      await carregarDados();
-      toast.success("Prévia gerada com base no ponto!");
+      if (activeTab === 'dashboard') {
+        const dados = await calcularEListarFolha(dataCompetencia);
+        setListaFolha(dados);
+      } else if (activeTab === 'analytics') {
+        const dados = await getAnalyticsFolha(dataCompetencia);
+        setAnalytics(dados);
+      } else if (activeTab === 'config') {
+        const dados = await getConfigFolha();
+        setConfig(dados);
+      }
     } catch (error) {
-      toast.error("Erro ao calcular: " + error.message);
+      console.error(error);
+      toast.error("Erro ao carregar dados.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSalvarConferencia = async () => {
-    if (!folha) return;
-    try {
-      // Troca vírgula por ponto para float
-      const valor = parseFloat(valorContabilidadeInput.toString().replace(',', '.'));
-      if (isNaN(valor)) return toast.error("Valor inválido");
-
-      const status = await salvarConferencia(folha.id, valor);
-      await carregarDados();
-      
-      if (status === 'Ok') toast.success("Valores batem! Conferência concluída.");
-      else toast.error("Valores divergentes. Verifique diferenças.");
-    } catch (error) {
-      toast.error("Erro ao salvar conferência.");
-    }
-  };
-
-  const handleSalvarConfig = async (e) => {
+  const handleSaveConfig = async (e) => {
     e.preventDefault();
-    try { 
-      await saveConfigFolha(config); 
-      toast.success("Taxas e configurações atualizadas!"); 
-    } catch (e) { 
-      toast.error("Erro ao salvar."); 
+    try {
+      await saveConfigFolha(config);
+      toast.success("Configurações tributárias salvas!");
+    } catch (e) {
+      toast.error("Erro ao salvar.");
     }
   };
 
   // --- RENDER ---
-
   return (
-    <div className="funcionarios-container">
+    <div className="salario-container fade-in">
       
       {/* HEADER */}
-      <div className="page-header" style={{borderBottom:'none', paddingBottom:0}}>
+      <div className="salario-header">
         <div>
-          <h1>Gestão de Folha</h1>
-          <p>Auditoria, Previsão e Conferência com Contabilidade.</p>
+          <h1>Gestão de Salários</h1>
+          <p>Visão estratégica da folha de pagamento.</p>
         </div>
         
-        <div style={{display:'flex', gap:'10px', marginTop:'15px'}}>
-          <button className={`btn-tab ${activeTab==='conferencia'?'active':''}`} onClick={()=>setActiveTab('conferencia')}>
-            <span className="material-symbols-outlined">compare_arrows</span> Conferência
-          </button>
-          <button className={`btn-tab ${activeTab==='transparencia'?'active':''}`} onClick={()=>setActiveTab('transparencia')}>
-            <span className="material-symbols-outlined">visibility</span> Memória
-          </button>
-          <button className={`btn-tab ${activeTab==='config'?'active':''}`} onClick={()=>setActiveTab('config')}>
-            <span className="material-symbols-outlined">tune</span> Taxas
-          </button>
+        {/* DATA SELECTOR */}
+        <div className="competencia-selector">
+          <label>Competência:</label>
+          <input 
+            type="month" 
+            value={dataCompetencia} 
+            onChange={e => setDataCompetencia(e.target.value)} 
+          />
         </div>
       </div>
-      
-      <hr style={{margin:'20px 0', border:0, borderTop:'1px solid #e2e8f0'}}/>
 
-      {/* --- ABA CONFERÊNCIA --- */}
-      {activeTab === 'conferencia' && (
-        <div className="fade-in">
-          {/* Barra de Filtros */}
-          <div className="filter-bar" style={{background:'white', padding:'20px', borderRadius:'12px', border:'1px solid #e2e8f0', marginBottom:'20px', display:'flex', gap:'15px', alignItems:'flex-end'}}>
-            <div style={{flex:1}}>
-              <label>Colaborador</label>
-              <select className="form-control" value={selectedFuncionario} onChange={e=>setSelectedFuncionario(e.target.value)}>
-                <option value="">Selecione...</option>{funcionarios?.map(f=><option key={f.id} value={f.id}>{f.nome_completo}</option>)}
-              </select>
-            </div>
-            <div style={{width:'100px'}}><label>Mês</label><input type="number" className="form-control" value={mes} onChange={e=>setMes(e.target.value)}/></div>
-            <div style={{width:'120px'}}><label>Ano</label><input type="number" className="form-control" value={ano} onChange={e=>setAno(e.target.value)}/></div>
-            <button className="btn-primary" onClick={handleCalcularPrevia} disabled={loading}>{loading?'Calculando...':'Gerar Prévia'}</button>
-          </div>
+      {/* TABS */}
+      <div className="tabs-nav">
+        <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+          <span className="material-symbols-outlined">dashboard</span> Dashboard Colaboradores
+        </button>
+        <button className={activeTab === 'analytics' ? 'active' : ''} onClick={() => setActiveTab('analytics')}>
+          <span className="material-symbols-outlined">analytics</span> Analytics da Empresa
+        </button>
+        <button className={activeTab === 'config' ? 'active' : ''} onClick={() => setActiveTab('config')}>
+          <span className="material-symbols-outlined">settings</span> Configuração Tributária
+        </button>
+      </div>
 
-          {folha ? (
-            <div className="grid-2-col" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'30px'}}>
-              
-              {/* LADO ESQUERDO: SISTEMA */}
-              <div className="holerite-card" style={{background:'white', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
-                <div style={{padding:'15px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0', display:'flex', justifyContent:'space-between'}}>
-                  <strong>Cálculo do Sistema (Sombra)</strong>
-                  {folha.memoria_calculo?.origem_dados === 'Integrado Ponto' && 
-                    <span style={{fontSize:'0.7rem', background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:'10px', display:'flex', alignItems:'center'}}>
-                      <span className="material-symbols-outlined" style={{fontSize:'12px', marginRight:2}}>sync</span>Ponto
-                    </span>
-                  }
+      {/* CONTEÚDO */}
+      <div className="tab-content">
+        
+        {/* ABA 1: DASHBOARD (CARDS) */}
+        {activeTab === 'dashboard' && (
+          <div className="cards-grid">
+            {listaFolha.length === 0 ? (
+              <div className="empty-state">Nenhum funcionário ativo encontrado.</div>
+            ) : (
+              listaFolha.map((item, idx) => (
+                <div key={idx} className="salary-card">
+                  <div className="card-header">
+                    <div className="avatar-placeholder">{item.funcionario.nome_completo.charAt(0)}</div>
+                    <div>
+                      <h3>{item.funcionario.nome_completo}</h3>
+                      <span>{item.funcionario.cargo}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="card-body">
+                    <div className="row-value">
+                      <span className="label">Salário Bruto</span>
+                      <span className="value">R$ {item.financeiro.bruto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="row-value discount">
+                      <span className="label">Descontos (INSS/IRRF)</span>
+                      <span className="value">- R$ {item.financeiro.descontos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="divider"></div>
+                    <div className="row-value highlight">
+                      <span className="label">Líquido a Receber</span>
+                      <span className="value net">R$ {item.financeiro.liquido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                    </div>
+                  </div>
+
+                  <div className="card-footer-cost">
+                    <small>Custo Total Empresa</small>
+                    <strong>R$ {item.empresa.custo_total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
+                  </div>
                 </div>
-                <div style={{padding:'20px'}}>
-                  <table style={{width:'100%', fontSize:'0.9rem'}}>
-                    <tbody>
-                      {folha.folha_itens?.map(item => (
-                        <tr key={item.id} style={{borderBottom:'1px dashed #eee'}}>
-                          <td style={{padding:'8px 0'}}>{item.descricao}</td>
-                          <td style={{textAlign:'right', color: item.tipo==='Provento'?'#166534':'#dc2626'}}>
-                            {item.tipo==='Desconto' ? '-' : ''} R$ {item.valor.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{borderTop:'2px solid #e2e8f0'}}>
-                        <td style={{padding:'15px 0', fontWeight:'bold'}}>Líquido Previsto</td>
-                        <td style={{padding:'15px 0', textAlign:'right', fontWeight:'bold', fontSize:'1.2rem', color:'#0f172a'}}>
-                          R$ {folha.liquido_receber.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ABA 2: ANALYTICS */}
+        {activeTab === 'analytics' && analytics && (
+          <div className="analytics-view">
+            <div className="kpi-row">
+              <div className="kpi-box primary">
+                <h3>Custo Total Folha</h3>
+                <h1>R$ {analytics.custo_empresa_total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h1>
+                <p>Valor total que sai do caixa da empresa</p>
+              </div>
+              <div className="kpi-box">
+                <h3>Total Líquido (Pagamentos)</h3>
+                <h2>R$ {analytics.liquido_total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
+              </div>
+              <div className="kpi-box">
+                <h3>Impostos Retidos (Guia)</h3>
+                <h2>R$ {analytics.impostos_retidos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2>
+              </div>
+            </div>
+
+            <div className="chart-container">
+              <h3>Distribuição do Custo</h3>
+              <div className="bar-chart">
+                <div className="bar-group">
+                  <div className="bar-label">Salários Líquidos</div>
+                  <div className="bar-fill" style={{width: `${(analytics.liquido_total / analytics.custo_empresa_total) * 100}%`, background: '#22c55e'}}></div>
+                  <div className="bar-value">{((analytics.liquido_total / analytics.custo_empresa_total) * 100).toFixed(1)}%</div>
+                </div>
+                <div className="bar-group">
+                  <div className="bar-label">Impostos Retidos</div>
+                  <div className="bar-fill" style={{width: `${(analytics.impostos_retidos / analytics.custo_empresa_total) * 100}%`, background: '#ef4444'}}></div>
+                  <div className="bar-value">{((analytics.impostos_retidos / analytics.custo_empresa_total) * 100).toFixed(1)}%</div>
+                </div>
+                <div className="bar-group">
+                  <div className="bar-label">Encargos Empresa (Patronal/FGTS)</div>
+                  <div className="bar-fill" style={{width: `${((analytics.custo_empresa_total - analytics.bruto_total) / analytics.custo_empresa_total) * 100}%`, background: '#f97316'}}></div>
+                  <div className="bar-value">{(((analytics.custo_empresa_total - analytics.bruto_total) / analytics.custo_empresa_total) * 100).toFixed(1)}%</div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* LADO DIREITO: CONTABILIDADE */}
-              <div className="conferencia-card" style={{background:'#f8fafc', borderRadius:'12px', border:'1px solid #cbd5e1', padding:'25px', display:'flex', flexDirection:'column', gap:'20px'}}>
-                <h3 style={{marginTop:0, color:'#334155'}}>Conferência Contabilidade</h3>
-                
-                <div>
-                  <label style={{display:'block', marginBottom:'5px', fontWeight:600}}>Valor Líquido (Holerite Oficial)</label>
-                  <div style={{display:'flex', gap:'10px'}}>
-                    <input className="form-control" style={{fontSize:'1.2rem', fontWeight:'bold', color:'#334155'}} placeholder="0.00" value={valorContabilidadeInput} onChange={e=>setValorContabilidadeInput(e.target.value)} />
-                    <button className="btn-primary" onClick={handleSalvarConferencia}>Validar</button>
+        {/* ABA 3: CONFIGURAÇÃO */}
+        {activeTab === 'config' && config && (
+          <div className="config-view">
+            <form onSubmit={handleSaveConfig} className="config-form">
+              <div className="form-header">
+                <h3>Parâmetros Fiscais da Empresa</h3>
+                <button type="submit" className="btn-save">Salvar Alterações</button>
+              </div>
+
+              <div className="form-grid">
+                <div className="form-section">
+                  <h4>Encargos Patronais (%)</h4>
+                  <div className="input-group">
+                    <label>INSS Patronal</label>
+                    <input type="number" step="0.1" value={config.aliquota_patronal} onChange={e=>setConfig({...config, aliquota_patronal: e.target.value})} />
+                    <small>Geralmente 20% (0% se Simples Nacional)</small>
+                  </div>
+                  <div className="input-group">
+                    <label>RAT (Risco Ambiental)</label>
+                    <input type="number" step="0.1" value={config.aliquota_rat} onChange={e=>setConfig({...config, aliquota_rat: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>FAP (Fator Acidentário)</label>
+                    <input type="number" step="0.0001" value={config.aliquota_fap} onChange={e=>setConfig({...config, aliquota_fap: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>FGTS</label>
+                    <input type="number" step="0.1" value={config.aliquota_fgts} onChange={e=>setConfig({...config, aliquota_fgts: e.target.value})} />
                   </div>
                 </div>
 
-                {folha.status_conferencia && (
-                  <div style={{marginTop:'auto', padding:'20px', borderRadius:'8px', textAlign:'center', background: folha.status_conferencia==='Ok'?'#dcfce7':'#fee2e2', border: `1px solid ${folha.status_conferencia==='Ok'?'#86efac':'#fca5a5'}`}}>
-                    {folha.status_conferencia === 'Ok' ? (
-                      <>
-                        <h2 style={{color:'#166534', margin:'0'}}>Valores Batem!</h2>
-                        <p style={{color:'#15803d', margin:0}}>Diferença: R$ {folha.diferenca_identificada?.toFixed(2)}</p>
-                      </>
-                    ) : (
-                      <>
-                        <h2 style={{color:'#991b1b', margin:'0'}}>Divergência</h2>
-                        <p style={{color:'#b91c1c', margin:0, fontWeight:'bold', fontSize:'1.2rem'}}>Diff: R$ {folha.diferenca_identificada?.toFixed(2)}</p>
-                      </>
-                    )}
+                <div className="form-section">
+                  <h4>Deduções Legais (R$)</h4>
+                  <div className="input-group">
+                    <label>Dedução por Dependente (IRRF)</label>
+                    <input type="number" step="0.01" value={config.deducao_por_dependente} onChange={e=>setConfig({...config, deducao_por_dependente: e.target.value})} />
                   </div>
-                )}
+                  <div className="info-box">
+                    <span className="material-symbols-outlined">info</span>
+                    <p>As tabelas progressivas de INSS e IRRF são atualizadas automaticamente pelo sistema, mas podem ser ajustadas via banco de dados se necessário.</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="empty-state" style={{textAlign:'center', padding:'60px', color:'#94a3b8', border:'2px dashed #e2e8f0', borderRadius:'12px'}}>
-              <span className="material-symbols-outlined" style={{fontSize:'48px'}}>fact_check</span>
-              <p>Selecione um colaborador e clique em "Gerar Prévia" para iniciar.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* --- ABA MEMÓRIA DE CÁLCULO --- */}
-      {activeTab === 'transparencia' && folha && (
-        <div className="fade-in" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
-          <div style={{background:'white', padding:'20px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
-            <h3>Dados Usados</h3>
-            <pre style={{fontSize:'0.8rem', background:'#f8fafc', padding:10, borderRadius:6, overflow:'auto'}}>{JSON.stringify(folha.memoria_calculo, null, 2)}</pre>
+            </form>
           </div>
-          <div style={{background:'#fff7ed', padding:'20px', borderRadius:'12px', border:'1px solid #fed7aa'}}>
-            <h3>Custos Empresa</h3>
-            <p>Total: <strong>R$ {folha.custo_total_empresa.toFixed(2)}</strong></p>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* --- ABA CONFIGURAÇÃO --- */}
-      {activeTab === 'config' && config && (
-        <div className="fade-in">
-          <form onSubmit={handleSalvarConfig} style={{background:'white', padding:'30px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
-            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'30px'}}><h3>Parâmetros Fiscais</h3><button className="btn-primary">Salvar</button></div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'40px'}}>
-              <div>
-                <h4>Encargos Empresa (%)</h4>
-                <div className="form-group"><label>INSS Patronal</label><input type="number" step="0.1" className="form-control" value={config.aliquota_patronal} onChange={e=>setConfig({...config, aliquota_patronal:e.target.value})} /></div>
-                <div className="form-group"><label>FGTS</label><input type="number" step="0.1" className="form-control" value={config.aliquota_fgts} onChange={e=>setConfig({...config, aliquota_fgts:e.target.value})} /></div>
-              </div>
-              <div>
-                <h4>Deduções (R$)</h4>
-                <div className="form-group"><label>Por Dependente</label><input type="number" step="0.01" className="form-control" value={config.deducao_por_dependente} onChange={e=>setConfig({...config, deducao_por_dependente:e.target.value})} /></div>
-              </div>
-            </div>
-          </form>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

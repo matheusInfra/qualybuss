@@ -6,13 +6,13 @@ import './Layout.css';
 function Sidebar({ isCollapsed, toggleSidebar }) {
   const { signOut, user } = useAuth();
 
-  // Lista de Menus Atualizada com Ponto e Salários
+  // Lista de Menus Atualizada (Sem Ponto e Sem Importador)
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/funcionarios', label: 'Colaboradores', icon: 'group' },
     
     // --- Novos Módulos ---
-    { path: '/ponto', label: 'Ponto Eletrônico', icon: 'schedule' }, 
+    // { path: '/ponto', label: 'Ponto Eletrônico', icon: 'schedule' }, // REMOVIDO
     { path: '/salarios', label: 'Salários e Custos', icon: 'attach_money' },
     // ---------------------
 
@@ -20,7 +20,7 @@ function Sidebar({ isCollapsed, toggleSidebar }) {
     { path: '/ferias', label: 'Férias', icon: 'beach_access' },
     { path: '/movimentacoes', label: 'Movimentações', icon: 'trending_up' },
     { path: '/documentos', label: 'Documentos', icon: 'folder' },
-    { path: '/importador', label: 'Importações', icon: 'cloud_upload' },
+    // { path: '/importador', label: 'Importações', icon: 'cloud_upload' }, // REMOVIDO
     { path: '/ajustes', label: 'Ajustes', icon: 'build' },
     { path: '/configuracoes', label: 'Configurações', icon: 'settings' },
   ];
