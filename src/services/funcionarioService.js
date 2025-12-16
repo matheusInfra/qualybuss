@@ -1,7 +1,6 @@
 import { supabase } from './supabaseClient';
 import { logAuditoria } from './auditService';
 
-// CORREÇÃO: Ajustado para o nome real do seu bucket
 const BUCKET_NAME = 'avatars'; 
 
 // --- UPLOAD DE ARQUIVOS ---
@@ -83,11 +82,12 @@ export const getFuncionarios = async ({ page = 1, limit = 10, search = '', statu
   return { data, count, totalPages: Math.ceil(count / limit) };
 };
 
-// LISTAGEM PARA DROPDOWNS (Com PIS incluso)
+// LISTAGEM PARA DROPDOWNS
 export const getFuncionariosDropdown = async () => {
+  // CORREÇÃO: Removido 'jornada_id' da seleção
   const { data, error } = await supabase
     .from('funcionarios')
-    .select('id, nome_completo, cargo, avatar_url, departamento, empresa_id, email_corporativo, qtd_dependentes, data_admissao, pis, jornada_id') 
+    .select('id, nome_completo, cargo, avatar_url, departamento, empresa_id, email_corporativo, qtd_dependentes, data_admissao, pis') 
     .eq('status', 'Ativo')
     .is('deleted_at', null)
     .order('nome_completo', { ascending: true });

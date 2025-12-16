@@ -1,4 +1,3 @@
-/* src/pages/ImportadorPage.css */
 .importador-page-container {
   padding: 20px;
   max-width: 1200px;
@@ -9,22 +8,43 @@
   margin-bottom: 24px;
 }
 
-.page-header h1 {
-  font-size: 1.5rem;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
-  font-weight: 700;
+.importador-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 0; /* Cola no content */
 }
 
-.page-header p {
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 500;
   color: #64748b;
-  font-size: 0.95rem;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
 }
 
 .importador-content {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 0 12px 12px 12px; /* Canto superior esquerdo quadrado para conectar com aba */
+  border-top-left-radius: 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
   overflow: hidden;
   padding: 20px;

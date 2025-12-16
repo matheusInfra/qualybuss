@@ -1,0 +1,139 @@
+.holerites-container {
+  padding: 20px;
+}
+
+.upload-area {
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  background: #f8fafc;
+  transition: all 0.2s;
+}
+
+.upload-area:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.upload-label {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-xl {
+  font-size: 48px;
+  color: #64748b;
+}
+
+/* PREVIEW GRID */
+.preview-area {
+  margin-top: 20px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grid-holerites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.holerite-card-preview {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+}
+
+.holerite-card-preview:hover {
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.holerite-card-preview.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.holerite-card-preview.success {
+  border-left: 4px solid #10b981;
+}
+
+.card-top {
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.page-badge {
+  background: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #475569;
+}
+
+.card-content {
+  padding: 15px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-content select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.select-warning {
+  border-color: #f59e0b !important;
+  background-color: #fffbeb;
+}
+
+.competencia-info {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.status-bar {
+  padding: 8px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-bar.success { background: #dcfce7; color: #166534; }
+.status-bar.warning { background: #fef3c7; color: #92400e; }
+
+/* PROGRESS */
+.upload-progress {
+  text-align: center;
+  padding: 40px;
+}
+
+.upload-progress progress {
+  width: 100%;
+  height: 20px;
+  margin: 15px 0;
+}
