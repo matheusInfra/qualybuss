@@ -85,8 +85,9 @@ export default function ImportadorHolerites({ onSuccess }) {
       try {
         // A. Upload do Arquivo Físico (Storage)
         // Converte o Blob (da memória) em um File para upload
-        const nomeArquivo = `Holerite_${item.competencia.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
-        const arquivoParaUpload = new File([item.arquivo], nomeArquivo, { type: 'application/pdf' });
+        // Remove caracteres especiais do nome do arquivo para evitar erros no Storage
+        const nomeArquivoLimpo = `Holerite_${item.competencia.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
+        const arquivoParaUpload = new File([item.arquivo], nomeArquivoLimpo, { type: 'application/pdf' });
 
         const pathStorage = await uploadDocumento(arquivoParaUpload, item.funcionario.id);
 
@@ -95,8 +96,8 @@ export default function ImportadorHolerites({ onSuccess }) {
           funcionario_id: item.funcionario.id,
           nome: `Holerite - ${item.competencia}`,
           categoria: 'Holerite',
-          data_documento: new Date().toISOString().split('T')[0], // Data de hoje
-          arquivo_url: pathStorage, // Caminho no bucket
+          data_documento: new Date().toISOString().split('T')[0], // Data de hoje YYYY-MM-DD
+          arquivo_url: pathStorage, // Caminho salvo no bucket
           tipo_arquivo: 'application/pdf',
           tamanho: item.arquivo.size,
           descricao: `Importado automaticamente via Importador de Holerites.`
