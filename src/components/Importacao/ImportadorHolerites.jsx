@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import { processarPDFHolerites } from '../../utils/PDFProcessor';
 import { getFuncionariosDropdown } from '../../services/funcionarioService';
 import { uploadDocumento, createDocumentoRegistro } from '../../services/documentoService';
-import './ImportadorHolerites.css'; // Criaremos o CSS abaixo
+import './ImportadorHolerites.css';
 
 export default function ImportadorHolerites({ onSuccess }) {
   const [file, setFile] = useState(null);
@@ -41,24 +41,26 @@ export default function ImportadorHolerites({ onSuccess }) {
     setResultados([]);
 
     try {
-      // Chama o utilitário que você já tem
+      // Chama o processador que divide as páginas e busca nomes
       const paginasProcessadas = await processarPDFHolerites(selectedFile, funcionarios);
       setResultados(paginasProcessadas);
       toast.success(`${paginasProcessadas.length} páginas processadas.`);
     } catch (error) {
       console.error(error);
       toast.error("Erro ao processar PDF: " + error.message);
+      setFile(null); // Reseta para tentar de novo
     } finally {
       setLoading(false);
     }
   };
 
-  // 3. Permite corrigir o funcionário manualmente se o sistema errou
+  // 3. Permite corrigir o funcionário manualmente se o sistema errou ou não achou
   const handleFuncionarioChange = (index, funcionarioId) => {
     const novosResultados = [...resultados];
     const funcEncontrado = funcionarios.find(f => f.id === funcionarioId);
     
     novosResultados[index].funcionario = funcEncontrado;
+    // Se selecionou alguém, fica verde (success), se limpou, fica amarelo (warning)
     novosResultados[index].status = funcEncontrado ? 'success' : 'warning';
     
     setResultados(novosResultados);
@@ -66,6 +68,7 @@ export default function ImportadorHolerites({ onSuccess }) {
 
   // 4. Envia para o Módulo de Documentos
   const handleFinalizarImportacao = async () => {
+    // Filtra apenas os que têm funcionário vinculado
     const itensValidos = resultados.filter(r => r.funcionario && r.status !== 'ignore');
     
     if (itensValidos.length === 0) {
@@ -81,12 +84,9 @@ export default function ImportadorHolerites({ onSuccess }) {
     for (const item of itensValidos) {
       try {
         // A. Upload do Arquivo Físico (Storage)
-        // Usa o Blob gerado no processamento, mas precisamos convertê-lo em File para o upload
-        const arquivoParaUpload = new File(
-          [item.arquivo], 
-          `Holerite_${item.competencia.replace('/', '-')}.pdf`, 
-          { type: 'application/pdf' }
-        );
+        // Converte o Blob (da memória) em um File para upload
+        const nomeArquivo = `Holerite_${item.competencia.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
+        const arquivoParaUpload = new File([item.arquivo], nomeArquivo, { type: 'application/pdf' });
 
         const pathStorage = await uploadDocumento(arquivoParaUpload, item.funcionario.id);
 
@@ -95,11 +95,11 @@ export default function ImportadorHolerites({ onSuccess }) {
           funcionario_id: item.funcionario.id,
           nome: `Holerite - ${item.competencia}`,
           categoria: 'Holerite',
-          data_documento: new Date().toISOString().split('T')[0], // Hoje
-          arquivo_url: pathStorage,
+          data_documento: new Date().toISOString().split('T')[0], // Data de hoje
+          arquivo_url: pathStorage, // Caminho no bucket
           tipo_arquivo: 'application/pdf',
           tamanho: item.arquivo.size,
-          descricao: `Importado via Importador em ${new Date().toLocaleDateString()}`
+          descricao: `Importado automaticamente via Importador de Holerites.`
         });
 
         sucessos++;
@@ -108,16 +108,22 @@ export default function ImportadorHolerites({ onSuccess }) {
         erros++;
       }
 
+      // Atualiza barra de progresso
       setProgresso(prev => ({ ...prev, atual: prev.atual + 1 }));
     }
 
     setUploading(false);
-    toast.success(`Importação concluída! ${sucessos} salvos, ${erros} erros.`);
+    
+    if (erros > 0) {
+      toast.error(`Importação finalizada com ${erros} erros. ${sucessos} salvos.`);
+    } else {
+      toast.success(`Sucesso! ${sucessos} holerites importados e arquivados.`);
+    }
     
     if (onSuccess) onSuccess();
     
-    // Limpa a tela após sucesso parcial ou total
-    if (sucessos > 0) {
+    // Limpa a tela se tudo deu certo
+    if (sucessos > 0 && erros === 0) {
       setResultados([]);
       setFile(null);
     }
@@ -137,7 +143,7 @@ export default function ImportadorHolerites({ onSuccess }) {
             hidden 
           />
           <label htmlFor="pdf-upload" className="upload-label">
-            <span className="material-symbols-outlined icon-xl">upload_file</span>
+            <span className="material-symbols-outlined icon-xl">cloud_upload</span>
             <h3>Clique para selecionar o PDF Único</h3>
             <p>O sistema irá separar as páginas e identificar os colaboradores automaticamente.</p>
           </label>
@@ -148,7 +154,7 @@ export default function ImportadorHolerites({ onSuccess }) {
       {loading && (
         <div className="loading-state">
           <div className="spinner"></div>
-          <p>Lendo e separando páginas do PDF...</p>
+          <p>Lendo arquivo, separando páginas e identificando nomes...</p>
         </div>
       )}
 
@@ -156,14 +162,14 @@ export default function ImportadorHolerites({ onSuccess }) {
       {resultados.length > 0 && !uploading && (
         <div className="preview-area">
           <div className="preview-header">
-            <h3>Resultado da Análise ({resultados.length} págs)</h3>
+            <h3>Resultado da Análise ({resultados.length} páginas)</h3>
             <div className="actions">
               <button className="btn-secondary" onClick={() => {setFile(null); setResultados([])}}>
                 Cancelar
               </button>
               <button className="btn-primary" onClick={handleFinalizarImportacao}>
                 <span className="material-symbols-outlined">save</span>
-                Enviar para Documentos
+                Confirmar e Importar
               </button>
             </div>
           </div>
@@ -172,8 +178,9 @@ export default function ImportadorHolerites({ onSuccess }) {
             {resultados.map((item, index) => (
               <div key={item.id_temp} className={`holerite-card-preview ${item.status}`}>
                 <div className="card-top">
-                  <span className="page-badge">Pág {item.numero_pagina}</span>
-                  <a href={item.previewUrl} target="_blank" rel="noreferrer" className="btn-view">
+                  <span className="page-badge">Página {item.numero_pagina}</span>
+                  {/* Link para abrir o blob em nova aba para conferência */}
+                  <a href={item.previewUrl} target="_blank" rel="noreferrer" className="btn-view" title="Visualizar Página">
                     <span className="material-symbols-outlined">visibility</span>
                   </a>
                 </div>
@@ -185,22 +192,26 @@ export default function ImportadorHolerites({ onSuccess }) {
                     onChange={(e) => handleFuncionarioChange(index, e.target.value)}
                     className={!item.funcionario ? 'select-warning' : ''}
                   >
-                    <option value="">-- Não Identificado --</option>
+                    <option value="">-- Selecione Manualmente --</option>
                     {funcionarios.map(f => (
                       <option key={f.id} value={f.id}>{f.nome_completo}</option>
                     ))}
                   </select>
 
                   <div className="competencia-info">
-                    <small>Competência Detectada:</small>
+                    <small>Competência:</small>
                     <strong>{item.competencia}</strong>
                   </div>
                 </div>
 
                 {item.status === 'success' ? (
-                  <div className="status-bar success">Pronto para importar</div>
+                  <div className="status-bar success">
+                    <span className="material-symbols-outlined icon-tiny">check_circle</span> Pronto
+                  </div>
                 ) : (
-                  <div className="status-bar warning">Verifique o colaborador</div>
+                  <div className="status-bar warning">
+                    <span className="material-symbols-outlined icon-tiny">warning</span> Verifique
+                  </div>
                 )}
               </div>
             ))}
@@ -210,10 +221,12 @@ export default function ImportadorHolerites({ onSuccess }) {
 
       {/* PROGRESSO DE UPLOAD */}
       {uploading && (
-        <div className="upload-progress">
-          <h3>Enviando Holerites...</h3>
-          <progress value={progresso.atual} max={progresso.total}></progress>
-          <p>{progresso.atual} de {progresso.total} arquivos processados</p>
+        <div className="upload-progress-container">
+          <div className="progress-box">
+            <h3>Enviando Holerites para Documentos...</h3>
+            <progress value={progresso.atual} max={progresso.total}></progress>
+            <p>{progresso.atual} de {progresso.total} arquivos processados</p>
+          </div>
         </div>
       )}
     </div>
