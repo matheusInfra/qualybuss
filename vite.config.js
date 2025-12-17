@@ -1,26 +1,40 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    chunkSizeWarningLimit: 1000, // Aumenta limite de aviso para 1MB
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Separa bibliotecas do núcleo (React)
-          vendor: ['react', 'react-dom', 'react-router-dom', 'swr'],
-          // Separa bibliotecas de UI pesadas
-          ui: ['framer-motion', 'react-hot-toast', 'react-imask', 'react-hook-form', 'zod'],
-          // Separa bibliotecas de PDF (O maior peso)
-          pdf: ['pdfjs-dist', 'pdf-lib'],
-          // Separa gráficos e datas
-          charts: ['chart.js', 'react-chartjs-2', 'date-fns', 'react-big-calendar']
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [
+      react(), 
+      basicSsl() // Mantém HTTPS se você precisa dele
+    ],
+    build: {
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom', 'swr'],
+            ui: ['framer-motion', 'react-hot-toast', 'react-imask', 'react-hook-form', 'zod'],
+            pdf: ['pdfjs-dist', 'pdf-lib'],
+            charts: ['chart.js', 'react-chartjs-2', 'date-fns', 'react-big-calendar']
+          }
         }
       }
+    },
+    server: {
+      host: true,
+      https: true, // Habilita HTTPS devido ao basicSsl
+      port: 5173,
+      proxy: {
+        '/api-supa': {
+          target: env.VITE_SUPABASE_URL, // Agora vai ler o IP correto do .env
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api-supa/, ''),
+        },
+      },
     }
-  },
-  server: {
-    host: true // Permite acesso via IP na rede local
-  }
+  };
 });
