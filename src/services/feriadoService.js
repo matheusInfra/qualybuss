@@ -1,47 +1,43 @@
-// src/services/feriadoService.js
+import axios from 'axios';
 
-// Lista de Fallback (Segurança caso a API falhe)
-const FERIADOS_FIXOS = {
-  '01-01': 'Confraternização Universal',
-  '21-04': 'Tiradentes',
-  '01-05': 'Dia do Trabalho',
-  '07-09': 'Independência do Brasil',
-  '12-10': 'Nossa Sr.a Aparecida',
-  '02-11': 'Finados',
-  '15-11': 'Proclamação da República',
-  '25-12': 'Natal'
-};
+const BASE_URL = 'https://brasilapi.com.br/api/feriados/v1';
+const CACHE = {}; // Cache simples em memória para evitar chamadas repetidas
 
-const CACHE = {};
+export const getFeriadosNacionais = async (ano) => {
+  const anoAtual = ano || new Date().getFullYear();
 
-export const getFeriadosAno = async (ano) => {
-  if (CACHE[ano]) return CACHE[ano];
+  // 1. Verifica se já temos os dados desse ano em cache
+  if (CACHE[anoAtual]) {
+    return CACHE[anoAtual];
+  }
 
   try {
-    // Tenta buscar da API primeiro
-    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    // 2. Chama a API Pública
+    const response = await axios.get(`${BASE_URL}/${anoAtual}`);
     
-    if (!response.ok) throw new Error('API Offline');
-    
-    const data = await response.json();
-    
-    const feriadosMap = data.reduce((acc, feriado) => {
-      acc[feriado.date] = feriado.name;
-      return acc;
-    }, {});
-
-    CACHE[ano] = feriadosMap;
-    return feriadosMap;
-
-  } catch (error) {
-    console.warn("API de feriados indisponível. Usando lista local.", error);
-    
-    // Fallback: Gera as datas baseadas no ano solicitado
-    const feriadosLocal = {};
-    Object.entries(FERIADOS_FIXOS).forEach(([diaMes, nome]) => {
-      feriadosLocal[`${ano}-${diaMes}`] = nome;
+    // 3. Formata os dados para o padrão do calendário
+    const feriadosFormatados = response.data.map(f => {
+      // Ajusta o fuso horário para evitar que o feriado caia no dia anterior
+      const dataCorreta = new Date(f.date + 'T00:00:00'); 
+      
+      return {
+        id: `feriado-${f.date}`,
+        title: f.name,
+        start: dataCorreta,
+        end: dataCorreta,
+        allDay: true,
+        type: 'feriado', // Identificador importante para o CSS
+        resource: 'Feriado Nacional'
+      };
     });
 
-    return feriadosLocal;
+    // 4. Salva no cache e retorna
+    CACHE[anoAtual] = feriadosFormatados;
+    return feriadosFormatados;
+
+  } catch (error) {
+    console.error("Erro ao buscar feriados:", error);
+    // Fallback: Retorna array vazio para não quebrar o calendário
+    return [];
   }
 };

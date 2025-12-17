@@ -82,12 +82,12 @@ export const getFuncionarios = async ({ page = 1, limit = 10, search = '', statu
   return { data, count, totalPages: Math.ceil(count / limit) };
 };
 
-// LISTAGEM PARA DROPDOWNS
+// LISTAGEM PARA DROPDOWNS E IMPORTADOR
 export const getFuncionariosDropdown = async () => {
-  // CORREÇÃO: Removido 'jornada_id' da seleção
+  // ATUALIZAÇÃO: Adicionado 'cbo' na seleção para o importador de holerites
   const { data, error } = await supabase
     .from('funcionarios')
-    .select('id, nome_completo, cargo, avatar_url, departamento, empresa_id, email_corporativo, qtd_dependentes, data_admissao, pis') 
+    .select('id, nome_completo, cargo, cbo, avatar_url, departamento, empresa_id, email_corporativo, qtd_dependentes, data_admissao, pis') 
     .eq('status', 'Ativo')
     .is('deleted_at', null)
     .order('nome_completo', { ascending: true });

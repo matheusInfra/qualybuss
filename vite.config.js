@@ -1,27 +1,26 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import basicSsl from '@vitejs/plugin-basic-ssl'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      jsxRuntime: 'automatic', // Corrige o aviso "outdated JSX transform"
-    }),
-    basicSsl()
-  ],
-  server: {
-    host: true,
-    https: true,
-    port: 5173,
-    proxy: {
-      '/api-supa': {
-        target: 'http://192.168.2.211:8000', // Endereço do seu Supabase
-        changeOrigin: true,
-        secure: false,
-        ws: true, // <--- CRÍTICO: Permite o Realtime funcionar via HTTPS
-        rewrite: (path) => path.replace(/^\/api-supa/, '')
+  plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1000, // Aumenta limite de aviso para 1MB
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separa bibliotecas do núcleo (React)
+          vendor: ['react', 'react-dom', 'react-router-dom', 'swr'],
+          // Separa bibliotecas de UI pesadas
+          ui: ['framer-motion', 'react-hot-toast', 'react-imask', 'react-hook-form', 'zod'],
+          // Separa bibliotecas de PDF (O maior peso)
+          pdf: ['pdfjs-dist', 'pdf-lib'],
+          // Separa gráficos e datas
+          charts: ['chart.js', 'react-chartjs-2', 'date-fns', 'react-big-calendar']
+        }
       }
     }
   },
-})
+  server: {
+    host: true // Permite acesso via IP na rede local
+  }
+});

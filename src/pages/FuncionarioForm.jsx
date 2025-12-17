@@ -14,7 +14,8 @@ import {
   getFuncionarioById,
   createFuncionario,
   updateFuncionario,
-  deleteFuncionario
+  deleteFuncionario,
+  uploadAvatar
 } from '../services/funcionarioService';
 import { getEmpresas } from '../services/empresaService';
 import { getBancos } from '../services/bancoService';
@@ -28,7 +29,7 @@ import DocumentoUploadForm from '../components/Documentos/DocumentoUploadForm';
 
 import './FuncionarioForm.css';
 
-// Schema de Validação
+// --- SCHEMA DE VALIDAÇÃO (ZOD) ---
 const funcionarioSchema = z.object({
   // Pessoal
   nome_completo: z.string().min(3, "Nome completo é obrigatório"),
@@ -56,8 +57,11 @@ const funcionarioSchema = z.object({
   // Contratual
   empresa_id: z.string().min(1, "Selecione a Empresa"),
   id_matricula: z.string().nullish().or(z.literal('')),
-  // [NOVO] Adicionado PIS ao schema
   pis: z.string().nullish().or(z.literal('')),
+  
+  // [NOVO] Campo CBO Obrigatório para Importação
+  cbo: z.string().min(1, "CBO é obrigatório"),
+  
   cargo: z.string().min(1, "Cargo é obrigatório"),
   departamento: z.string().nullish().or(z.literal('')),
   email_corporativo: z.string().email("E-mail inválido").min(1, "E-mail corporativo é obrigatório"),
@@ -78,7 +82,7 @@ const funcionarioSchema = z.object({
   banco_conta_numero: z.string().nullish().or(z.literal('')),
   banco_tipo_conta: z.string().nullish().or(z.literal('')),
 
-  // Campos Virtuais
+  // Campos Virtuais (Não vão pro banco diretamente nesta tabela)
   inicio_periodo_migracao: z.string().optional(),
   saldo_inicial_migracao: z.string().optional(),
   observacoes: z.string().optional(),
@@ -114,7 +118,8 @@ function FuncionarioForm() {
       status: 'Ativo',
       tipo_contrato: 'CLT',
       banco_tipo_conta: 'Corrente',
-      pis: '' // [NOVO] Valor inicial para PIS
+      pis: '',
+      cbo: '' // [NOVO] Default CBO
     }
   });
 
@@ -129,26 +134,39 @@ function FuncionarioForm() {
     getBancos().then(data => setListaBancos(data || []));
   }, []);
 
+  // [CORREÇÃO] Carregamento e Mapeamento de Dados
   useEffect(() => {
     if (funcionarioData) {
       const formattedData = {
         ...funcionarioData,
+        // Datas
         data_nascimento: funcionarioData.data_nascimento ? funcionarioData.data_nascimento.split('T')[0] : '',
         data_admissao: funcionarioData.data_admissao ? funcionarioData.data_admissao.split('T')[0] : '',
+        // Valores
         salario_bruto: funcionarioData.salario_bruto || '',
-        pis: funcionarioData.pis || '', // [NOVO] Carrega PIS
+        pis: funcionarioData.pis || '',
+        cbo: funcionarioData.cbo || '', // [NOVO] Carrega CBO do banco
         empresa_id: funcionarioData.empresa_id || '',
+        
+        // [CORREÇÃO] Mapeamento Bancário (Banco -> Form)
+        // O banco retorna 'banco_conta', mas o form espera 'banco_conta_numero'
+        banco_conta_numero: funcionarioData.banco_conta || '', 
+        banco_tipo_conta: funcionarioData.banco_tipo || 'Corrente',
       };
+      
       reset(formattedData);
+      
       if (funcionarioData.avatar_url) setAvatarUrl(funcionarioData.avatar_url);
     }
   }, [funcionarioData, reset]);
 
   const onInvalid = (errors) => {
     const errorKeys = Object.keys(errors);
-    if (errorKeys.includes('empresa_id') || errorKeys.includes('pis')) setActiveTab('contratual');
+    if (errorKeys.includes('empresa_id') || errorKeys.includes('pis') || errorKeys.includes('cbo')) setActiveTab('contratual');
     else if (errorKeys.includes('cpf')) setActiveTab('pessoal');
     else if (errorKeys.includes('banco_nome')) setActiveTab('bancario');
+    
+    // Mostra erro genérico
     toast.error("Verifique os campos obrigatórios em vermelho.");
   };
 
@@ -160,13 +178,23 @@ function FuncionarioForm() {
     try {
       let payload = { ...data };
       payload.avatar_url = avatarUrl;
+      
+      // [CORREÇÃO] Mapeamento Inverso (Form -> Banco)
+      payload.banco_conta = data.banco_conta_numero;
+      payload.banco_tipo = data.banco_tipo_conta;
+      
+      // Remove campos virtuais que não existem na tabela
+      delete payload.banco_conta_numero;
+      delete payload.banco_tipo_conta;
       delete payload.inicio_periodo_migracao;
       delete payload.saldo_inicial_migracao;
 
-      // Limpeza de PIS e CPF
+      // Limpeza de máscaras
       if (payload.pis) payload.pis = payload.pis.replace(/\D/g, '');
+      if (payload.cbo) payload.cbo = payload.cbo.replace(/\D/g, ''); // Garante só números no CBO
       if (payload.email_corporativo && !payload.email) payload.email = payload.email_corporativo;
 
+      // Null para strings vazias
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') payload[key] = null;
       });
@@ -232,6 +260,7 @@ function FuncionarioForm() {
   };
 
   const handleFinishWizard = () => { setShowWizardDocs(false); navigate('/funcionarios'); };
+  
   const handleCepBlur = async (e) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -243,10 +272,14 @@ function FuncionarioForm() {
         setValue('endereco_bairro', data.bairro);
         setValue('endereco_cidade', data.localidade);
         setValue('endereco_estado', data.uf);
-        numeroInputRef.current?.focus();
+        // Foca no número após carregar CEP
+        if (numeroInputRef.current) {
+            numeroInputRef.current.focus();
+        }
       }
     } catch (error) { }
   };
+
   const handleDeleteClick = () => setIsModalOpen(true);
   const handleConfirmDelete = async () => {
     if (!isEditMode) return;
@@ -261,6 +294,17 @@ function FuncionarioForm() {
       setIsLoading(false);
       setIsModalOpen(false);
     }
+  };
+
+  // [CORREÇÃO] Helper para combinar refs (React Hook Form + useRef manual)
+  // Isso resolve o problema do campo Número não funcionar
+  const mergeRefs = (...refs) => {
+    return (value) => {
+      refs.forEach((ref) => {
+        if (typeof ref === "function") ref(value);
+        else if (ref != null) ref.current = value;
+      });
+    };
   };
 
   if (isFetching && isEditMode) return <div className="loading-state">Carregando dados...</div>;
@@ -388,7 +432,17 @@ function FuncionarioForm() {
                 />
               </div>
               <div className="form-group span-3"><label>Rua/Logradouro</label><input type="text" {...register("endereco_rua")} /></div>
-              <div className="form-group"><label>Número</label><input type="text" {...register("endereco_numero")} ref={numeroInputRef} /></div>
+              
+              {/* [CORREÇÃO] Uso de mergeRefs para funcionar o register e o useRef juntos */}
+              <div className="form-group">
+                <label>Número</label>
+                <input 
+                  type="text" 
+                  {...register("endereco_numero")} 
+                  ref={mergeRefs(register("endereco_numero").ref, numeroInputRef)}
+                />
+              </div>
+              
               <div className="form-group"><label>Bairro</label><input type="text" {...register("endereco_bairro")} /></div>
               <div className="form-group"><label>Cidade</label><input type="text" {...register("endereco_cidade")} /></div>
               <div className="form-group"><label>Estado (UF)</label><input type="text" {...register("endereco_estado")} maxLength="2" className="uppercase-input" /></div>
@@ -396,7 +450,7 @@ function FuncionarioForm() {
             </div>
           )}
 
-          {/* ================= ABA CONTRATUAL (COM O NOVO CAMPO PIS) ================= */}
+          {/* ================= ABA CONTRATUAL ================= */}
           {activeTab === 'contratual' && (
             <div className="form-grid">
               <div className="form-group span-2">
@@ -407,7 +461,6 @@ function FuncionarioForm() {
                 </select>
               </div>
 
-              {/* --- CAMPO PIS ADICIONADO AQUI --- */}
               <div className="form-group">
                 <label style={{ color: '#005A9C' }}>PIS/PASEP (Ponto) *</label>
                 <Controller
@@ -425,7 +478,18 @@ function FuncionarioForm() {
                   )}
                 />
               </div>
-              {/* ---------------------------------- */}
+
+              {/* [NOVO] CAMPO CBO - Essencial para Importação de Holerites */}
+              <div className="form-group">
+                <label style={{ color: '#16a34a' }}>CBO (Importação) *</label>
+                <input 
+                  type="text" 
+                  {...register("cbo")} 
+                  placeholder="Ex: 212420"
+                  style={{ borderColor: errors.cbo ? '#ef4444' : '#16a34a' }}
+                />
+                {errors.cbo && <span className="error-message">{errors.cbo.message}</span>}
+              </div>
 
               <div className="form-group">
                 <label>Matrícula</label>
