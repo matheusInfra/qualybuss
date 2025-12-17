@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
@@ -7,14 +7,13 @@ import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-// Importe o serviço corrigido
 import { getFeriadosNacionais } from '../../services/feriadoService';
 import './CalendarioFerias.css';
 
 const locales = { 'pt-BR': ptBR };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-// --- MAPEAMENTO DE ÍCONES (Inteligência Visual) ---
+// --- OTIMIZAÇÃO 1: Definir helpers fora do componente para não recriar na memória ---
 const getFeriadoIcon = (nome) => {
   const n = nome.toLowerCase();
   if (n.includes('confraternização') || n.includes('ano novo')) return '🥂';
@@ -27,10 +26,10 @@ const getFeriadoIcon = (nome) => {
   if (n.includes('finados')) return '🕯️';
   if (n.includes('república')) return '🏛️';
   if (n.includes('natal')) return '🎄';
-  return '📅'; // Ícone padrão
+  return '📅';
 };
 
-// --- COMPONENTE CUSTOMIZADO PARA O EVENTO ---
+// Componente visual leve
 const CustomEvent = ({ event }) => {
   if (event.type === 'feriado') {
     return (
@@ -40,69 +39,73 @@ const CustomEvent = ({ event }) => {
       </div>
     );
   }
-  
-  // Renderização padrão para férias normais
-  return (
-    <div className="ferias-event">
-      {event.title}
-    </div>
-  );
+  return <div className="ferias-event">{event.title}</div>;
 };
 
 export default function CalendarioFerias({ ferias = [] }) {
-  const [eventos, setEventos] = useState([]);
+  const [feriados, setFeriados] = useState([]);
   const [anoAtual, setAnoAtual] = useState(new Date().getFullYear());
 
-  // Carrega Feriados e junta com Férias
+  // --- OTIMIZAÇÃO 2: Buscar API apenas quando o ANO mudar ---
   useEffect(() => {
-    const carregarDados = async () => {
-      // 1. Busca Feriados
-      const feriados = await getFeriadosNacionais(anoAtual);
-      
-      // 2. Formata as Férias que vieram via prop
-      const feriasFormatadas = ferias.map(f => ({
-        id: f.id,
-        title: `Férias: ${f.funcionarios?.nome_completo || 'Colaborador'}`,
-        start: new Date(f.data_inicio),
-        end: new Date(f.data_fim),
-        allDay: true,
-        type: 'ferias', // Identificador
-        status: f.status
-      }));
-
-      // 3. Junta tudo
-      setEventos([...feriados, ...feriasFormatadas]);
+    let isMounted = true;
+    const fetchFeriados = async () => {
+      const dados = await getFeriadosNacionais(anoAtual);
+      if (isMounted) setFeriados(dados);
     };
+    fetchFeriados();
+    return () => { isMounted = false; };
+  }, [anoAtual]);
 
-    carregarDados();
-  }, [ferias, anoAtual]);
+  // --- OTIMIZAÇÃO 3: Memoizar a lista de eventos (Combina Férias + Feriados) ---
+  // Só recalcula se 'ferias' ou 'feriados' mudarem, não em qualquer render do pai
+  const eventos = useMemo(() => {
+    const feriasFormatadas = ferias.map(f => ({
+      id: f.id,
+      title: `${f.funcionarios?.nome_completo || 'Colaborador'}`,
+      start: new Date(f.data_inicio),
+      end: new Date(f.data_fim),
+      allDay: true,
+      type: 'ferias',
+      status: f.status
+    }));
+    return [...feriados, ...feriasFormatadas];
+  }, [ferias, feriados]);
 
-  // Estilização condicional das células
-  const eventPropGetter = (event) => {
+  // --- OTIMIZAÇÃO 4: Memoizar configurações do calendário ---
+  const { components, messages } = useMemo(() => ({
+    components: {
+      event: CustomEvent // Passa a referência estável
+    },
+    messages: {
+      next: "Próximo",
+      previous: "Anterior",
+      today: "Hoje",
+      month: "Mês",
+      week: "Semana",
+      day: "Dia"
+    }
+  }), []);
+
+  // --- OTIMIZAÇÃO 5: Callbacks estáveis para estilos ---
+  const eventPropGetter = useCallback((event) => {
     if (event.type === 'feriado') {
       return {
-        className: 'evento-feriado-container', // Classe CSS específica
-        style: {
-          backgroundColor: 'transparent', // Removemos o fundo padrão para usar o nosso badge
-          color: 'black',
-          border: 'none'
-        }
+        className: 'evento-feriado-container',
+        style: { backgroundColor: 'transparent', border: 'none' }
       };
     }
     
-    // Estilo para Férias
-    let bgColor = '#3b82f6'; // Azul padrão
-    if (event.status === 'Agendada') bgColor = '#f59e0b'; // Laranja
-    if (event.status === 'Gozo') bgColor = '#10b981'; // Verde
+    let bgColor = '#3b82f6';
+    if (event.status === 'Agendada') bgColor = '#f59e0b';
+    if (event.status === 'Gozo') bgColor = '#10b981';
 
-    return {
-      style: { backgroundColor: bgColor, borderRadius: '6px' }
-    };
-  };
+    return { style: { backgroundColor: bgColor, borderRadius: '4px', fontSize: '0.85rem' } };
+  }, []);
 
-  const handleNavigate = (date) => {
+  const handleNavigate = useCallback((date) => {
     setAnoAtual(date.getFullYear());
-  };
+  }, []);
 
   return (
     <div className="calendario-container fade-in">
@@ -113,19 +116,10 @@ export default function CalendarioFerias({ ferias = [] }) {
         endAccessor="end"
         style={{ height: 600 }}
         culture="pt-BR"
-        components={{
-          event: CustomEvent // Injeta nosso componente customizado
-        }}
+        components={components}
         eventPropGetter={eventPropGetter}
         onNavigate={handleNavigate}
-        messages={{
-          next: "Próximo",
-          previous: "Anterior",
-          today: "Hoje",
-          month: "Mês",
-          week: "Semana",
-          day: "Dia"
-        }}
+        messages={messages}
       />
     </div>
   );

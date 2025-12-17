@@ -10,65 +10,63 @@
 .feriado-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: #fef2f2; /* Fundo vermelho bem claro */
-  color: #991b1b;      /* Texto vermelho escuro */
-  padding: 4px 8px;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  gap: 4px;
+  background: transparent; /* Fundo transparente para leveza */
+  color: #991b1b;
+  font-size: 0.8rem;
   font-weight: 600;
-  border: 1px solid #fecaca;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  padding-left: 2px;
 }
 
 .feriado-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
 }
 
-/* --- ANIMAÇÃO (PULSE SUAVE) --- */
+/* --- ANIMAÇÃO OTIMIZADA (GPU) --- */
+/* Removemos o box-shadow que causa lentidão */
 .bounce-animation {
-  animation: float 3s ease-in-out infinite;
+  animation: float 4s ease-in-out infinite;
+  will-change: transform; /* Avisa o navegador para usar a placa de vídeo */
 }
 
 @keyframes float {
-  0% {
-    transform: translateY(0px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  }
-  50% {
-    transform: translateY(-2px); /* Flutua levemente para cima */
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  }
-  100% {
-    transform: translateY(0px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }
 
-/* --- REMOVE ESTILOS PADRÃO DO BIG CALENDAR PARA FERIADOS --- */
+/* --- ESTILOS DO BIG CALENDAR --- */
 .evento-feriado-container {
-  padding: 2px !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
-/* Ajustes de responsividade do calendário */
+.rbc-event {
+  box-shadow: none !important; /* Remove sombras padrão pesadas */
+  min-height: 24px;
+}
+
 .rbc-toolbar {
-  margin-bottom: 20px !important;
+  margin-bottom: 15px !important;
 }
 
 .rbc-toolbar button {
   border-radius: 6px !important;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.rbc-toolbar button:active, .rbc-toolbar button:hover {
+  background-color: #f3f4f6;
 }
 
 .rbc-toolbar button.rbc-active {
   background-color: #2563eb !important;
   color: white !important;
   box-shadow: none !important;
-}
-
-.rbc-event {
-  min-height: 28px; /* Altura mínima para caber o badge */
 }
