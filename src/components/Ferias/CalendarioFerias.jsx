@@ -13,7 +13,7 @@ import './CalendarioFerias.css';
 const locales = { 'pt-BR': ptBR };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-// --- OTIMIZAÇÃO 1: Definir helpers fora do componente para não recriar na memória ---
+// --- HELPERS VISUAIS (Definidos fora para performance) ---
 const getFeriadoIcon = (nome) => {
   const n = nome.toLowerCase();
   if (n.includes('confraternização') || n.includes('ano novo')) return '🥂';
@@ -29,7 +29,6 @@ const getFeriadoIcon = (nome) => {
   return '📅';
 };
 
-// Componente visual leve
 const CustomEvent = ({ event }) => {
   if (event.type === 'feriado') {
     return (
@@ -39,43 +38,64 @@ const CustomEvent = ({ event }) => {
       </div>
     );
   }
-  return <div className="ferias-event">{event.title}</div>;
+  return (
+    <div className="ferias-event">
+      <strong>{event.title}</strong>
+      {event.departamento && <span style={{fontSize: '0.7em', display:'block'}}>{event.departamento}</span>}
+    </div>
+  );
 };
 
-export default function CalendarioFerias({ ferias = [] }) {
+export default function CalendarioFerias({ ferias = [], data, onEventClick }) {
   const [feriados, setFeriados] = useState([]);
-  const [anoAtual, setAnoAtual] = useState(new Date().getFullYear());
+  
+  // Define o ano atual com base na prop 'data' recebida do pai, ou usa o atual como fallback
+  const anoExibido = data ? data.getFullYear() : new Date().getFullYear();
 
-  // --- OTIMIZAÇÃO 2: Buscar API apenas quando o ANO mudar ---
+  // --- BUSCA DE FERIADOS (Apenas quando o ano muda) ---
   useEffect(() => {
     let isMounted = true;
     const fetchFeriados = async () => {
-      const dados = await getFeriadosNacionais(anoAtual);
+      // Evita chamadas desnecessárias se já tivermos feriados desse ano (opcional, mas simples assim é seguro)
+      const dados = await getFeriadosNacionais(anoExibido);
       if (isMounted) setFeriados(dados);
     };
     fetchFeriados();
     return () => { isMounted = false; };
-  }, [anoAtual]);
+  }, [anoExibido]);
 
-  // --- OTIMIZAÇÃO 3: Memoizar a lista de eventos (Combina Férias + Feriados) ---
-  // Só recalcula se 'ferias' ou 'feriados' mudarem, não em qualquer render do pai
+  // --- PREPARAÇÃO DE EVENTOS (Férias + Feriados) ---
   const eventos = useMemo(() => {
-    const feriasFormatadas = ferias.map(f => ({
-      id: f.id,
-      title: `${f.funcionarios?.nome_completo || 'Colaborador'}`,
-      start: new Date(f.data_inicio),
-      end: new Date(f.data_fim),
-      allDay: true,
-      type: 'ferias',
-      status: f.status
-    }));
+    const feriasFormatadas = ferias.map(f => {
+      // Tratamento de segurança para dados opcionais
+      const nomeFuncionario = f.funcionarios?.nome_completo || 'Colaborador';
+      const departamento = f.funcionarios?.departamento || '';
+      
+      // Ajuste de fuso horário simples (adiciona 'T12:00' para garantir meio-dia e evitar recuo de dia)
+      // Ou usa new Date(ano, mes, dia) diretamente se a string for YYYY-MM-DD
+      const start = new Date(f.data_inicio + 'T12:00:00');
+      const end = new Date(f.data_fim + 'T12:00:00');
+
+      return {
+        id: f.id,
+        title: nomeFuncionario,
+        departamento: departamento,
+        start: start,
+        end: end,
+        allDay: true,
+        type: 'ferias',
+        status: f.status,
+        resource: f // Guarda o objeto original se precisar
+      };
+    });
+    
     return [...feriados, ...feriasFormatadas];
   }, [ferias, feriados]);
 
-  // --- OTIMIZAÇÃO 4: Memoizar configurações do calendário ---
+  // --- CONFIGURAÇÕES DO CALENDÁRIO ---
   const { components, messages } = useMemo(() => ({
     components: {
-      event: CustomEvent // Passa a referência estável
+      event: CustomEvent
     },
     messages: {
       next: "Próximo",
@@ -83,43 +103,79 @@ export default function CalendarioFerias({ ferias = [] }) {
       today: "Hoje",
       month: "Mês",
       week: "Semana",
-      day: "Dia"
+      day: "Dia",
+      noEventsInRange: "Nenhuma férias neste período."
     }
   }), []);
 
-  // --- OTIMIZAÇÃO 5: Callbacks estáveis para estilos ---
+  // --- ESTILIZAÇÃO DOS EVENTOS ---
   const eventPropGetter = useCallback((event) => {
+    // 1. Estilo para Feriados
     if (event.type === 'feriado') {
       return {
         className: 'evento-feriado-container',
-        style: { backgroundColor: 'transparent', border: 'none' }
+        style: { backgroundColor: 'transparent', border: 'none', color: '#64748b' }
       };
     }
     
-    let bgColor = '#3b82f6';
-    if (event.status === 'Agendada') bgColor = '#f59e0b';
-    if (event.status === 'Gozo') bgColor = '#10b981';
+    // 2. Estilo para Férias (baseado no status)
+    let bgColor = '#3b82f6'; // Azul (Padrão/Aprovado)
+    let borderLeft = '4px solid #1d4ed8';
 
-    return { style: { backgroundColor: bgColor, borderRadius: '4px', fontSize: '0.85rem' } };
+    if (event.status === 'Agendada' || event.status === 'Pendente') {
+      bgColor = '#f59e0b'; // Laranja
+      borderLeft = '4px solid #b45309';
+    } else if (event.status === 'Gozo') {
+      bgColor = '#10b981'; // Verde
+      borderLeft = '4px solid #047857';
+    }
+
+    return { 
+      style: { 
+        backgroundColor: bgColor, 
+        borderLeft: borderLeft,
+        borderRadius: '4px', 
+        fontSize: '0.85rem',
+        color: 'white',
+        opacity: 0.95
+      } 
+    };
   }, []);
 
-  const handleNavigate = useCallback((date) => {
-    setAnoAtual(date.getFullYear());
-  }, []);
+  // Handler para clique no evento (Edição)
+  const handleSelectEvent = useCallback((event) => {
+    if (event.type === 'ferias' && onEventClick) {
+      onEventClick(event.id);
+    }
+  }, [onEventClick]);
+
+  // Handler vazio para onNavigate interno, já que controlamos via prop 'date'
+  // Mas é necessário passá-lo para evitar erros em algumas versões
+  const handleNavigate = useCallback(() => {}, []);
 
   return (
     <div className="calendario-container fade-in">
       <Calendar
         localizer={localizer}
         events={eventos}
+        
+        // Controles de Data (Essencial para funcionar com o pai)
+        date={data} 
+        onNavigate={handleNavigate}
+        toolbar={false} // Desabilita toolbar interna pois já temos a externa (ControlesCalendario)
+        
         startAccessor="start"
         endAccessor="end"
-        style={{ height: 600 }}
+        style={{ height: 650 }}
         culture="pt-BR"
+        
         components={components}
         eventPropGetter={eventPropGetter}
-        onNavigate={handleNavigate}
         messages={messages}
+        
+        // Interatividade
+        onSelectEvent={handleSelectEvent}
+        popup={true} // Mostra popup se houver muitos eventos no dia
       />
     </div>
   );

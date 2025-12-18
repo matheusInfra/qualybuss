@@ -15,20 +15,14 @@ import AniversariantesCard from '../components/Dashboard/AniversariantesCard';
 import SkeletonCard from '../components/SkeletonCard';
 import './DashboardPage.css';
 
-// [ATUALIZADO] Paleta de cores harmonizada com o tema (Indigo, Emerald, Amber, Rose, Purple, Blue)
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6'];
 
-// [NOVO] Componente de Tooltip Customizado
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{
-        backgroundColor: 'white',
-        border: '1px solid #e2e8f0',
-        borderRadius: '8px',
-        padding: '12px',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-        minWidth: '150px'
+      <div className="custom-tooltip" style={{
+        backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minWidth: '150px', zIndex: 100
       }}>
         {label && <p style={{ fontWeight: '600', color: '#1e293b', marginBottom: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }}>{label}</p>}
         {payload.map((entry, index) => (
@@ -62,14 +56,12 @@ function DashboardPage() {
   const keyFerias = ['proximas_ferias', filtroEmpresa];
   const keyAniversario = ['aniversariantes', filtroEmpresa];
 
-  // Fetchers
   const { data: kpis, isLoading: kpiLoading } = useSWR(keyKPIs, () => getDashboardKPIs(filtroEmpresa));
   const { data: kpisEstrategicos, isLoading: loadingStrat } = useSWR(keyEstrategicos, () => getKPIsEstrategicos(filtroEmpresa));
   const { data: historico } = useSWR(keyHistorico, () => getHistoricoKPIs(filtroEmpresa));
   const { data: proximasFerias } = useSWR(keyFerias, () => getProximasFerias(filtroEmpresa));
   const { data: aniversariantes } = useSWR(keyAniversario, () => getAniversariantesMes(filtroEmpresa));
 
-  // Realtime Listeners
   useEffect(() => {
     const channel = supabase
       .channel('dashboard-room')
@@ -85,15 +77,28 @@ function DashboardPage() {
   }, [filtroEmpresa, mutate]);
 
   const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
-  const formatDate = (d) => { if (!d) return ''; const date = new Date(d); date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
+  
+  const formatDateChart = (d) => {
+    if (!d) return '';
+    try {
+      const date = new Date(d);
+      return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+    } catch (e) { return d; }
+  };
+  
+  const formatDateSimple = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
 
-  // Variáveis auxiliares para renderização segura
   const graficoDeptos = kpisEstrategicos?.grafico_deptos || [];
   const listaHistorico = historico || [];
   const listaFerias = proximasFerias || [];
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container fade-in">
       <header className="dashboard-header-row">
         <div>
           <h1>Painel de Controle</h1>
@@ -144,13 +149,13 @@ function DashboardPage() {
         <div className="kpi-mini-card">
           <span className="label">Turnover (Mês)</span>
           <div className="value-row">
-            {loadingStrat ? '...' : <strong>{kpisEstrategicos?.turnover}%</strong>}
+            {loadingStrat ? '...' : <strong>{kpisEstrategicos?.turnover || 0}%</strong>}
           </div>
         </div>
         <div className="kpi-mini-card">
           <span className="label">Tempo Médio de Casa</span>
           <div className="value-row">
-            {loadingStrat ? '...' : <strong>{kpisEstrategicos?.tempo_medio} Anos</strong>}
+            {loadingStrat ? '...' : <strong>{kpisEstrategicos?.tempo_medio || 0} Anos</strong>}
           </div>
         </div>
         <div className="kpi-mini-card">
@@ -161,14 +166,14 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Gráficos */}
+      {/* Gráficos - CORREÇÃO DE WARNING RECHARTS */}
       <div className="charts-section">
         <div className="chart-card">
           <h3>📈 Evolução da Folha</h3>
-          {/* FIX: width='99%' e debounce ajudam o Recharts no Grid Layout */}
-          <div style={{ width: '99%', height: '300px', minWidth: 0 }}>
+          {/* Força dimensões fixas no container pai para evitar erro de width -1 */}
+          <div style={{ width: '100%', height: '300px', minWidth: '300px', display: 'block' }}>
             {listaHistorico && listaHistorico.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={listaHistorico}>
                   <defs>
                     <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
@@ -176,16 +181,17 @@ function DashboardPage() {
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis
                     dataKey="data_referencia"
-                    tickFormatter={formatDate}
-                    style={{ fontSize: 12, fill: '#64748b' }}
+                    tickFormatter={formatDateChart}
+                    style={{ fontSize: 11, fill: '#64748b' }}
                     axisLine={false}
                     tickLine={false}
                     dy={10}
+                    minTickGap={30}
                   />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '4 4' }} />
                   <Area
                     type="monotone"
                     dataKey="total_folha"
@@ -193,19 +199,24 @@ function DashboardPage() {
                     stroke="#6366f1"
                     strokeWidth={2}
                     fill="url(#colorFolha)"
-                    activeDot={{ r: 6, strokeWidth: 0 }}
+                    activeDot={{ r: 5, strokeWidth: 0 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
-            ) : <div className="chart-empty">Sem dados históricos.</div>}
+            ) : (
+              <div className="chart-empty">
+                <span className="material-symbols-outlined" style={{fontSize:'48px', color:'#cbd5e1'}}>query_stats</span>
+                <p>Calculando histórico...</p>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="chart-card">
           <h3>🏢 Distribuição por Departamento</h3>
-          <div style={{ width: '99%', height: '300px', minWidth: 0 }}>
+          <div style={{ width: '100%', height: '300px', minWidth: '300px', display: 'block' }}>
             {graficoDeptos && graficoDeptos.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={graficoDeptos}
@@ -213,24 +224,29 @@ function DashboardPage() {
                     cy="50%"
                     innerRadius={60}
                     outerRadius={80}
-                    paddingAngle={5}
+                    paddingAngle={2}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
                     {graficoDeptos.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                   <Legend
-                    verticalAlign="bottom"
-                    height={36}
+                    layout="vertical"
+                    verticalAlign="middle"
+                    align="right"
                     iconType="circle"
-                    formatter={(value) => <span style={{ color: '#64748b', fontSize: '12px' }}>{value}</span>}
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: '11px', lineHeight: '20px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            ) : <div className="chart-empty">{loadingStrat ? 'Carregando...' : 'Sem dados.'}</div>}
+            ) : (
+              <div className="chart-empty">
+                 <p>{loadingStrat ? 'Carregando dados...' : 'Sem dados de departamentos.'}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -244,9 +260,9 @@ function DashboardPage() {
               <div key={i} className="item-ferias-row">
                 <div className="user-row">
                   <div className="avatar-mini">{item.funcionario_id?.nome_completo?.charAt(0) || 'U'}</div>
-                  <span>{item.funcionario_id?.nome_completo}</span>
+                  <span>{item.funcionario_id?.nome_completo || 'Colaborador'}</span>
                 </div>
-                <span className="data-badge">{formatDate(item.data_inicio)}</span>
+                <span className="data-badge">{formatDateSimple(item.data_inicio)}</span>
               </div>
             ))}
           </div>
