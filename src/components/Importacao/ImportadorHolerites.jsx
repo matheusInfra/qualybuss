@@ -12,22 +12,28 @@ function ImportadorHolerites() {
   const [processedData, setProcessedData] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  // Define o mês atual como padrão (YYYY-MM)
+  
+  // ESTADO DA DATA DE REFERÊNCIA (Padrão: Mês atual)
   const [competencia, setCompetencia] = useState(new Date().toISOString().slice(0, 7));
 
   const { data: funcionarios } = useSWR('getFuncionariosDropdown', getFuncionariosDropdown);
 
   const onDrop = (acceptedFiles) => {
     setFiles(acceptedFiles);
-    setProcessedData([]); // Limpa dados anteriores ao trocar o arquivo
+    setProcessedData([]);
   };
 
-  // Configuração correta do Hook no nível superior
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] },
     multiple: true
   });
+
+  // Normalização de texto (Remove acentos e espaços)
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+  };
 
   const processarArquivos = async () => {
     if (!files.length) return;
@@ -36,34 +42,35 @@ function ImportadorHolerites() {
 
     try {
       for (const file of files) {
-        // Extrai texto usando o utilitário
         const pages = await extractTextFromPDF(file);
 
         pages.forEach((page) => {
+          const pageTextNorm = normalizeText(page.text);
           let match = null;
           let matchType = 'none';
 
           if (funcionarios) {
-            // 1. Tenta Match Exato: NOME + CBO
-            match = funcionarios.find((func) => {
-              const nomeFunc = func.nome_completo.toUpperCase();
-              const textoPdf = page.text.toUpperCase();
+            // 1. Tenta pelo NOME
+            for (const func of funcionarios) {
+              const nomeFuncNorm = normalizeText(func.nome_completo);
               
-              const temNome = textoPdf.includes(nomeFunc);
-              // Verifica CBO se o funcionário tiver um cadastrado
-              const temCBO = checkCBOInText(page.text, func.cbo);
+              if (pageTextNorm.includes(nomeFuncNorm)) {
+                match = func;
+                const temCBO = checkCBOInText(page.text, func.cbo);
+                matchType = temCBO ? 'nome_cbo_ok' : 'nome_apenas';
+                break;
+              }
+            }
 
-              return temNome && temCBO;
-            });
-
-            if (match) {
-              matchType = 'nome_cbo';
-            } else {
-              // 2. Fallback: Match apenas por NOME
-              match = funcionarios.find((func) => {
-                return page.text.toUpperCase().includes(func.nome_completo.toUpperCase());
-              });
-              if (match) matchType = 'nome_only';
+            // 2. Se falhar, tenta pelo CBO (Repescagem)
+            if (!match) {
+              for (const func of funcionarios) {
+                if (func.cbo && checkCBOInText(page.text, func.cbo)) {
+                  match = func;
+                  matchType = 'cbo_divergente'; // Alerta de divergência
+                  break;
+                }
+              }
             }
           }
 
@@ -74,22 +81,23 @@ function ImportadorHolerites() {
             funcionario: match,
             status: match ? 'Encontrado' : 'Não Identificado',
             matchType,
-            fileObj: file // Guarda referência para upload
+            fileObj: file
           });
         });
       }
 
       setProcessedData(resultados);
       
-      if (resultados.some(r => r.status === 'Não Identificado')) {
-        toast('Alguns holerites não foram identificados.', { icon: '⚠️' });
-      } else {
-        toast.success('Processamento concluído!');
-      }
+      const naoIdentificados = resultados.filter(r => r.status === 'Não Identificado').length;
+      const divergentes = resultados.filter(r => r.matchType === 'cbo_divergente').length;
+
+      if (naoIdentificados > 0) toast(`Atenção: ${naoIdentificados} páginas não identificadas.`, { icon: '⚠️' });
+      if (divergentes > 0) toast(`${divergentes} encontrados pelo CBO (Nome divergente).`, { icon: 'ℹ️' });
+      if (naoIdentificados === 0 && divergentes === 0) toast.success('Todos identificados com sucesso!');
 
     } catch (error) {
-      console.error("Erro ao processar PDF:", error);
-      toast.error("Falha ao ler o arquivo PDF.");
+      console.error(error);
+      toast.error(error.message || "Erro ao ler PDF.");
     } finally {
       setIsProcessing(false);
     }
@@ -98,8 +106,13 @@ function ImportadorHolerites() {
   const handleFinalizarImportacao = async () => {
     const itensValidos = processedData.filter(d => d.funcionario && d.status === 'Encontrado');
     
-    if (itensValidos.length === 0) {
+    if (!itensValidos.length) {
       toast.error("Nenhum item válido para importar.");
+      return;
+    }
+
+    if (!competencia) {
+      toast.error("Por favor, selecione o Mês de Referência.");
       return;
     }
 
@@ -109,35 +122,34 @@ function ImportadorHolerites() {
     try {
       for (const item of itensValidos) {
         try {
-          // 1. Upload do Arquivo Físico
+          // 1. Upload Físico
           const path = await uploadDocumento(item.fileObj, item.funcionario.id);
-
-          // 2. Registro no Banco
+          
+          // 2. Registro no Banco (Usa a competência selecionada)
           await createDocumentoRegistro({
             funcionario_id: item.funcionario.id,
-            nome: `Holerite ${competencia}`, // Nome amigável
+            nome: `Holerite ${competencia}`, // Ex: Holerite 2024-05
             categoria: 'Holerite',
-            arquivo_url: path, // Path Storage
+            arquivo_url: path, // path_storage
             tipo_arquivo: 'application/pdf',
             tamanho: item.fileObj.size,
-            descricao: `Ref: ${competencia}. Pag: ${item.pageNumber}. Importação Automática.`
+            descricao: item.matchType === 'cbo_divergente' 
+              ? `Ref: ${competencia}. (Alerta: Vinculado via CBO, nome divergente).`
+              : `Ref: ${competencia}. Pag: ${item.pageNumber}`
           });
-
           sucesso++;
         } catch (err) {
-          console.error(`Falha no item ${item.pageNumber}:`, err);
+          console.error(`Erro item ${item.pageNumber}:`, err);
         }
       }
       
       if (sucesso > 0) {
-        toast.success(`${sucesso} holerites importados com sucesso!`);
+        toast.success(`${sucesso} holerites importados!`);
         setFiles([]);
         setProcessedData([]);
-      } else {
-        toast.error("Falha ao salvar os documentos.");
       }
     } catch (e) {
-      toast.error("Erro geral na importação.");
+      toast.error("Erro ao salvar dados.");
     } finally {
       setUploading(false);
     }
@@ -146,46 +158,48 @@ function ImportadorHolerites() {
   return (
     <div className="importador-container fade-in">
       <div className="importador-header">
-        <h2>📂 Importador de Holerites</h2>
-        <p>O sistema vinculará páginas automaticamente por <strong>Nome</strong> e <strong>CBO</strong>.</p>
+        <h2>📂 Importador Inteligente de Holerites</h2>
+        <p>O sistema busca por <strong>Nome</strong> e confirma pelo <strong>CBO</strong>.</p>
       </div>
 
-      <div className="config-row">
+      {/* CAMPO DE DATA DE REFERÊNCIA (Restaurado) */}
+      <div className="config-box">
         <div className="form-group">
-          <label>Competência</label>
+          <label htmlFor="competenciaInput">Mês de Referência (Competência)</label>
           <input 
+            id="competenciaInput"
             type="month" 
-            className="form-control"
-            value={competencia}
-            onChange={(e) => setCompetencia(e.target.value)}
+            className="form-control competencia-input"
+            value={competencia} 
+            onChange={(e) => setCompetencia(e.target.value)} 
           />
+          <small>Esta data será usada no nome do arquivo salvo.</small>
         </div>
       </div>
 
-      {/* Área de Dropzone */}
+      {/* Dropzone */}
       <div {...getRootProps()} className={`dropzone ${isDragActive ? 'active' : ''}`}>
         <input {...getInputProps()} />
         {isDragActive ? (
-          <p>Solte o PDF aqui...</p>
+          <p>Solte o arquivo PDF aqui...</p>
         ) : (
           <div className="drop-content">
             <span className="material-symbols-outlined icon-upload">cloud_upload</span>
-            <p>Arraste o PDF de holerites aqui</p>
-            <small>Clique para selecionar</small>
+            <p>Arraste o PDF de Holerites aqui</p>
+            <span className="btn-fake">Selecionar Arquivo</span>
           </div>
         )}
       </div>
 
-      {/* Barra de Ações */}
       {files.length > 0 && (
         <div className="actions-bar">
           <span>{files.length} arquivo(s) carregado(s)</span>
-          <button 
-            className="btn btn-primary" 
-            onClick={processarArquivos} 
-            disabled={isProcessing}
-          >
-            {isProcessing ? 'Lendo...' : 'Processar Identificação'}
+          <button className="btn btn-primary" onClick={processarArquivos} disabled={isProcessing}>
+            {isProcessing ? (
+              <span style={{display:'flex', gap:'5px', alignItems:'center'}}>
+                <span className="spinner-small"></span> Lendo PDF...
+              </span>
+            ) : 'Iniciar Identificação'}
           </button>
         </div>
       )}
@@ -195,8 +209,8 @@ function ImportadorHolerites() {
         <div className="preview-list">
           <div className="list-header">
             <span>Pág</span>
-            <span>Funcionário</span>
-            <span>Critério</span>
+            <span>Colaborador Identificado</span>
+            <span>Detalhe da Identificação</span>
             <span>Status</span>
           </div>
           <div className="list-body">
@@ -206,12 +220,13 @@ function ImportadorHolerites() {
                 
                 <div className="func-info">
                   <strong>{item.funcionario?.nome_completo || '---'}</strong>
-                  {item.funcionario?.cbo && <small>CBO: {item.funcionario.cbo}</small>}
+                  {item.funcionario?.cbo && <small>CBO Cadastro: {item.funcionario.cbo}</small>}
                 </div>
 
                 <div className="match-info">
-                  {item.matchType === 'nome_cbo' && <span className="badge-match high">Nome + CBO</span>}
-                  {item.matchType === 'nome_only' && <span className="badge-match medium">Apenas Nome</span>}
+                  {item.matchType === 'nome_cbo_ok' && <span className="badge-match high">✅ Nome + CBO</span>}
+                  {item.matchType === 'nome_apenas' && <span className="badge-match medium">🔹 Apenas Nome</span>}
+                  {item.matchType === 'cbo_divergente' && <span className="badge-match alert">⚠️ CBO (Nome Diferente)</span>}
                   {item.matchType === 'none' && <span className="badge-match none">--</span>}
                 </div>
 
@@ -221,15 +236,14 @@ function ImportadorHolerites() {
               </div>
             ))}
           </div>
-
           <div className="footer-actions">
-            <button className="btn btn-secondary" onClick={() => setProcessedData([])}>Limpar</button>
+            <button className="btn btn-secondary" onClick={() => setProcessedData([])}>Limpar Tudo</button>
             <button 
               className="btn btn-success" 
               onClick={handleFinalizarImportacao} 
               disabled={uploading || processedData.every(d => d.status !== 'Encontrado')}
             >
-              {uploading ? 'Enviando...' : 'Confirmar Importação'}
+              {uploading ? 'Salvando...' : 'Confirmar Importação'}
             </button>
           </div>
         </div>

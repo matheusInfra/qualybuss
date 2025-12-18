@@ -1,7 +1,10 @@
+/* src/components/Importacao/ImportadorHolerites.css */
+
 .importador-container {
   padding: 1.5rem;
   max-width: 900px;
   margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
 
 .importador-header {
@@ -9,41 +12,104 @@
   text-align: center;
 }
 
-.config-row {
+.importador-header h2 {
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.importador-header p {
+  color: var(--text-secondary);
+}
+
+/* --- ÁREA DE CONFIGURAÇÃO (DATA) --- */
+.config-box {
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
   margin-bottom: 1.5rem;
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
+.config-box .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 300px;
+}
+
+.config-box label {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+
+.competencia-input {
+  padding: 0.75rem;
+  border: 2px solid var(--primary-200);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--primary-900);
+  transition: all 0.2s;
+}
+
+.competencia-input:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+
+.config-box small {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* --- DROPZONE --- */
 .dropzone {
   border: 2px dashed var(--primary-300);
   border-radius: 12px;
   padding: 3rem;
   text-align: center;
-  background-color: var(--bg-card);
+  background-color: white;
   cursor: pointer;
   transition: all 0.2s;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .dropzone.active, .dropzone:hover {
   border-color: var(--primary-500);
   background-color: #eff6ff;
+  transform: scale(1.01);
 }
 
 .drop-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .icon-upload {
-  font-size: 3rem;
+  font-size: 3.5rem;
   color: var(--primary-500);
 }
 
+.btn-fake {
+  background-color: var(--primary-100);
+  color: var(--primary-700);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* --- LISTA DE PREVIEW --- */
 .actions-bar {
-  margin-top: 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -51,52 +117,111 @@
   padding: 1rem;
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
+  margin-bottom: 2rem;
+  border: 1px solid var(--border-color);
 }
 
 .preview-list {
-  margin-top: 2rem;
   background: white;
   border-radius: 12px;
   box-shadow: var(--shadow-md);
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .list-header {
   display: grid;
-  grid-template-columns: 80px 2fr 1.5fr 1fr; /* Ajustado para nova coluna */
+  grid-template-columns: 60px 2fr 2fr 1fr;
   padding: 1rem;
-  background: #f8fafc;
-  font-weight: 600;
+  background: #f1f5f9;
+  font-weight: 700;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .list-body {
-  max-height: 400px;
+  max-height: 450px;
   overflow-y: auto;
 }
 
 .list-item {
   display: grid;
-  grid-template-columns: 80px 2fr 1.5fr 1fr; /* Ajustado para nova coluna */
+  grid-template-columns: 60px 2fr 2fr 1fr;
   padding: 1rem;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
   font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.list-item:hover {
+  background-color: #f8fafc;
 }
 
 .list-item.warning {
-  background-color: #fff7ed;
+  background-color: #fffbeb; /* Amarelo bem claro */
 }
 
 .page-badge {
   background: #e2e8f0;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
+  color: #475569;
 }
+
+.func-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.func-info small {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+/* --- BADGES --- */
+.badge-match {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.badge-match.high {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.badge-match.medium {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.badge-match.alert {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.badge-match.none {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+.text-green { color: #10b981; font-weight: 700; }
+.text-orange { color: #f59e0b; font-weight: 700; }
 
 .footer-actions {
   padding: 1.5rem;
@@ -107,38 +232,14 @@
   background: #f8fafc;
 }
 
-/* Badges de Match */
-.badge-match {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 0.75rem;
-  font-weight: 700;
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.5);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-.badge-match.high {
-  background-color: #dcfce7;
-  color: #166534;
-  border: 1px solid #86efac;
-}
-
-.badge-match.medium {
-  background-color: #fef9c3;
-  color: #854d0e;
-  border: 1px solid #fde047;
-}
-
-.badge-match.none {
-  background-color: #f1f5f9;
-  color: #64748b;
-}
-
-.func-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.func-info small {
-  color: #64748b;
-  font-size: 0.75rem;
-}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

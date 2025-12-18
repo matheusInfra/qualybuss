@@ -4,51 +4,63 @@ const BUCKET_NAME = 'documentos_pessoais';
 
 /**
  * Faz o upload físico do arquivo para o Supabase Storage.
- * Retorna o caminho (path) do arquivo salvo.
+ * Retorna o caminho relativo (path) do arquivo salvo.
  */
 export const uploadDocumento = async (file, funcionarioId) => {
   try {
+    // Sanitiza o nome para evitar erros de URL
     const fileExt = file.name.split('.').pop();
-    // Nome único para evitar sobrescrita
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${funcionarioId}/${fileName}`;
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
+    const uniqueName = `${Date.now()}_${cleanFileName}.${fileExt}`;
+    
+    const filePath = `${funcionarioId}/${uniqueName}`;
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
     if (error) throw error;
     
-    return filePath; // Retorna 'id_func/nome_arquivo.pdf'
+    return filePath; 
   } catch (error) {
-    console.error("Erro no upload do documento:", error.message);
+    console.error("Erro no upload do documento (Storage):", error.message);
     throw error;
   }
 };
 
 /**
- * Cria o registro na tabela 'documentos' do banco de dados.
- * Mapeia os campos do frontend para o schema exato da tabela.
+ * Cria o registro na tabela 'documentos'.
+ * CORREÇÃO: Aceita chaves variadas para compatibilidade com todos os módulos.
  */
 export const createDocumentoRegistro = async (dadosDocumento) => {
   try {
-    // Payload mapeado conforme o schema "raio-x" do banco
+    // RESOLUÇÃO DO ERRO: Verifica qual chave foi enviada (do Form ou do Importador)
+    const nomeFinal = dadosDocumento.nome_arquivo || dadosDocumento.nome;
+    const pathFinal = dadosDocumento.path_storage || dadosDocumento.arquivo_url;
+
+    if (!nomeFinal || !pathFinal) {
+      throw new Error("Dados obrigatórios (nome_arquivo ou path_storage) estão faltando.");
+    }
+
     const payload = {
       funcionario_id: dadosDocumento.funcionario_id,
       
-      // CAMPOS OBRIGATÓRIOS (NOT NULL)
-      nome_arquivo: dadosDocumento.nome, // O front manda 'nome', o banco exige 'nome_arquivo'
-      path_storage: dadosDocumento.arquivo_url, // O arquivo_url do front é o path_storage do banco
+      // Mapeamento Flexível
+      nome_arquivo: nomeFinal,
+      path_storage: pathFinal,
       
-      // CAMPOS OPCIONAIS
       categoria: dadosDocumento.categoria,
       tipo_arquivo: dadosDocumento.tipo_arquivo,
       tamanho: dadosDocumento.tamanho,
       descricao: dadosDocumento.descricao || null,
+      data_documento: dadosDocumento.data_documento || new Date(),
       
-      // Campos de redundância/compatibilidade (se existirem no banco, ok; se não, o banco ignora se não forem not null)
-      arquivo_url: dadosDocumento.arquivo_url, 
-      nome: dadosDocumento.nome,
+      // Redundância para garantir (caso banco tenha trigger/legado)
+      arquivo_url: pathFinal, 
+      nome: nomeFinal,
       
       created_at: new Date()
     };
@@ -62,14 +74,11 @@ export const createDocumentoRegistro = async (dadosDocumento) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error("Erro ao salvar registro do documento:", error.message);
+    console.error("Erro ao salvar registro do documento (Banco):", error.message);
     throw error;
   }
 };
 
-/**
- * Busca todos os documentos de um funcionário específico.
- */
 export const getDocumentosPorFuncionario = async (funcionarioId) => {
   const { data, error } = await supabase
     .from('documentos')
@@ -81,15 +90,15 @@ export const getDocumentosPorFuncionario = async (funcionarioId) => {
   return data;
 };
 
-/**
- * Gera uma URL assinada (temporária) para download ou visualização.
- */
 export const getDocumentoDownloadUrl = async (pathStorage) => {
-  if (!pathStorage) throw new Error("Caminho do arquivo não fornecido.");
+  if (!pathStorage) throw new Error("Caminho do arquivo inválido.");
+
+  // Remove prefixos de URL se existirem, mantendo apenas o path relativo
+  const cleanPath = pathStorage.replace(/.*\/documentos_pessoais\//, '');
 
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
-    .createSignedUrl(pathStorage, 60); // Link válido por 60 segundos
+    .createSignedUrl(cleanPath, 60);
 
   if (error) {
     console.error("Erro ao gerar link:", error.message);
@@ -98,39 +107,20 @@ export const getDocumentoDownloadUrl = async (pathStorage) => {
   return data.signedUrl;
 };
 
-/**
- * Baixa o arquivo como Blob (utilitário para gerar ZIPs ou downloads diretos).
- */
 export const downloadArquivoParaBlob = async (pathStorage) => {
-  const { data, error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .download(pathStorage);
-
+  const cleanPath = pathStorage.replace(/.*\/documentos_pessoais\//, '');
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).download(cleanPath);
   if (error) throw error;
   return data;
 };
 
-/**
- * Deleta o documento do banco e remove o arquivo físico do storage.
- */
 export const deleteDocumento = async (docId, pathStorage) => {
-  // 1. Remove do Storage (se o caminho existir)
   if (pathStorage) {
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([pathStorage]);
-      
-    if (storageError) {
-      console.warn("Aviso: Falha ao remover arquivo físico (pode já ter sido excluído):", storageError.message);
-    }
+    const cleanPath = pathStorage.replace(/.*\/documentos_pessoais\//, '');
+    await supabase.storage.from(BUCKET_NAME).remove([cleanPath]);
   }
 
-  // 2. Remove o registro do banco
-  const { error } = await supabase
-    .from('documentos')
-    .delete()
-    .eq('id', docId);
-
+  const { error } = await supabase.from('documentos').delete().eq('id', docId);
   if (error) throw error;
   return true;
 };

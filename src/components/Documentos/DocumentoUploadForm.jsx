@@ -4,7 +4,6 @@ import { useSWRConfig } from 'swr';
 import { uploadDocumento, createDocumentoRegistro } from '../../services/documentoService';
 import './Documentos.css';
 
-// --- DEFINIÇÃO DAS CATEGORIAS PADRÃO ---
 const CATEGORIAS_FIXAS = [
   "Admissão e Contratuais",
   "Saúde e Segurança (SST)",
@@ -16,8 +15,9 @@ const CATEGORIAS_FIXAS = [
 
 const initialState = {
   nome_arquivo: '',
-  categoria: CATEGORIAS_FIXAS[0], // Começa selecionando a primeira
+  categoria: CATEGORIAS_FIXAS[0],
   data_documento: '',
+  descricao: ''
 };
 
 function DocumentoUploadForm({ funcionarioId }) {
@@ -36,7 +36,7 @@ function DocumentoUploadForm({ funcionarioId }) {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
-      // Se o nome ainda estiver vazio, preenche com o nome do arquivo
+      // Sugere nome do arquivo se o campo estiver vazio
       if (formData.nome_arquivo === '') {
         setFormData(prev => ({ ...prev, nome_arquivo: selectedFile.name }));
       }
@@ -48,44 +48,58 @@ function DocumentoUploadForm({ funcionarioId }) {
   const handleCancel = () => {
     setFormData(initialState);
     setFile(null);
+    // Limpa o input file visualmente
     const fileInput = document.getElementById('doc-dropzone-file');
     if (fileInput) fileInput.value = null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file || !formData.nome_arquivo || !formData.categoria) {
-      toast.error("Por favor, preencha o arquivo, nome e categoria.");
+    
+    if (!funcionarioId) {
+      toast.error("Erro: ID do funcionário não encontrado.");
+      return;
+    }
+    if (!file) {
+      toast.error("Selecione um arquivo para enviar.");
+      return;
+    }
+    if (!formData.nome_arquivo) {
+      toast.error("O nome do documento é obrigatório.");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      // 1. Upload físico
+      // 1. Upload Físico
       const pathStorage = await uploadDocumento(file, funcionarioId);
       
-      // 2. Registro no banco
+      // 2. Registro no Banco (Agora o service aceita esses nomes de campo)
       const dadosRegistro = {
         funcionario_id: funcionarioId,
         nome_arquivo: formData.nome_arquivo,
         path_storage: pathStorage,
         categoria: formData.categoria,
-        data_documento: formData.data_documento || null,
+        tipo_arquivo: file.type,  // Importante para ícones
+        tamanho: file.size,       // Importante para metadados
+        data_documento: formData.data_documento || new Date(),
+        descricao: formData.descricao || null
       };
       
       const novoDocumento = await createDocumentoRegistro(dadosRegistro);
       
-      // 3. Atualização otimista da lista
+      // 3. Atualiza a lista na tela sem recarregar
       const cacheKey = ['documentos', funcionarioId];
       mutate(cacheKey, (dadosAntigos = []) => {
         return [novoDocumento, ...dadosAntigos];
       }, { revalidate: false });
       
-      toast.success('Documento salvo na pasta correta!');
+      toast.success('Documento salvo com sucesso!');
       handleCancel();
 
     } catch (err) {
+      console.error(err);
       toast.error(`Erro ao salvar: ${err.message}`);
     } finally {
       setIsSubmitting(false);
@@ -94,7 +108,6 @@ function DocumentoUploadForm({ funcionarioId }) {
 
   return (
     <div className="doc-upload-form">
-
       {isSubmitting && (
         <div className="doc-form-loading-overlay">
           <div className="doc-form-spinner"></div>
@@ -108,11 +121,14 @@ function DocumentoUploadForm({ funcionarioId }) {
           <div className="doc-form-group doc-upload-span-2">
             <label htmlFor="doc-dropzone-file">Arquivo *</label>
             <label className="doc-upload-label" htmlFor="doc-dropzone-file">
-              <span className="material-symbols-outlined" style={{fontSize: '40px', color: '#777'}}>cloud_upload</span>
+              <span className="material-symbols-outlined doc-upload-icon">cloud_upload</span>
               {file ? (
-                <p className="doc-file-name">{file.name}</p>
+                <p className="doc-file-name">
+                  <span className="material-symbols-outlined" style={{fontSize:'20px'}}>description</span>
+                  {file.name}
+                </p>
               ) : (
-                <p className="doc-upload-text"><span className="semibold">Clique para enviar</span> ou arraste e solte</p>
+                <p className="doc-upload-text"><span className="semibold">Clique para selecionar</span> ou arraste</p>
               )}
               <input 
                 id="doc-dropzone-file" 
@@ -123,7 +139,7 @@ function DocumentoUploadForm({ funcionarioId }) {
             </label>
           </div>
           
-          {/* Nome do Documento */}
+          {/* Campos de Texto */}
           <div className="doc-form-group">
             <label htmlFor="doc-nome">Nome do Documento *</label>
             <input 
@@ -138,9 +154,8 @@ function DocumentoUploadForm({ funcionarioId }) {
             />
           </div>
 
-          {/* SELEÇÃO DE CATEGORIA (Agora é um Select) */}
           <div className="doc-form-group">
-            <label htmlFor="doc-categoria">Pasta / Categoria *</label>
+            <label htmlFor="doc-categoria">Categoria *</label>
             <select 
               id="doc-categoria"
               name="categoria"
@@ -155,7 +170,6 @@ function DocumentoUploadForm({ funcionarioId }) {
             </select>
           </div>
 
-          {/* Data Opcional */}
           <div className="doc-form-group">
             <label htmlFor="doc-data">Data de Referência</label>
             <input 
@@ -167,12 +181,25 @@ function DocumentoUploadForm({ funcionarioId }) {
               disabled={isSubmitting}
             />
           </div>
+
+          <div className="doc-form-group">
+            <label htmlFor="doc-desc">Descrição (Opcional)</label>
+            <input 
+              id="doc-desc"
+              name="descricao"
+              type="text"
+              placeholder="Observações adicionais..."
+              value={formData.descricao}
+              onChange={handleChange}
+              disabled={isSubmitting}
+            />
+          </div>
         </div>
 
         <div className="doc-upload-footer">
-          <button type="submit" className="doc-button-primary" disabled={isSubmitting}>
+          <button type="submit" className="doc-button-primary" disabled={isSubmitting || !file}>
             <span className="material-symbols-outlined">save</span>
-            {isSubmitting ? 'Arquivando...' : 'Salvar Documento'}
+            {isSubmitting ? 'Salvando...' : 'Salvar Documento'}
           </button>
         </div>
       </form>

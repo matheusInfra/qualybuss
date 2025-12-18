@@ -7,7 +7,6 @@ import ModalConfirmacao from '../Modal/ModalConfirmacao';
 import ModalExportacao from './ModalExportacao';
 import './Documentos.css';
 
-// --- CONSTANTES E HELPERS (Mantidos) ---
 const ICONES_CATEGORIA = {
   "Admissão e Contratuais": "folder_shared",
   "Saúde e Segurança (SST)": "medical_services",
@@ -43,15 +42,12 @@ function DocumentoLista({ funcionarioId }) {
   const { mutate } = useSWRConfig();
   const [modalState, setModalState] = useState({ isOpen: false, doc: null });
   const [showExport, setShowExport] = useState(false);
-  
-  // [NOVO] Estado para controlar os IDs selecionados
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   const swrKey = ['documentos', funcionarioId];
   const { data: documentos, error, isLoading } = useSWR(swrKey, () => getDocumentosPorFuncionario(funcionarioId), { shouldRetryOnError: false });
   const { data: funcionario } = useSWR(['funcionario', funcionarioId], () => getFuncionarioById(funcionarioId));
 
-  // --- LÓGICA DE SELEÇÃO ---
   const toggleSelection = (id) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) {
@@ -67,22 +63,18 @@ function DocumentoLista({ funcionarioId }) {
     const allSelected = docsDaCategoria.every(d => newSet.has(d.id));
 
     if (allSelected) {
-      // Desmarcar todos desta categoria
       docsDaCategoria.forEach(d => newSet.delete(d.id));
     } else {
-      // Marcar todos desta categoria
       docsDaCategoria.forEach(d => newSet.add(d.id));
     }
     setSelectedIds(newSet);
   };
 
-  // Filtra os objetos completos baseados nos IDs selecionados para enviar ao Modal
   const documentosParaExportar = useMemo(() => {
     if (!documentos) return [];
     return documentos.filter(d => selectedIds.has(d.id));
   }, [documentos, selectedIds]);
 
-  // --- HANDLERS EXISTENTES ---
   const handleDownload = async (pathStorage, nomeArquivo) => {
     const toastId = toast.loading('Gerando link...');
     try {
@@ -107,7 +99,6 @@ function DocumentoLista({ funcionarioId }) {
     try {
       await deleteDocumento(modalState.doc.id, modalState.doc.path_storage);
       
-      // Remove da seleção se estiver lá
       if (selectedIds.has(modalState.doc.id)) {
         const newSet = new Set(selectedIds);
         newSet.delete(modalState.doc.id);
@@ -137,9 +128,9 @@ function DocumentoLista({ funcionarioId }) {
       <div className="toolbar-exportacao">
         <div className="selection-info">
           {selectedIds.size > 0 ? (
-            <span className="text-blue-600 font-bold">{selectedIds.size} arquivo(s) selecionado(s)</span>
+            <span className="selection-highlight">{selectedIds.size} arquivo(s) selecionado(s)</span>
           ) : (
-            <span className="text-gray-400">Selecione os arquivos para exportar</span>
+            <span className="selection-placeholder">Selecione os arquivos para exportar</span>
           )}
         </div>
 
@@ -162,7 +153,7 @@ function DocumentoLista({ funcionarioId }) {
             
             <div className="doc-category-header-row">
               <h2 className="doc-category-title">
-                <span className="material-symbols-outlined" style={{color:'#137fec'}}>
+                <span className="material-symbols-outlined doc-category-icon">
                   {ICONES_CATEGORIA[categoria] || 'folder'}
                 </span>
                 {categoria}
@@ -184,9 +175,8 @@ function DocumentoLista({ funcionarioId }) {
                   <div 
                     key={doc.id} 
                     className={`doc-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => toggleSelection(doc.id)} // Clique no card seleciona
+                    onClick={() => toggleSelection(doc.id)}
                   >
-                    {/* CHECKBOX CUSTOMIZADO */}
                     <div className="doc-checkbox-wrapper">
                       <div className={`custom-checkbox ${isSelected ? 'checked' : ''}`}>
                         {isSelected && <span className="material-symbols-outlined">check</span>}
@@ -195,8 +185,17 @@ function DocumentoLista({ funcionarioId }) {
 
                     <div className="doc-info">
                       <GetIconeArquivo nomeArquivo={doc.nome_arquivo} />
+                      
                       <div className="doc-details">
                         <span className="doc-name" title={doc.nome_arquivo}>{doc.nome_arquivo}</span>
+                        
+                        {/* NOVO: Exibe a descrição se existir */}
+                        {doc.descricao && (
+                          <span className="doc-description" title={doc.descricao}>
+                            {doc.descricao}
+                          </span>
+                        )}
+                        
                         <span className="doc-date">{formatarData(doc.data_documento)}</span>
                       </div>
                     </div>
@@ -227,7 +226,6 @@ function DocumentoLista({ funcionarioId }) {
         <p>Você tem certeza que deseja excluir <strong>{modalState.doc?.nome_arquivo}</strong>?</p>
       </ModalConfirmacao>
 
-      {/* Passamos os documentos ESPECÍFICOS selecionados */}
       <ModalExportacao 
         isOpen={showExport}
         onClose={() => setShowExport(false)}
