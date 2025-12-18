@@ -45,7 +45,7 @@ const friendlyNames = {
   endereco_numero: 'Número'
 };
 
-// --- SCHEMA DE VALIDAÇÃO (ZOD) ATUALIZADO E RIGOROSO ---
+// --- SCHEMA DE VALIDAÇÃO (ZOD) ---
 const funcionarioSchema = z.object({
   // Pessoal
   nome_completo: z.string().min(3, "Nome completo é obrigatório"),
@@ -55,7 +55,7 @@ const funcionarioSchema = z.object({
     .refine((val) => val.length > 0, "CPF é obrigatório")
     .refine((val) => cpf.isValid(val), "CPF inválido"),
   
-  rg: z.string().min(2, "RG é obrigatório"), // Obrigatório
+  rg: z.string().min(2, "RG é obrigatório"),
   
   genero: z.string().nullish().or(z.literal('')),
   estado_civil: z.string().nullish().or(z.literal('')),
@@ -72,19 +72,19 @@ const funcionarioSchema = z.object({
   endereco_estado: z.string().nullish().or(z.literal('')),
 
   // Contratual
-  empresa_id: z.string().min(1, "Selecione a Empresa"), // Obrigatório
+  empresa_id: z.string().min(1, "Selecione a Empresa"),
   id_matricula: z.string().nullish().or(z.literal('')),
   pis: z.string().nullish().or(z.literal('')),
   
-  cbo: z.string().min(1, "CBO é obrigatório"), // Obrigatório
+  cbo: z.string().min(1, "CBO é obrigatório"),
   
-  cargo: z.string().min(1, "Cargo é obrigatório"), // Obrigatório
+  cargo: z.string().min(1, "Cargo é obrigatório"),
   departamento: z.string().nullish().or(z.literal('')),
-  email_corporativo: z.string().email("E-mail inválido").min(1, "E-mail corporativo é obrigatório"), // Obrigatório
-  data_admissao: z.string().min(10, "Data de admissão obrigatória"), // Obrigatório
+  email_corporativo: z.string().email("E-mail inválido").min(1, "E-mail corporativo é obrigatório"),
+  data_admissao: z.string().min(10, "Data de admissão obrigatória"),
   tipo_contrato: z.string().optional(),
   
-  // Salário Obrigatório e Validado
+  // Salário Obrigatório
   salario_bruto: z.preprocess(
     (val) => {
       if (!val || String(val).trim() === '') return undefined;
@@ -117,6 +117,7 @@ function FuncionarioForm() {
   const [listaBancos, setListaBancos] = useState([]);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [modoMigracao, setModoMigracao] = useState(false);
+  const [pageError, setPageError] = useState(null);
 
   const numeroInputRef = useRef(null);
   const { id } = useParams();
@@ -164,7 +165,8 @@ function FuncionarioForm() {
         pis: funcionarioData.pis || '',
         cbo: funcionarioData.cbo || '',
         empresa_id: funcionarioData.empresa_id || '',
-        banco_conta_numero: funcionarioData.banco_conta || '', 
+        // Tenta ler 'conta' (padrão) ou 'banco_conta' (legado)
+        banco_conta_numero: funcionarioData.conta || funcionarioData.banco_conta || '', 
         banco_tipo_conta: funcionarioData.banco_tipo || 'Corrente',
       };
       
@@ -173,15 +175,14 @@ function FuncionarioForm() {
     }
   }, [funcionarioData, reset]);
 
-  // --- MECANISMO DE FEEDBACK DE ERRO E NAVEGAÇÃO ---
+  // Feedback de erro e navegação
   const onInvalid = (errors) => {
     const errorKeys = Object.keys(errors);
     
     if (errorKeys.length > 0) {
-      // 1. Identificar campos com nomes amigáveis para o usuário
       const missingFields = errorKeys
         .map(key => friendlyNames[key] || key)
-        .slice(0, 3); // Limita a 3 para não poluir o toast
+        .slice(0, 3);
       
       const more = errorKeys.length > 3 ? ` e mais ${errorKeys.length - 3}` : '';
       
@@ -191,7 +192,6 @@ function FuncionarioForm() {
         style: { border: '1px solid #ef4444', color: '#7f1d1d', background: '#fef2f2' }
       });
 
-      // 2. Trocar de aba automaticamente para o primeiro erro encontrado
       if (errorKeys.some(k => ['nome_completo','cpf','rg','data_nascimento','endereco_cep'].includes(k))) {
         setActiveTab('pessoal');
       } else if (errorKeys.some(k => ['empresa_id','cbo','cargo','salario_bruto','email_corporativo', 'data_admissao'].includes(k))) {
@@ -200,7 +200,6 @@ function FuncionarioForm() {
         setActiveTab('bancario');
       }
       
-      // 3. Foca no primeiro campo com erro
       try { setFocus(errorKeys[0]); } catch (e) {}
     }
   };
@@ -208,18 +207,24 @@ function FuncionarioForm() {
   const onSubmit = async (data) => {
     if (isLoading) return;
     setIsLoading(true);
+    setPageError(null);
 
     try {
       let payload = { ...data };
       payload.avatar_url = avatarUrl;
-      payload.banco_conta = data.banco_conta_numero;
+      
+      // CORREÇÃO: Usar coluna 'conta' em vez de 'banco_conta'
+      // O banco parece não ter 'banco_conta' baseado no log de erro
+      payload.conta = data.banco_conta_numero;
       payload.banco_tipo = data.banco_tipo_conta;
       
-      // Limpeza de campos virtuais
+      // Limpeza de campos que não são do banco
       delete payload.banco_conta_numero;
       delete payload.banco_tipo_conta;
       delete payload.inicio_periodo_migracao;
       delete payload.saldo_inicial_migracao;
+      // Garante que não envia banco_conta se não existir a coluna
+      delete payload.banco_conta; 
 
       // Sanitização
       if (payload.pis) payload.pis = payload.pis.replace(/\D/g, '');
@@ -231,11 +236,7 @@ function FuncionarioForm() {
       });
 
       if (isEditMode) {
-        // No modo edição, geralmente não alteramos o salário por aqui (usa-se histórico),
-        // mas o campo é obrigatório na validação para garantir integridade visual.
-        // Se desejar não enviar o salário no update, mantenha a linha abaixo:
-        delete payload.salario_bruto; 
-        
+        delete payload.salario_bruto; // Evita sobrescrever salário no update (deve usar histórico)
         await updateFuncionario(id, payload);
         toast.success('Atualizado com sucesso!');
         navigate('/funcionarios');
@@ -243,7 +244,7 @@ function FuncionarioForm() {
         const novoFunc = await createFuncionario(payload);
         const funcionarioId = novoFunc.id;
         
-        // Lógica de Férias (Migração vs Novo)
+        // Lógica de Férias
         if (modoMigracao) {
           if (data.inicio_periodo_migracao && data.saldo_inicial_migracao) {
             const inicio = new Date(data.inicio_periodo_migracao);
@@ -276,8 +277,16 @@ function FuncionarioForm() {
     } catch (err) {
       console.error("Erro no submit:", err);
       let errorMessage = "Erro ao salvar.";
-      if (err.message?.includes('funcionarios_cpf_key')) errorMessage = "CPF já cadastrado.";
-      else if (err.message) errorMessage = err.message;
+      
+      if (err.message?.includes('column') && err.message?.includes('does not exist')) {
+         errorMessage = "Erro de sistema: Coluna de banco não encontrada.";
+      } else if (err.message?.includes('funcionarios_cpf_key')) {
+         errorMessage = "CPF já cadastrado.";
+      } else if (err.message) {
+         errorMessage = err.message;
+      }
+      
+      setPageError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -302,7 +311,24 @@ function FuncionarioForm() {
     } catch (error) { }
   };
 
-  // Helper para combinar refs (React Hook Form + useRef manual)
+  const handleDeleteClick = () => setIsModalOpen(true);
+  
+  const handleConfirmDelete = async () => {
+    if (!isEditMode) return;
+    setIsLoading(true);
+    try {
+      await deleteFuncionario(id);
+      mutate('getFuncionarios');
+      toast.success('Excluído com sucesso!');
+      navigate('/funcionarios');
+    } catch (err) {
+      toast.error("Erro ao excluir.");
+      setIsLoading(false);
+      setIsModalOpen(false);
+    }
+  };
+
+  // Helper para combinar refs
   const mergeRefs = (...refs) => (value) => {
     refs.forEach((ref) => {
       if (typeof ref === "function") ref(value);
@@ -310,7 +336,7 @@ function FuncionarioForm() {
     });
   };
 
-  // Helper para classe CSS condicional de erro
+  // Classe CSS condicional para erro
   const getInputClass = (fieldName) => {
     return `form-control ${errors[fieldName] ? 'input-error' : ''}`;
   };
@@ -324,7 +350,7 @@ function FuncionarioForm() {
           <h2>{isEditMode ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
           <div className="form-actions space-between">
             {isEditMode && (
-              <button type="button" className="btn btn-danger" onClick={() => setIsModalOpen(true)}>
+              <button type="button" className="btn btn-danger" onClick={handleDeleteClick}>
                 <span className="material-symbols-outlined">delete</span> Excluir Funcionário
               </button>
             )}
@@ -372,7 +398,7 @@ function FuncionarioForm() {
             <div className="form-grid">
               <div className="form-group span-3">
                 <label>Nome Completo *</label>
-                <input type="text" {...register("nome_completo")} className={getInputClass('nome_completo')} placeholder="Nome legal completo" />
+                <input type="text" {...register("nome_completo")} className={getInputClass('nome_completo')} />
                 {errors.nome_completo && <span className="error-text">{errors.nome_completo.message}</span>}
               </div>
               
@@ -400,7 +426,6 @@ function FuncionarioForm() {
                       value={field.value || ''}
                       onAccept={(value) => field.onChange(value)}
                       className={getInputClass('telefone_celular')}
-                      placeholder="(99) 99999-9999"
                     />
                   )}
                 />
@@ -419,7 +444,6 @@ function FuncionarioForm() {
                       inputRef={ref}
                       onAccept={(val) => onChange(val)}
                       className={getInputClass('cpf')}
-                      placeholder="000.000.000-00"
                     />
                   )}
                 />
@@ -428,7 +452,7 @@ function FuncionarioForm() {
               
               <div className="form-group">
                 <label>RG *</label>
-                <input type="text" {...register("rg")} className={getInputClass('rg')} placeholder="Número do RG" />
+                <input type="text" {...register("rg")} className={getInputClass('rg')} />
                 {errors.rg && <span className="error-text">{errors.rg.message}</span>}
               </div>
               
@@ -499,7 +523,7 @@ function FuncionarioForm() {
               </div>
 
               <div className="form-group">
-                <label>PIS/PASEP</label>
+                <label style={{ color: '#005A9C' }}>PIS/PASEP</label>
                 <Controller
                   name="pis"
                   control={control}
@@ -509,14 +533,14 @@ function FuncionarioForm() {
                       value={field.value || ''}
                       onAccept={(value) => field.onChange(value)}
                       className="form-control"
-                      placeholder="Opcional"
+                      style={{ borderColor: '#005A9C' }}
                     />
                   )}
                 />
               </div>
 
               <div className="form-group">
-                <label>CBO (Cargo) *</label>
+                <label style={{ color: '#16a34a' }}>CBO (Importação) *</label>
                 <input type="text" {...register("cbo")} className={getInputClass('cbo')} placeholder="Ex: 212420" />
                 {errors.cbo && <span className="error-text">{errors.cbo.message}</span>}
               </div>
@@ -565,7 +589,6 @@ function FuncionarioForm() {
                     {...register("salario_bruto")}
                     disabled={isEditMode}
                     className={`${isEditMode ? "input-locked" : ""} ${getInputClass('salario_bruto')}`}
-                    placeholder="0.00"
                   />
                   {isEditMode && (
                     <button type="button" className="btn-icon-action" onClick={() => navigate('/salarios')}>
@@ -646,21 +669,26 @@ function FuncionarioForm() {
             </div>
           )}
         </div>
+        
+        {pageError && <div className="error-message-box" style={{color:'red', marginTop: '10px'}}>{pageError}</div>}
       </form>
 
-      <ModalConfirmacao isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={async () => {
-         try { await deleteFuncionario(id); toast.success('Excluído!'); navigate('/funcionarios'); } catch(e){ toast.error('Erro ao excluir'); }
-      }} title="Confirmar Exclusão">
+      <ModalConfirmacao isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleConfirmDelete} title="Confirmar Exclusão">
         <p>Esta ação é irreversível.</p>
       </ModalConfirmacao>
 
       {showWizardDocs && (
-        <div className="modal-overlay">
-           <div className="modal-content" style={{ maxWidth: '600px', padding: '30px' }}>
-              <h2>Cadastro Realizado!</h2>
-              <p>Deseja fazer upload dos documentos agora?</p>
-              {newFuncId && <DocumentoUploadForm funcionarioId={newFuncId} />}
-              <button className="button-primary mt-4" onClick={handleFinishWizard}>Concluir</button>
+        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
+           <div className="modal-content" style={{ maxWidth: '600px', padding: '30px', background: 'white', borderRadius: '12px' }}>
+              <div className="text-center" style={{ marginBottom: '20px', textAlign: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#10b981' }}>check_circle</span>
+                <h2 style={{ color: '#064e3b', margin: '10px 0' }}>Cadastro Realizado!</h2>
+              </div>
+              <div style={{ background: '#f0fdf4', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px dashed #86efac' }}>
+                <p>Deseja fazer upload dos documentos agora?</p>
+                {newFuncId && <DocumentoUploadForm funcionarioId={newFuncId} />}
+              </div>
+              <button className="button-primary mt-4" style={{width: '100%'}} onClick={handleFinishWizard}>Concluir</button>
            </div>
         </div>
       )}

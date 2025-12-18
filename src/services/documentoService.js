@@ -26,18 +26,32 @@ export const uploadDocumento = async (file, funcionarioId) => {
 /**
  * 2. SALVA O REGISTRO DO DOCUMENTO
  * Salva as informações (categoria, nome, etc.) na tabela 'documentos'
+ * CORREÇÃO: Mapeamento manual para garantir que 'nome_arquivo' seja preenchido
  */
 export const createDocumentoRegistro = async (dadosDocumento) => {
+  // Mapeia o objeto recebido para as colunas exatas do banco
+  const payload = {
+    funcionario_id: dadosDocumento.funcionario_id,
+    nome_arquivo: dadosDocumento.nome, // O banco espera 'nome_arquivo', mas o front envia 'nome'
+    categoria: dadosDocumento.categoria,
+    arquivo_url: dadosDocumento.arquivo_url,
+    tipo_arquivo: dadosDocumento.tipo_arquivo,
+    tamanho: dadosDocumento.tamanho,
+    descricao: dadosDocumento.descricao || null,
+    created_at: new Date()
+  };
+
   const { data, error } = await supabase
     .from('documentos')
-    .insert([dadosDocumento])
-    .select();
+    .insert([payload])
+    .select()
+    .single();
   
   if (error) {
     console.error("Erro ao salvar registro do documento:", error.message);
     throw error;
   }
-  return data[0];
+  return data;
 };
 
 /**
@@ -96,13 +110,14 @@ export const downloadArquivoParaBlob = async (pathStorage) => {
  */
 export const deleteDocumento = async (docId, pathStorage) => {
   // Passo 1: Deletar o arquivo do Storage
-  const { error: storageError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .remove([pathStorage]);
+  if (pathStorage) {
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove([pathStorage]);
 
-  if (storageError) {
-    console.error("Erro ao deletar arquivo do storage:", storageError.message);
-    // Continua para tentar deletar o registro do banco mesmo assim
+    if (storageError) {
+      console.warn("Aviso: Erro ao deletar arquivo do storage (pode já ter sido removido):", storageError.message);
+    }
   }
 
   // Passo 2: Deletar o registro da tabela 'documentos'

@@ -84,7 +84,7 @@ export const getFuncionarios = async ({ page = 1, limit = 10, search = '', statu
 
 // LISTAGEM PARA DROPDOWNS E IMPORTADOR
 export const getFuncionariosDropdown = async () => {
-  // ATUALIZAÇÃO: Adicionado 'cbo' na seleção para o importador de holerites
+  // ATUALIZAÇÃO: Mantido 'cbo' na seleção para o importador de holerites funcionar corretamente
   const { data, error } = await supabase
     .from('funcionarios')
     .select('id, nome_completo, cargo, cbo, avatar_url, departamento, empresa_id, email_corporativo, qtd_dependentes, data_admissao, pis') 

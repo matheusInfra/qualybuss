@@ -20,7 +20,7 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6'
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="custom-tooltip" style={{
+      <div style={{
         backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minWidth: '150px', zIndex: 100
       }}>
@@ -50,7 +50,7 @@ function DashboardPage() {
   const [showPendenciasModal, setShowPendenciasModal] = useState(false);
   const { mutate } = useSWRConfig();
   
-  // Ref para controlar o canal de subscription e evitar vazamento de memória ou erro de WS
+  // Ref para controlar canal realtime
   const channelRef = useRef(null);
 
   const keyKPIs = ['dashboard_kpis', filtroEmpresa];
@@ -65,36 +65,27 @@ function DashboardPage() {
   const { data: proximasFerias } = useSWR(keyFerias, () => getProximasFerias(filtroEmpresa));
   const { data: aniversariantes } = useSWR(keyAniversario, () => getAniversariantesMes(filtroEmpresa));
 
-  // --- CORREÇÃO WEBSOCKET (REALTIME) ---
+  // --- CORREÇÃO WEBSOCKET E MEMORY LEAK ---
   useEffect(() => {
-    // Se já existe um canal aberto, limpa antes de criar novo (evita duplicidade rápida)
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
     const channel = supabase
-      .channel(`dashboard-room-${Date.now()}`) // Nome único para evitar conflito
+      .channel(`dashboard-room-${Date.now()}`) // Nome único
       .on('postgres_changes', { event: '*', schema: 'public', table: 'funcionarios' }, () => {
         mutate(keyKPIs); mutate(keyEstrategicos); mutate(keyHistorico); mutate(keyAniversario);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes_ausencia' }, () => {
         mutate(keyKPIs); mutate(keyFerias);
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          // Conectado com sucesso
-        }
-      });
+      .subscribe();
 
     channelRef.current = channel;
 
     return () => {
-      // Cleanup seguro
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current).catch(err => {
-           // Ignora erro de fechamento se o socket já caiu
-           console.warn("Aviso de cleanup WS:", err.message); 
-        });
+        supabase.removeChannel(channelRef.current).catch(err => console.warn(err));
         channelRef.current = null;
       }
     };
@@ -190,14 +181,14 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Gráficos - CORREÇÃO RECHARTS: Wrapper explícito e width 99% */}
+      {/* Gráficos - BLINDAGEM RECHARTS */}
       <div className="charts-section">
         <div className="chart-card">
           <h3>📈 Evolução da Folha</h3>
-          {/* Wrapper com altura fixa e width 99% para forçar layout */}
-          <div className="chart-wrapper-fixed">
+          {/* Estilo forçado para corrigir erro width(-1) */}
+          <div style={{ width: '99%', height: '300px', minWidth: '300px', display: 'block', position: 'relative' }}>
             {listaHistorico && listaHistorico.length > 0 ? (
-              <ResponsiveContainer width="99%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" debounce={50}>
                 <AreaChart data={listaHistorico}>
                   <defs>
                     <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
@@ -215,7 +206,7 @@ function DashboardPage() {
                     dy={10}
                     minTickGap={30}
                   />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Area
                     type="monotone"
                     dataKey="total_folha"
@@ -224,7 +215,7 @@ function DashboardPage() {
                     strokeWidth={2}
                     fill="url(#colorFolha)"
                     activeDot={{ r: 5, strokeWidth: 0 }}
-                    isAnimationActive={false} // Desabilita animação inicial para evitar erro de cálculo rápido
+                    isAnimationActive={false} // Desabilita animação inicial para estabilidade
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -239,9 +230,9 @@ function DashboardPage() {
 
         <div className="chart-card">
           <h3>🏢 Distribuição por Departamento</h3>
-          <div className="chart-wrapper-fixed">
+          <div style={{ width: '99%', height: '300px', minWidth: '300px', display: 'block', position: 'relative' }}>
             {graficoDeptos && graficoDeptos.length > 0 ? (
-              <ResponsiveContainer width="99%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" debounce={50}>
                 <PieChart>
                   <Pie
                     data={graficoDeptos}
@@ -251,7 +242,7 @@ function DashboardPage() {
                     outerRadius={80}
                     paddingAngle={2}
                     dataKey="value"
-                    isAnimationActive={false} // Estabilidade visual
+                    isAnimationActive={false}
                   >
                     {graficoDeptos.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
@@ -270,7 +261,7 @@ function DashboardPage() {
               </ResponsiveContainer>
             ) : (
               <div className="chart-empty">
-                 <p>{loadingStrat ? 'Carregando dados...' : 'Sem dados de departamentos.'}</p>
+                 <p>{loadingStrat ? 'Carregando...' : 'Sem dados.'}</p>
               </div>
             )}
           </div>
