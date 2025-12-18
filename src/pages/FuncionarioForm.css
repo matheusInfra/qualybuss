@@ -94,17 +94,24 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea { /* Adicionado textarea aqui */
   padding: 0.65rem;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 0.95rem;
   background-color: white;
   transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.form-group textarea {
+  resize: vertical;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: var(--primary-500);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -263,7 +270,7 @@ input:checked + .slider:before {
   }
 }
 
-/* FEEDBACK DE ERRO (NOVO) */
+/* FEEDBACK DE ERRO */
 .input-error {
   border-color: #ef4444 !important;
   background-color: #fef2f2 !important;

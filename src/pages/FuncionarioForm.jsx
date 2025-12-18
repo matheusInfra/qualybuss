@@ -28,7 +28,7 @@ import DocumentoUploadForm from '../components/Documentos/DocumentoUploadForm';
 
 import './FuncionarioForm.css';
 
-// --- MAPA DE NOMES AMIGÁVEIS PARA FEEDBACK DE ERRO ---
+// --- MAPA DE NOMES AMIGÁVEIS PARA FEEDBACK ---
 const friendlyNames = {
   nome_completo: 'Nome Completo',
   cpf: 'CPF',
@@ -41,11 +41,12 @@ const friendlyNames = {
   data_nascimento: 'Data de Nascimento',
   data_admissao: 'Data de Admissão',
   endereco_cep: 'CEP',
-  endereco_rua: 'Rua',
-  endereco_numero: 'Número'
+  banco_conta_numero: 'Conta Bancária',
+  banco_tipo_conta: 'Tipo de Conta',
+  observacoes: 'Observações'
 };
 
-// --- SCHEMA DE VALIDAÇÃO (ZOD) ---
+// --- SCHEMA VALIDADO COM O BANCO DE DADOS ---
 const funcionarioSchema = z.object({
   // Pessoal
   nome_completo: z.string().min(3, "Nome completo é obrigatório"),
@@ -96,16 +97,18 @@ const funcionarioSchema = z.object({
 
   status: z.string().optional(),
 
-  // Bancário
+  // Bancário - NOMES EXATOS DO BANCO
   banco_nome: z.string().nullish().or(z.literal('')),
   banco_agencia: z.string().nullish().or(z.literal('')),
   banco_conta_numero: z.string().nullish().or(z.literal('')),
   banco_tipo_conta: z.string().nullish().or(z.literal('')),
 
+  // Campo Observações
+  observacoes: z.string().nullish().or(z.literal('')),
+
   // Campos Virtuais
   inicio_periodo_migracao: z.string().optional(),
   saldo_inicial_migracao: z.string().optional(),
-  observacoes: z.string().optional(),
 });
 
 function FuncionarioForm() {
@@ -140,7 +143,8 @@ function FuncionarioForm() {
       tipo_contrato: 'CLT',
       banco_tipo_conta: 'Corrente',
       pis: '',
-      cbo: ''
+      cbo: '',
+      observacoes: ''
     }
   });
 
@@ -165,9 +169,11 @@ function FuncionarioForm() {
         pis: funcionarioData.pis || '',
         cbo: funcionarioData.cbo || '',
         empresa_id: funcionarioData.empresa_id || '',
-        // Tenta ler 'conta' (padrão) ou 'banco_conta' (legado)
-        banco_conta_numero: funcionarioData.conta || funcionarioData.banco_conta || '', 
-        banco_tipo_conta: funcionarioData.banco_tipo || 'Corrente',
+        
+        // Mapeamento Direto
+        banco_conta_numero: funcionarioData.banco_conta_numero || '', 
+        banco_tipo_conta: funcionarioData.banco_tipo_conta || 'Corrente',
+        observacoes: funcionarioData.observacoes || '',
       };
       
       reset(formattedData);
@@ -175,7 +181,6 @@ function FuncionarioForm() {
     }
   }, [funcionarioData, reset]);
 
-  // Feedback de erro e navegação
   const onInvalid = (errors) => {
     const errorKeys = Object.keys(errors);
     
@@ -186,7 +191,7 @@ function FuncionarioForm() {
       
       const more = errorKeys.length > 3 ? ` e mais ${errorKeys.length - 3}` : '';
       
-      toast.error(`Verifique os campos obrigatórios: ${missingFields.join(', ')}${more}`, {
+      toast.error(`Verifique os campos: ${missingFields.join(', ')}${more}`, {
         duration: 5000,
         position: 'top-center',
         style: { border: '1px solid #ef4444', color: '#7f1d1d', background: '#fef2f2' }
@@ -194,7 +199,7 @@ function FuncionarioForm() {
 
       if (errorKeys.some(k => ['nome_completo','cpf','rg','data_nascimento','endereco_cep'].includes(k))) {
         setActiveTab('pessoal');
-      } else if (errorKeys.some(k => ['empresa_id','cbo','cargo','salario_bruto','email_corporativo', 'data_admissao'].includes(k))) {
+      } else if (errorKeys.some(k => ['empresa_id','cbo','cargo','salario_bruto','email_corporativo'].includes(k))) {
         setActiveTab('contratual');
       } else if (errorKeys.some(k => k.includes('banco'))) {
         setActiveTab('bancario');
@@ -213,18 +218,9 @@ function FuncionarioForm() {
       let payload = { ...data };
       payload.avatar_url = avatarUrl;
       
-      // CORREÇÃO: Usar coluna 'conta' em vez de 'banco_conta'
-      // O banco parece não ter 'banco_conta' baseado no log de erro
-      payload.conta = data.banco_conta_numero;
-      payload.banco_tipo = data.banco_tipo_conta;
-      
-      // Limpeza de campos que não são do banco
-      delete payload.banco_conta_numero;
-      delete payload.banco_tipo_conta;
+      // Limpeza de campos virtuais
       delete payload.inicio_periodo_migracao;
       delete payload.saldo_inicial_migracao;
-      // Garante que não envia banco_conta se não existir a coluna
-      delete payload.banco_conta; 
 
       // Sanitização
       if (payload.pis) payload.pis = payload.pis.replace(/\D/g, '');
@@ -236,7 +232,7 @@ function FuncionarioForm() {
       });
 
       if (isEditMode) {
-        delete payload.salario_bruto; // Evita sobrescrever salário no update (deve usar histórico)
+        delete payload.salario_bruto; // Salário via histórico
         await updateFuncionario(id, payload);
         toast.success('Atualizado com sucesso!');
         navigate('/funcionarios');
@@ -279,7 +275,7 @@ function FuncionarioForm() {
       let errorMessage = "Erro ao salvar.";
       
       if (err.message?.includes('column') && err.message?.includes('does not exist')) {
-         errorMessage = "Erro de sistema: Coluna de banco não encontrada.";
+         errorMessage = `Erro de Schema: Coluna inexistente (${err.message}).`;
       } else if (err.message?.includes('funcionarios_cpf_key')) {
          errorMessage = "CPF já cadastrado.";
       } else if (err.message) {
@@ -287,7 +283,7 @@ function FuncionarioForm() {
       }
       
       setPageError(errorMessage);
-      toast.error(errorMessage);
+      toast.error("Não foi possível salvar.");
     } finally {
       setIsLoading(false);
     }
@@ -328,7 +324,6 @@ function FuncionarioForm() {
     }
   };
 
-  // Helper para combinar refs
   const mergeRefs = (...refs) => (value) => {
     refs.forEach((ref) => {
       if (typeof ref === "function") ref(value);
@@ -336,10 +331,7 @@ function FuncionarioForm() {
     });
   };
 
-  // Classe CSS condicional para erro
-  const getInputClass = (fieldName) => {
-    return `form-control ${errors[fieldName] ? 'input-error' : ''}`;
-  };
+  const getInputClass = (fieldName) => `form-control ${errors[fieldName] ? 'input-error' : ''}`;
 
   if (isFetching && isEditMode) return <div className="loading-state">Carregando dados...</div>;
 
@@ -365,35 +357,21 @@ function FuncionarioForm() {
           <AvatarUpload url={avatarUrl} onUpload={setAvatarUrl} />
         </div>
 
-        {/* ABAS COM INDICADORES DE ERRO */}
         <div className="form-tabs">
-          <button 
-            type="button" 
-            onClick={() => setActiveTab('pessoal')} 
-            className={`tab-btn ${activeTab === 'pessoal' ? 'active' : ''} ${Object.keys(errors).some(k => ['nome_completo','cpf','rg','data_nascimento'].includes(k)) ? 'tab-error' : ''}`}
-          >
+          <button type="button" onClick={() => setActiveTab('pessoal')} className={`tab-btn ${activeTab === 'pessoal' ? 'active' : ''} ${Object.keys(errors).some(k => ['nome_completo','cpf','rg'].includes(k)) ? 'tab-error' : ''}`}>
             Dados Pessoais
-            {Object.keys(errors).some(k => ['nome_completo','cpf','rg','data_nascimento'].includes(k)) && <span className="error-dot">•</span>}
+            {Object.keys(errors).some(k => ['nome_completo','cpf','rg'].includes(k)) && <span className="error-dot">•</span>}
           </button>
-          
-          <button 
-            type="button" 
-            onClick={() => setActiveTab('contratual')} 
-            className={`tab-btn ${activeTab === 'contratual' ? 'active' : ''} ${Object.keys(errors).some(k => ['salario_bruto','cargo','empresa_id','cbo','data_admissao'].includes(k)) ? 'tab-error' : ''}`}
-          >
+          <button type="button" onClick={() => setActiveTab('contratual')} className={`tab-btn ${activeTab === 'contratual' ? 'active' : ''} ${Object.keys(errors).some(k => ['salario_bruto','cargo','empresa_id'].includes(k)) ? 'tab-error' : ''}`}>
             Dados Contratuais
-            {Object.keys(errors).some(k => ['salario_bruto','cargo','empresa_id','cbo','data_admissao'].includes(k)) && <span className="error-dot">•</span>}
+            {Object.keys(errors).some(k => ['salario_bruto','cargo','empresa_id'].includes(k)) && <span className="error-dot">•</span>}
           </button>
-          
-          <button type="button" onClick={() => setActiveTab('bancario')} className={`tab-btn ${activeTab === 'bancario' ? 'active' : ''}`}>
-            Dados Bancários
-          </button>
-          
-          {isEditMode && <button type="button" onClick={() => setActiveTab('historico')} className={`tab-btn ${activeTab === 'historico' ? 'active' : ''}`}>Histórico</button>}
+          <button type="button" onClick={() => setActiveTab('bancario')} className={`tab-btn ${activeTab === 'bancario' ? 'active' : ''}`}>Dados Bancários</button>
+          {isEditMode && <button type="button" onClick={() => setActiveTab('historico')} className="tab-btn">Histórico</button>}
         </div>
 
         <div className="form-content">
-          {/* ================= ABA PESSOAL ================= */}
+          {/* ABA PESSOAL */}
           {activeTab === 'pessoal' && (
             <div className="form-grid">
               <div className="form-group span-3">
@@ -401,259 +379,108 @@ function FuncionarioForm() {
                 <input type="text" {...register("nome_completo")} className={getInputClass('nome_completo')} />
                 {errors.nome_completo && <span className="error-text">{errors.nome_completo.message}</span>}
               </div>
-              
               <div className="form-group">
                 <label>Data de Nascimento *</label>
                 <input type="date" {...register("data_nascimento")} className={getInputClass('data_nascimento')} />
                 {errors.data_nascimento && <span className="error-text">{errors.data_nascimento.message}</span>}
               </div>
-              
               <div className="form-group span-2">
                 <label>Email Pessoal</label>
                 <input type="email" {...register("email_pessoal")} className={getInputClass('email_pessoal')} />
                 {errors.email_pessoal && <span className="error-text">{errors.email_pessoal.message}</span>}
               </div>
-              
               <div className="form-group span-2">
                 <label>Telefone Celular</label>
-                <Controller
-                  name="telefone_celular"
-                  control={control}
-                  render={({ field }) => (
-                    <IMaskInput
-                      mask="(00) 00000-0000"
-                      name={field.name}
-                      value={field.value || ''}
-                      onAccept={(value) => field.onChange(value)}
-                      className={getInputClass('telefone_celular')}
-                    />
+                <Controller name="telefone_celular" control={control} render={({ field }) => (
+                    <IMaskInput mask="(00) 00000-0000" name={field.name} value={field.value || ''} onAccept={(value) => field.onChange(value)} className={getInputClass('telefone_celular')} />
                   )}
                 />
               </div>
-              
               <div className="form-group">
                 <label>CPF *</label>
-                <Controller
-                  name="cpf"
-                  control={control}
-                  render={({ field: { onChange, value, ref, ...fieldRest } }) => (
-                    <IMaskInput
-                      {...fieldRest}
-                      mask="000.000.000-00"
-                      value={value || ''}
-                      inputRef={ref}
-                      onAccept={(val) => onChange(val)}
-                      className={getInputClass('cpf')}
-                    />
+                <Controller name="cpf" control={control} render={({ field: { onChange, value, ref, ...fieldRest } }) => (
+                    <IMaskInput {...fieldRest} mask="000.000.000-00" value={value || ''} inputRef={ref} onAccept={(val) => onChange(val)} className={getInputClass('cpf')} />
                   )}
                 />
                 {errors.cpf && <span className="error-text">{errors.cpf.message}</span>}
               </div>
-              
               <div className="form-group">
                 <label>RG *</label>
                 <input type="text" {...register("rg")} className={getInputClass('rg')} />
                 {errors.rg && <span className="error-text">{errors.rg.message}</span>}
               </div>
-              
-              <div className="form-group">
-                <label>Gênero</label>
-                <select {...register("genero")} className="form-control">
-                  <option value="">Selecione</option>
-                  <option value="Masculino">Masculino</option>
-                  <option value="Feminino">Feminino</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label>Estado Civil</label>
-                <select {...register("estado_civil")} className="form-control">
-                  <option value="">Selecione</option>
-                  <option value="Solteiro">Solteiro(a)</option>
-                  <option value="Casado">Casado(a)</option>
-                  <option value="Divorciado">Divorciado(a)</option>
-                </select>
-              </div>
-
+              <div className="form-group"><label>Gênero</label><select {...register("genero")} className="form-control"><option value="">Selecione</option><option value="Masculino">Masculino</option><option value="Feminino">Feminino</option></select></div>
+              <div className="form-group"><label>Estado Civil</label><select {...register("estado_civil")} className="form-control"><option value="">Selecione</option><option value="Solteiro">Solteiro</option><option value="Casado">Casado</option></select></div>
               <div className="form-group span-4"><hr /><h4>Endereço Residencial</h4></div>
-              <div className="form-group">
-                <label>CEP</label>
-                <Controller
-                  name="endereco_cep"
-                  control={control}
-                  render={({ field: { onChange, value, ref, ...fieldRest } }) => (
-                    <IMaskInput
-                      {...fieldRest}
-                      mask="00000-000"
-                      value={value || ''}
-                      inputRef={ref}
-                      onAccept={(val) => onChange(val)}
-                      onBlur={handleCepBlur}
-                      className={getInputClass('endereco_cep')}
-                    />
-                  )}
-                />
-                 {errors.endereco_cep && <span className="error-text">{errors.endereco_cep.message}</span>}
-              </div>
-              <div className="form-group span-3"><label>Rua/Logradouro</label><input type="text" {...register("endereco_rua")} className="form-control"/></div>
-              
-              <div className="form-group">
-                <label>Número</label>
-                <input type="text" {...register("endereco_numero")} ref={mergeRefs(register("endereco_numero").ref, numeroInputRef)} className="form-control"/>
-              </div>
-              
-              <div className="form-group"><label>Bairro</label><input type="text" {...register("endereco_bairro")} className="form-control"/></div>
-              <div className="form-group"><label>Cidade</label><input type="text" {...register("endereco_cidade")} className="form-control"/></div>
+              <div className="form-group"><label>CEP</label><Controller name="endereco_cep" control={control} render={({ field: { onChange, value, ref, ...fieldRest } }) => (<IMaskInput {...fieldRest} mask="00000-000" value={value || ''} inputRef={ref} onAccept={(val) => onChange(val)} onBlur={handleCepBlur} className={getInputClass('endereco_cep')} />)} /> {errors.endereco_cep && <span className="error-text">{errors.endereco_cep.message}</span>}</div>
+              <div className="form-group span-3"><label>Rua</label><input type="text" {...register("endereco_rua")} className="form-control" /></div>
+              <div className="form-group"><label>Número</label><input type="text" {...register("endereco_numero")} ref={mergeRefs(register("endereco_numero").ref, numeroInputRef)} className="form-control" /></div>
+              <div className="form-group"><label>Bairro</label><input type="text" {...register("endereco_bairro")} className="form-control" /></div>
+              <div className="form-group"><label>Cidade</label><input type="text" {...register("endereco_cidade")} className="form-control" /></div>
               <div className="form-group"><label>UF</label><input type="text" {...register("endereco_estado")} maxLength="2" className="form-control uppercase-input" /></div>
-              <div className="form-group span-4"><label>Complemento</label><input type="text" {...register("endereco_complemento")} className="form-control"/></div>
+              <div className="form-group span-4"><label>Complemento</label><input type="text" {...register("endereco_complemento")} className="form-control" /></div>
             </div>
           )}
 
-          {/* ================= ABA CONTRATUAL ================= */}
+          {/* ABA CONTRATUAL */}
           {activeTab === 'contratual' && (
             <div className="form-grid">
               <div className="form-group span-2">
-                <label>Empresa Vinculada *</label>
+                <label>Empresa *</label>
                 <select {...register("empresa_id")} disabled={loadingEmpresas} className={getInputClass('empresa_id')}>
                   <option value="">Selecione...</option>
                   {listaEmpresas?.map(emp => (<option key={emp.id} value={emp.id}>{emp.nome_fantasia}</option>))}
                 </select>
                 {errors.empresa_id && <span className="error-text">{errors.empresa_id.message}</span>}
               </div>
-
+              <div className="form-group"><label>PIS</label><Controller name="pis" control={control} render={({ field }) => (<IMaskInput mask="000.00000.00-0" value={field.value || ''} onAccept={(value) => field.onChange(value)} className="form-control" />)} /></div>
+              <div className="form-group"><label>CBO *</label><input type="text" {...register("cbo")} className={getInputClass('cbo')} />{errors.cbo && <span className="error-text">{errors.cbo.message}</span>}</div>
+              <div className="form-group"><label>Matrícula</label><input type="text" {...register("id_matricula")} className="form-control" /></div>
+              <div className="form-group span-2"><label>Email Corporativo *</label><input type="email" {...register("email_corporativo")} className={getInputClass('email_corporativo')} />{errors.email_corporativo && <span className="error-text">{errors.email_corporativo.message}</span>}</div>
+              <div className="form-group"><label>Cargo *</label><input type="text" {...register("cargo")} className={getInputClass('cargo')} />{errors.cargo && <span className="error-text">{errors.cargo.message}</span>}</div>
+              <div className="form-group"><label>Departamento</label><input type="text" {...register("departamento")} className="form-control" /></div>
+              <div className="form-group"><label>Admissão *</label><input type="date" {...register("data_admissao")} className={getInputClass('data_admissao')} />{errors.data_admissao && <span className="error-text">{errors.data_admissao.message}</span>}</div>
+              <div className="form-group"><label>Contrato</label><select {...register("tipo_contrato")} className="form-control"><option value="CLT">CLT</option><option value="PJ">PJ</option><option value="Estagio">Estágio</option></select></div>
               <div className="form-group">
-                <label style={{ color: '#005A9C' }}>PIS/PASEP</label>
-                <Controller
-                  name="pis"
-                  control={control}
-                  render={({ field }) => (
-                    <IMaskInput
-                      mask="000.00000.00-0"
-                      value={field.value || ''}
-                      onAccept={(value) => field.onChange(value)}
-                      className="form-control"
-                      style={{ borderColor: '#005A9C' }}
-                    />
-                  )}
-                />
-              </div>
-
-              <div className="form-group">
-                <label style={{ color: '#16a34a' }}>CBO (Importação) *</label>
-                <input type="text" {...register("cbo")} className={getInputClass('cbo')} placeholder="Ex: 212420" />
-                {errors.cbo && <span className="error-text">{errors.cbo.message}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Matrícula</label>
-                <input type="text" {...register("id_matricula")} className="form-control" />
-              </div>
-
-              <div className="form-group span-2">
-                <label>Email Corporativo *</label>
-                <input type="email" {...register("email_corporativo")} className={getInputClass('email_corporativo')} />
-                {errors.email_corporativo && <span className="error-text">{errors.email_corporativo.message}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Cargo *</label>
-                <input type="text" {...register("cargo")} className={getInputClass('cargo')} />
-                {errors.cargo && <span className="error-text">{errors.cargo.message}</span>}
-              </div>
-
-              <div className="form-group"><label>Departamento</label><input type="text" {...register("departamento")} className="form-control"/></div>
-              
-              <div className="form-group">
-                <label>Data de Admissão *</label>
-                <input type="date" {...register("data_admissao")} className={getInputClass('data_admissao')} />
-                {errors.data_admissao && <span className="error-text">{errors.data_admissao.message}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Tipo de Contrato</label>
-                <select {...register("tipo_contrato")} className="form-control">
-                  <option value="CLT">CLT</option><option value="PJ">PJ</option><option value="Estagio">Estágio</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="label-with-icon">
-                  Salário Bruto *
-                  {isEditMode && <span className="material-symbols-outlined icon-small" title="Campo Protegido">lock</span>}
-                </label>
+                <label>Salário *</label>
                 <div style={{ display: 'flex', gap: '5px' }}>
-                  <input
-                    type="number"
-                    step="0.01"
-                    {...register("salario_bruto")}
-                    disabled={isEditMode}
-                    className={`${isEditMode ? "input-locked" : ""} ${getInputClass('salario_bruto')}`}
-                  />
-                  {isEditMode && (
-                    <button type="button" className="btn-icon-action" onClick={() => navigate('/salarios')}>
-                      <span className="material-symbols-outlined">payments</span>
-                    </button>
-                  )}
+                  <input type="number" step="0.01" {...register("salario_bruto")} disabled={isEditMode} className={isEditMode ? "input-locked" : getInputClass('salario_bruto')} />
+                  {isEditMode && <button type="button" className="btn-icon-action" onClick={() => navigate('/salarios')}><span className="material-symbols-outlined">payments</span></button>}
                 </div>
                 {errors.salario_bruto && <span className="error-text">{errors.salario_bruto.message}</span>}
               </div>
-
-              <div className="form-group">
-                <label>Status</label>
-                <select {...register("status")} className="form-control">
-                  <option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>
-                </select>
+              <div className="form-group"><label>Status</label><select {...register("status")} className="form-control"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select></div>
+              
+              {/* CAMPO OBSERVAÇÕES */}
+              <div className="form-group span-4">
+                <label>Observações</label>
+                <textarea {...register("observacoes")} className="form-control" rows="3" placeholder="Anotações internas..."></textarea>
               </div>
 
               {!isEditMode && (
                 <div className="form-group span-4 ferias-setup-box">
-                  <h4>Configuração Inicial de Férias</h4>
                   <div className="switch-wrapper">
-                    <label className="switch-label">
-                      <input type="checkbox" checked={modoMigracao} onChange={(e) => setModoMigracao(e.target.checked)} />
-                      <span className="slider"></span>
-                      <span className="label-text">
-                        {modoMigracao ? "Modo Migração (Colaborador Antigo)" : "Novo Colaborador (Início Imediato)"}
-                      </span>
-                    </label>
+                    <label className="switch-label"><input type="checkbox" checked={modoMigracao} onChange={(e) => setModoMigracao(e.target.checked)} /><span className="slider"></span><span className="label-text">Modo Migração</span></label>
                   </div>
-                  {modoMigracao && (
-                    <div className="migracao-inputs">
-                      <div className="form-group">
-                        <label>Início do Período VIGENTE</label>
-                        <input type="date" {...register('inicio_periodo_migracao')} className="form-control" />
-                      </div>
-                      <div className="form-group">
-                        <label>Saldo Disponível (Dias)</label>
-                        <input type="number" {...register('saldo_inicial_migracao')} placeholder="Ex: 30" className="form-control" />
-                      </div>
-                    </div>
-                  )}
+                  {modoMigracao && (<div className="migracao-inputs"><div className="form-group"><label>Início Período</label><input type="date" {...register('inicio_periodo_migracao')} className="form-control" /></div><div className="form-group"><label>Saldo Dias</label><input type="number" {...register('saldo_inicial_migracao')} className="form-control" /></div></div>)}
                 </div>
               )}
             </div>
           )}
 
-          {/* ================= ABA BANCÁRIO ================= */}
+          {/* ABA BANCÁRIO */}
           {activeTab === 'bancario' && (
             <div className="form-grid">
               <div className="form-group">
                 <label>Banco</label>
-                <select {...register("banco_nome")} className="form-control">
-                  <option value="">Selecione...</option>
-                  {listaBancos.map(banco => (
-                    <option key={banco.code} value={`${banco.code} - ${banco.name}`}>{banco.code} - {banco.name}</option>
-                  ))}
-                </select>
+                <select {...register("banco_nome")} className="form-control"><option value="">Selecione...</option>{listaBancos.map(b => (<option key={b.code} value={`${b.code} - ${b.name}`}>{b.code} - {b.name}</option>))}</select>
               </div>
               <div className="form-group"><label>Agência</label><input type="text" {...register("banco_agencia")} className="form-control" /></div>
               <div className="form-group"><label>Conta</label><input type="text" {...register("banco_conta_numero")} className="form-control" /></div>
               <div className="form-group">
-                <label>Tipo de Conta</label>
+                <label>Tipo</label>
                 <select {...register("banco_tipo_conta")} className="form-control">
-                  <option value="Corrente">Conta Corrente</option><option value="Poupanca">Conta Poupança</option>
-                  <option value="Salario">Conta Salário</option>
+                  <option value="Corrente">Corrente</option><option value="Poupanca">Poupança</option><option value="Salario">Salário</option>
                 </select>
               </div>
             </div>
@@ -661,34 +488,30 @@ function FuncionarioForm() {
 
           {isEditMode && activeTab === 'historico' && (
             <div className="historico-container">
-              <h3>Histórico Funcional</h3>
+              <h3>Histórico</h3>
               <HistoricoMovimentacoes funcionarioId={id} />
               <div className="divider-full"></div>
-              <h3>Trilha de Auditoria</h3>
               <TimelineAuditoria registroId={id} />
             </div>
           )}
         </div>
         
-        {pageError && <div className="error-message-box" style={{color:'red', marginTop: '10px'}}>{pageError}</div>}
+        {pageError && <div className="error-message-box" style={{color:'red', marginTop:'10px', fontWeight:'bold'}}>{pageError}</div>}
       </form>
 
       <ModalConfirmacao isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleConfirmDelete} title="Confirmar Exclusão">
-        <p>Esta ação é irreversível.</p>
+        <p>Ação irreversível.</p>
       </ModalConfirmacao>
 
       {showWizardDocs && (
         <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
-           <div className="modal-content" style={{ maxWidth: '600px', padding: '30px', background: 'white', borderRadius: '12px' }}>
-              <div className="text-center" style={{ marginBottom: '20px', textAlign: 'center' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#10b981' }}>check_circle</span>
-                <h2 style={{ color: '#064e3b', margin: '10px 0' }}>Cadastro Realizado!</h2>
-              </div>
-              <div style={{ background: '#f0fdf4', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px dashed #86efac' }}>
-                <p>Deseja fazer upload dos documentos agora?</p>
+           <div className="modal-content" style={{ maxWidth: '600px', padding: '30px' }}>
+              <h2 style={{ color: '#064e3b' }}>Sucesso!</h2>
+              <div style={{ background: '#f0fdf4', padding: '15px', borderRadius: '8px', margin: '20px 0' }}>
+                <p>Upload de documentos agora?</p>
                 {newFuncId && <DocumentoUploadForm funcionarioId={newFuncId} />}
               </div>
-              <button className="button-primary mt-4" style={{width: '100%'}} onClick={handleFinishWizard}>Concluir</button>
+              <button className="button-primary" onClick={handleFinishWizard}>Concluir</button>
            </div>
         </div>
       )}

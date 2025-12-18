@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import { differenceInMonths, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 /**
- * Utilitário para validar o ID da empresa
+ * Valida se o ID da empresa é válido para filtros.
  */
 const validarEmpresaId = (id) => {
   if (!id || typeof id !== 'string') return null;
@@ -11,25 +11,41 @@ const validarEmpresaId = (id) => {
   return id;
 };
 
-// --- KPI 1: Indicadores Gerais (Topo do Dashboard) ---
+/**
+ * Retorna a data atual no formato YYYY-MM-DD considerando o fuso horário local.
+ * Essencial para comparar com colunas do tipo 'date' no Postgres.
+ */
+const getHojeLocal = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const localDate = new Date(now.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
+};
+
+/**
+ * KPI 1: Indicadores Gerais (Topo do Dashboard)
+ */
 export const getDashboardKPIs = async (empresaIdRaw = null) => {
   const empresaId = validarEmpresaId(empresaIdRaw);
+  const hoje = getHojeLocal();
 
-  // CORREÇÃO: Removidas colunas especulativas (salario_base, salario).
-  // Usa apenas salario_bruto que é garantido pelo seu formulário.
+  // 1. Funcionários Ativos e Folha
   let queryFunc = supabase
     .from('funcionarios')
     .select('salario_bruto, empresa_id', { count: 'exact' })
     .eq('status', 'Ativo');
 
+  // 2. Ausentes Hoje (Lógica Corrigida de Data)
+  // Conta registros Aprovados onde Hoje está entre Inicio e Fim
   let queryAus = supabase.from('solicitacoes_ausencia')
-    .select('funcionario_id, funcionarios!inner(empresa_id)')
+    .select('id, funcionario_id, funcionarios!inner(empresa_id)', { count: 'exact' })
     .eq('status', 'Aprovado')
-    .lte('data_inicio', new Date().toISOString())
-    .gte('data_fim', new Date().toISOString());
+    .lte('data_inicio', hoje)
+    .gte('data_fim', hoje);
 
+  // 3. Pendências
   let queryPend = supabase.from('solicitacoes_ausencia')
-    .select('funcionario_id, funcionarios!inner(empresa_id)')
+    .select('id, funcionario_id, funcionarios!inner(empresa_id)', { count: 'exact' })
     .eq('status', 'Pendente');
 
   if (empresaId) {
@@ -44,34 +60,34 @@ export const getDashboardKPIs = async (empresaIdRaw = null) => {
     const funcionarios = resFunc.data || [];
     const totalAtivos = resFunc.count || 0;
     
-    // Soma simples e segura
     const folhaReal = funcionarios.reduce((acc, curr) => {
       return acc + (Number(curr.salario_bruto) || 0);
     }, 0);
 
     return {
-      ausentes_hoje: resAus.data?.length || 0,
-      pendentes: resPend.data?.length || 0,
+      ausentes_hoje: resAus.count || 0,
+      pendentes: resPend.count || 0,
       total_colaboradores: totalAtivos,
       folha_pagamento: folhaReal
     };
   } catch (error) {
-    console.error("Erro KPIs Gerais:", error);
+    console.error("Erro ao buscar KPIs gerais:", error);
     return { ausentes_hoje: 0, pendentes: 0, total_colaboradores: 0, folha_pagamento: 0 };
   }
 };
 
-// --- KPI 2: Estratégicos (Gráficos e Cards Inferiores) ---
+/**
+ * KPI 2: Indicadores Estratégicos (Turnover, Tempo de Casa, Tickets)
+ */
 export const getKPIsEstrategicos = async (empresaIdRaw = null) => {
   const empresaId = validarEmpresaId(empresaIdRaw);
   const hoje = new Date();
   const primeiroDia = startOfMonth(hoje).toISOString();
   const ultimoDia = endOfMonth(hoje).toISOString();
 
-  // 1. Busca Funcionários
+  // Dados para cálculos demográficos
   let funcionarios = [];
   try {
-    // CORREÇÃO: Apenas colunas existentes
     let q = supabase
       .from('funcionarios')
       .select('id, data_admissao, departamento, status, salario_bruto, empresa_id')
@@ -82,10 +98,10 @@ export const getKPIsEstrategicos = async (empresaIdRaw = null) => {
     const { data } = await q;
     funcionarios = data || [];
   } catch (err) {
-    console.error("Erro ao buscar funcionários para KPIs:", err);
+    console.error("Erro KPIs Estratégicos:", err);
   }
 
-  // 2. Busca Desligamentos
+  // Dados de Turnover (Desligamentos no Mês)
   let demissoes = 0;
   try {
     let qMov = supabase
@@ -101,21 +117,21 @@ export const getKPIsEstrategicos = async (empresaIdRaw = null) => {
     if (!error) {
       demissoes = data?.length || 0;
     } else {
-      // Fallback sem join se der erro de relação
-      let qSimples = supabase.from('movimentacoes').select('id', { count: 'exact', head: true }).eq('tipo', 'Desligamento').gte('created_at', primeiroDia);
+      // Fallback para contagem simples se o join falhar
+      let qSimples = supabase.from('movimentacoes')
+        .select('id', { count: 'exact', head: true })
+        .eq('tipo', 'Desligamento')
+        .gte('created_at', primeiroDia);
       const { count } = await qSimples;
       demissoes = count || 0;
     }
-  } catch (err) {
-    console.error("Erro Turnover:", err);
-  }
+  } catch (err) {}
 
   // Cálculos
   const totalAtivos = funcionarios.length;
   const admissoes = funcionarios.filter(f => f.data_admissao >= primeiroDia && f.data_admissao <= ultimoDia).length;
   const turnover = totalAtivos > 0 ? (((admissoes + demissoes) / 2) / totalAtivos) * 100 : 0;
 
-  // Tempo Médio
   let somaMesesCasa = 0;
   funcionarios.forEach(f => {
     if (f.data_admissao) {
@@ -127,11 +143,10 @@ export const getKPIsEstrategicos = async (empresaIdRaw = null) => {
   });
   const tempoMedioAnos = totalAtivos > 0 ? (somaMesesCasa / totalAtivos / 12).toFixed(1) : 0;
 
-  // Ticket Médio
   const totalSalario = funcionarios.reduce((acc, curr) => acc + (Number(curr.salario_bruto) || 0), 0);
   const ticketMedio = totalAtivos > 0 ? totalSalario / totalAtivos : 0;
 
-  // Deptos
+  // Gráfico de Pizza
   const porDepartamento = funcionarios.reduce((acc, curr) => {
     let depto = curr.departamento || 'Geral';
     depto = depto.trim() === '' ? 'Geral' : depto;
@@ -153,45 +168,38 @@ export const getKPIsEstrategicos = async (empresaIdRaw = null) => {
   };
 };
 
-// --- KPI 3: Histórico e Evolução ---
+/**
+ * KPI 3: Histórico e Evolução da Folha
+ */
 export const getHistoricoKPIs = async (empresaIdRaw = null) => {
   const empresaId = validarEmpresaId(empresaIdRaw);
   let historico = [];
 
   try {
-    let query = supabase.from('historico_kpis').select('*').order('data_referencia', { ascending: true }).limit(12);
-    const { data } = await query;
+    const { data } = await supabase.from('historico_kpis').select('*').order('data_referencia', { ascending: true }).limit(12);
     historico = data || [];
-  } catch (err) {
-    // Silencioso se tabela não existir
-  }
+  } catch (err) {}
 
-  // Adiciona Mês Atual "Live"
+  // Adiciona o mês atual "Ao Vivo" para o gráfico não ficar defasado
   try {
     const dadosAtuais = await getDashboardKPIs(empresaId);
     const pontoAtual = {
       data_referencia: new Date().toISOString(),
       total_folha: dadosAtuais.folha_pagamento,
       total_colaboradores: dadosAtuais.total_colaboradores,
-      id: 'current-live'
+      id: 'live-current'
     };
 
     const ultimoHistorico = historico[historico.length - 1];
     const mesAtual = new Date().getMonth();
-    
-    let mesUltimo = -1;
-    if (ultimoHistorico && ultimoHistorico.data_referencia) {
-      mesUltimo = new Date(ultimoHistorico.data_referencia).getMonth();
-    }
+    const mesUltimo = ultimoHistorico ? new Date(ultimoHistorico.data_referencia).getMonth() : -1;
 
-    if (mesUltimo !== mesAtual) {
-      historico.push(pontoAtual);
-    } else {
+    if (mesUltimo === mesAtual) {
       historico[historico.length - 1] = { ...ultimoHistorico, ...pontoAtual };
+    } else {
+      historico.push(pontoAtual);
     }
-  } catch (e) {
-    console.error("Erro ao gerar ponto live do histórico", e);
-  }
+  } catch (e) {}
 
   return historico.map(d => ({
     ...d,
@@ -200,14 +208,16 @@ export const getHistoricoKPIs = async (empresaIdRaw = null) => {
   }));
 };
 
+/**
+ * KPI 4: Próximas Férias
+ */
 export const getProximasFerias = async (empresaIdRaw = null) => {
   const empresaId = validarEmpresaId(empresaIdRaw);
-  const hoje = new Date().toISOString();
+  const hoje = getHojeLocal();
 
   let query = supabase
     .from('solicitacoes_ausencia')
     .select('data_inicio, funcionario_id, funcionarios!inner(nome_completo, avatar_url, empresa_id)')
-    .eq('tipo', 'Férias')
     .eq('status', 'Aprovado')
     .gte('data_inicio', hoje)
     .order('data_inicio', { ascending: true })
@@ -224,15 +234,20 @@ export const getProximasFerias = async (empresaIdRaw = null) => {
   }));
 };
 
+/**
+ * KPI 5: Aniversariantes do Mês
+ */
 export const getAniversariantesMes = async (empresaIdRaw = null) => {
   const empresaId = validarEmpresaId(empresaIdRaw);
   const mesAtual = new Date().getMonth() + 1;
 
   try {
+    // Tenta usar RPC (Stored Procedure) se existir
     const { data: dataRPC, error } = await supabase.rpc('get_aniversariantes_mes');
     if (!error && dataRPC) return dataRPC;
   } catch(e) {}
 
+  // Fallback: Filtro manual via Javascript
   let query = supabase
     .from('funcionarios')
     .select('id, nome_completo, cargo, avatar_url, data_nascimento, empresa_id')

@@ -1,6 +1,5 @@
 /* src/pages/DashboardPage.css */
 
-/* Container */
 .dashboard-container {
   max-width: 1600px;
   margin: 0 auto;
@@ -10,7 +9,6 @@
   overflow-x: hidden;
 }
 
-/* Header */
 .dashboard-header-row {
   display: flex;
   justify-content: space-between;
@@ -32,7 +30,6 @@
   margin: 0;
 }
 
-/* Selector */
 .store-selector {
   display: flex;
   align-items: center;
@@ -64,12 +61,6 @@
   max-width: 200px;
 }
 
-.store-selector select option {
-  background-color: var(--bg-card);
-  color: var(--text-main);
-}
-
-/* --- GRID PRINCIPAL (KPIs) --- */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -87,7 +78,6 @@
   box-shadow: var(--shadow-md);
   transition: all 0.2s;
   min-width: 0;
-  overflow: hidden;
   position: relative;
 }
 
@@ -109,26 +99,10 @@
   flex-shrink: 0;
 }
 
-/* Light Theme KPI Colors */
-.kpi-card.blue .kpi-icon {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.kpi-card.orange .kpi-icon {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.kpi-card.red .kpi-icon {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.kpi-card.green .kpi-icon {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
+.kpi-card.blue .kpi-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.kpi-card.orange .kpi-icon { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.kpi-card.red .kpi-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.kpi-card.green .kpi-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
 
 .kpi-info {
   display: flex;
@@ -154,7 +128,6 @@
   line-height: 1.1;
 }
 
-/* --- SEÇÃO KPIS ESTRATÉGICOS --- */
 .section-title {
   font-size: 1.1rem;
   color: var(--text-main);
@@ -190,19 +163,6 @@
   margin-bottom: 6px;
 }
 
-.kpi-mini-card .value-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.kpi-mini-card strong {
-  font-size: 1.4rem;
-  color: var(--text-main);
-  word-break: break-word;
-}
-
-/* --- GRÁFICOS (FIX RECHARTS) --- */
 .charts-section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
@@ -228,12 +188,12 @@
   font-weight: 700;
 }
 
-/* CORREÇÃO DO ERRO WIDTH(-1) */
+/* FIX RECHARTS */
 .chart-wrapper-fixed {
-  width: 99%; /* Força o cálculo de largura menor que 100% para evitar overflow flex */
-  height: 300px; /* Altura explícita obrigatória */
+  width: 99%;
+  height: 300px;
   min-width: 300px;
-  display: block; /* Garante que não é flex/grid direto */
+  display: block;
   position: relative;
 }
 
@@ -247,7 +207,34 @@
   font-style: italic;
 }
 
-/* --- LISTAS INFERIORES --- */
+/* Tooltip Customizado */
+.custom-tooltip {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+  z-index: 100;
+}
+
+.tooltip-label {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 4px;
+}
+
+.tooltip-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+}
+
 .dashboard-content-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -256,11 +243,7 @@
 }
 
 @media (max-width: 1024px) {
-  .dashboard-content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .charts-section {
+  .dashboard-content-grid, .charts-section {
     grid-template-columns: 1fr;
   }
 }
@@ -284,10 +267,6 @@
   gap: 10px;
 }
 
-.item-ferias-row:last-child {
-  border-bottom: none;
-}
-
 .user-row {
   display: flex;
   align-items: center;
@@ -297,12 +276,6 @@
   color: var(--text-main);
   min-width: 0;
   flex: 1;
-}
-
-.user-row span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .avatar-mini {
@@ -331,13 +304,6 @@
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

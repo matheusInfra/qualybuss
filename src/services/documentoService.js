@@ -3,133 +3,134 @@ import { supabase } from './supabaseClient';
 const BUCKET_NAME = 'documentos_pessoais';
 
 /**
- * 1. FAZ O UPLOAD DO ARQUIVO
- * Envia o arquivo físico para o Supabase Storage
+ * Faz o upload físico do arquivo para o Supabase Storage.
+ * Retorna o caminho (path) do arquivo salvo.
  */
 export const uploadDocumento = async (file, funcionarioId) => {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}.${fileExt}`;
-  // Salva dentro de uma pasta com o ID do funcionário
-  const filePath = `${funcionarioId}/${fileName}`;
+  try {
+    const fileExt = file.name.split('.').pop();
+    // Nome único para evitar sobrescrita
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `${funcionarioId}/${fileName}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file);
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, file);
 
-  if (error) {
+    if (error) throw error;
+    
+    return filePath; // Retorna 'id_func/nome_arquivo.pdf'
+  } catch (error) {
     console.error("Erro no upload do documento:", error.message);
     throw error;
   }
-  return filePath;
 };
 
 /**
- * 2. SALVA O REGISTRO DO DOCUMENTO
- * Salva as informações (categoria, nome, etc.) na tabela 'documentos'
- * CORREÇÃO: Mapeamento manual para garantir que 'nome_arquivo' seja preenchido
+ * Cria o registro na tabela 'documentos' do banco de dados.
+ * Mapeia os campos do frontend para o schema exato da tabela.
  */
 export const createDocumentoRegistro = async (dadosDocumento) => {
-  // Mapeia o objeto recebido para as colunas exatas do banco
-  const payload = {
-    funcionario_id: dadosDocumento.funcionario_id,
-    nome_arquivo: dadosDocumento.nome, // O banco espera 'nome_arquivo', mas o front envia 'nome'
-    categoria: dadosDocumento.categoria,
-    arquivo_url: dadosDocumento.arquivo_url,
-    tipo_arquivo: dadosDocumento.tipo_arquivo,
-    tamanho: dadosDocumento.tamanho,
-    descricao: dadosDocumento.descricao || null,
-    created_at: new Date()
-  };
+  try {
+    // Payload mapeado conforme o schema "raio-x" do banco
+    const payload = {
+      funcionario_id: dadosDocumento.funcionario_id,
+      
+      // CAMPOS OBRIGATÓRIOS (NOT NULL)
+      nome_arquivo: dadosDocumento.nome, // O front manda 'nome', o banco exige 'nome_arquivo'
+      path_storage: dadosDocumento.arquivo_url, // O arquivo_url do front é o path_storage do banco
+      
+      // CAMPOS OPCIONAIS
+      categoria: dadosDocumento.categoria,
+      tipo_arquivo: dadosDocumento.tipo_arquivo,
+      tamanho: dadosDocumento.tamanho,
+      descricao: dadosDocumento.descricao || null,
+      
+      // Campos de redundância/compatibilidade (se existirem no banco, ok; se não, o banco ignora se não forem not null)
+      arquivo_url: dadosDocumento.arquivo_url, 
+      nome: dadosDocumento.nome,
+      
+      created_at: new Date()
+    };
 
-  const { data, error } = await supabase
-    .from('documentos')
-    .insert([payload])
-    .select()
-    .single();
-  
-  if (error) {
+    const { data, error } = await supabase
+      .from('documentos')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
     console.error("Erro ao salvar registro do documento:", error.message);
     throw error;
   }
-  return data;
 };
 
 /**
- * 3. BUSCA OS DOCUMENTOS DE UM FUNCIONÁRIO
- * Pega a lista de todos os documentos de um único funcionário
+ * Busca todos os documentos de um funcionário específico.
  */
 export const getDocumentosPorFuncionario = async (funcionarioId) => {
   const { data, error } = await supabase
     .from('documentos')
-    .select('*') // Pega todas as colunas
-    .eq('funcionario_id', funcionarioId) // Filtra pelo funcionário
-    .order('created_at', { ascending: false }); // Mais novos primeiro
+    .select('*')
+    .eq('funcionario_id', funcionarioId)
+    .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error("Erro ao buscar documentos:", error.message);
-    throw error;
-  }
+  if (error) throw error;
   return data;
 };
 
 /**
- * 4. BAIXA O ARQUIVO FÍSICO (LINK)
- * Gera um link temporário e seguro para download (visualização/download direto)
+ * Gera uma URL assinada (temporária) para download ou visualização.
  */
 export const getDocumentoDownloadUrl = async (pathStorage) => {
+  if (!pathStorage) throw new Error("Caminho do arquivo não fornecido.");
+
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
     .createSignedUrl(pathStorage, 60); // Link válido por 60 segundos
 
   if (error) {
-    console.error("Erro ao gerar link de download:", error.message);
+    console.error("Erro ao gerar link:", error.message);
     throw error;
   }
   return data.signedUrl;
 };
 
 /**
- * [NOVO] 4.1 BAIXA O CONTEÚDO DO ARQUIVO (BLOB)
- * Baixa o binário do arquivo para ser usado na geração do ZIP.
+ * Baixa o arquivo como Blob (utilitário para gerar ZIPs ou downloads diretos).
  */
 export const downloadArquivoParaBlob = async (pathStorage) => {
   const { data, error } = await supabase.storage
     .from(BUCKET_NAME)
     .download(pathStorage);
 
-  if (error) {
-    console.error("Erro ao baixar blob do arquivo:", error.message);
-    throw error;
-  }
-  return data; // Retorna o objeto Blob
+  if (error) throw error;
+  return data;
 };
 
 /**
- * 5. DELETA UM DOCUMENTO
- * Apaga o registro da tabela E o arquivo do Storage
+ * Deleta o documento do banco e remove o arquivo físico do storage.
  */
 export const deleteDocumento = async (docId, pathStorage) => {
-  // Passo 1: Deletar o arquivo do Storage
+  // 1. Remove do Storage (se o caminho existir)
   if (pathStorage) {
     const { error: storageError } = await supabase.storage
       .from(BUCKET_NAME)
       .remove([pathStorage]);
-
+      
     if (storageError) {
-      console.warn("Aviso: Erro ao deletar arquivo do storage (pode já ter sido removido):", storageError.message);
+      console.warn("Aviso: Falha ao remover arquivo físico (pode já ter sido excluído):", storageError.message);
     }
   }
 
-  // Passo 2: Deletar o registro da tabela 'documentos'
-  const { error: dbError } = await supabase
+  // 2. Remove o registro do banco
+  const { error } = await supabase
     .from('documentos')
     .delete()
     .eq('id', docId);
 
-  if (dbError) {
-    console.error("Erro ao deletar registro do banco:", dbError.message);
-    throw dbError;
-  }
-
+  if (error) throw error;
   return true;
 };
