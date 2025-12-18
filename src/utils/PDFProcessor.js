@@ -1,53 +1,64 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configurar o worker do PDF.js
+// Configuração do Worker (Essencial para não travar a UI)
+// Usa CDN para evitar problemas de configuração de build complexa no Vite
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
+/**
+ * Extrai texto de todas as páginas de um arquivo PDF
+ */
 export const extractTextFromPDF = async (file) => {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const numPages = pdf.numPages;
-  const pages = [];
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const numPages = pdf.numPages;
+    const pages = [];
 
-  for (let i = 1; i <= numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    
-    // Concatena os itens de texto com um espaço, mas preserva quebras de linha implícitas
-    // para evitar que "CBO" e o número fiquem colados de forma estranha
-    const pageText = textContent.items.map((item) => item.str).join(' ');
-    
-    // Normalização básica para facilitar a busca (remove espaços extras)
-    const normalizedText = pageText.replace(/\s+/g, ' ').trim();
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      
+      // Junta as strings da página com espaçamento seguro
+      const pageText = textContent.items.map((item) => item.str).join(' ');
+      
+      // Remove espaços excessivos para facilitar a busca
+      const normalizedText = pageText.replace(/\s+/g, ' ').trim();
 
-    pages.push({
-      pageNumber: i,
-      text: normalizedText,
-      originalText: pageText // Mantém original para regex mais complexos se precisar
-    });
+      pages.push({
+        pageNumber: i,
+        text: normalizedText
+      });
+    }
+
+    return pages;
+  } catch (error) {
+    console.error("Erro na extração do PDF:", error);
+    throw new Error("Não foi possível ler o PDF.");
   }
-
-  return pages;
 };
 
 /**
- * Função auxiliar para verificar se um CBO está presente no texto
- * Aceita formatos: 1234-56 ou 123456
+ * Verifica se o CBO do funcionário está presente no texto da página
  */
 export const checkCBOInText = (text, cboFuncionario) => {
-  if (!cboFuncionario) return true; // Se funcionário não tem CBO cadastrado, ignoramos essa validação (passa)
+  if (!cboFuncionario || !text) return true; // Se não tem CBO pra validar, passa (fallback)
 
-  // Remove formatação do CBO do funcionário (deixa apenas números)
-  const cboLimpo = cboFuncionario.replace(/\D/g, ''); 
+  // Limpa o CBO do cadastro (deixa só números)
+  const cboLimpo = String(cboFuncionario).replace(/\D/g, '');
   
-  if (cboLimpo.length < 4) return true; // CBO muito curto/inválido ignoramos a validação
+  // Se o CBO for muito curto, ignora validação para evitar falso positivo
+  if (cboLimpo.length < 4) return true;
 
-  // Remove tudo que não é dígito do texto do PDF para buscar a sequência exata
-  // OU busca a sequência no texto normal (mais seguro para evitar falsos positivos com datas)
-  // Estratégia: Buscar "1234-56" OU "123456" no texto
+  // Cria padrão para buscar com traço (1234-56) ou sem traço (123456)
+  // O regex busca a sequência no meio do texto
   
-  const regexComTraco = new RegExp(cboLimpo.replace(/^(\d{4})(\d{2})/, '$1-$2'));
-  const regexSemTraco = new RegExp(cboLimpo);
+  // Tenta formatar XXXX-XX
+  let regexPattern = cboLimpo;
+  if (cboLimpo.length >= 6) {
+     const formatted = cboLimpo.slice(0, 4) + '-' + cboLimpo.slice(4);
+     // Busca o número puro OU o número formatado
+     return text.includes(cboLimpo) || text.includes(formatted);
+  }
 
-  return regexComTraco.test(text) || regexSemTraco.test(text);
+  return text.includes(cboLimpo);
 };
