@@ -5,8 +5,11 @@ import { criarBeneficio, deletarBeneficio } from '../../services/beneficioServic
 import './GestaoBeneficios.css';
 
 export default function GestaoBeneficios({ funcionario, beneficios, onUpdate }) {
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch } = useForm();
   const [loading, setLoading] = useState(false);
+  
+  // Observa o tipo para mudar o placeholder do input dinamicamente
+  const tipoValorSelecionado = watch('tipo_valor', 'Fixo');
 
   const onSubmit = async (data) => {
     if (!funcionario) return;
@@ -16,10 +19,12 @@ export default function GestaoBeneficios({ funcionario, beneficios, onUpdate }) 
         funcionario_id: funcionario.id,
         nome: data.nome,
         tipo: data.tipo,
+        tipo_valor: data.tipo_valor, // Novo campo: 'Fixo' ou 'Porcentagem'
         valor: parseFloat(data.valor),
+        descricao: data.descricao,   // Novo campo: Descrição opcional
         recorrente: true
       });
-      toast.success("Item atualizado na folha!");
+      toast.success("Benefício adicionado com sucesso!");
       reset();
       if (onUpdate) onUpdate();
     } catch (error) {
@@ -31,7 +36,7 @@ export default function GestaoBeneficios({ funcionario, beneficios, onUpdate }) 
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Deseja remover este item da folha?")) return;
+    if (!window.confirm("Tem certeza que deseja remover este item?")) return;
     try {
       await deletarBeneficio(id);
       toast.success("Item removido.");
@@ -44,72 +49,102 @@ export default function GestaoBeneficios({ funcionario, beneficios, onUpdate }) 
   const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="gestao-beneficios-container">
-      <div className="beneficios-header">
-        <h3>Benefícios e Descontos</h3>
-        <p>Gerenciando folha de: <strong>{funcionario.nome_completo}</strong></p>
+    <div className="gestao-beneficios-container fade-in">
+      <div className="beneficios-header-row">
+        <div>
+          <h3>Gestão de Benefícios & Descontos</h3>
+          <p>Configuração contratual para: <strong>{funcionario.nome_completo}</strong></p>
+        </div>
+        <div className="salario-badge">
+          Salário Base: <strong>{formatMoney(funcionario.salario_bruto)}</strong>
+        </div>
       </div>
       
-      {/* Formulário de Adição */}
-      <form onSubmit={handleSubmit(onSubmit)} className="form-beneficios">
-        <div className="form-group">
-          <label>Descrição</label>
-          <input {...register('nome')} placeholder="Ex: Vale Refeição, Plano de Saúde..." required />
+      {/* Formulário Estilizado */}
+      <form onSubmit={handleSubmit(onSubmit)} className="card-form">
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Nome do Item</label>
+            <input {...register('nome')} placeholder="Ex: Vale Transporte, Plano Saúde..." required />
+          </div>
+          
+          <div className="form-group">
+            <label>Tipo de Lançamento</label>
+            <select {...register('tipo')}>
+              <option value="Desconto">🔴 Desconto (Deduz do Salário)</option>
+              <option value="Provento">🟢 Provento (Soma ao Salário)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Modo de Cálculo</label>
+            <select {...register('tipo_valor')}>
+              <option value="Fixo">R$ Valor Fixo</option>
+              <option value="Porcentagem">% Porcentagem do Salário</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>{tipoValorSelecionado === 'Fixo' ? 'Valor (R$)' : 'Porcentagem (%)'}</label>
+            <input 
+              type="number" step="0.01" {...register('valor')} required 
+              placeholder={tipoValorSelecionado === 'Fixo' ? '0,00' : 'Ex: 6 para 6%'} 
+            />
+          </div>
         </div>
         
-        <div className="form-group">
-          <label>Tipo</label>
-          <select {...register('tipo')}>
-            <option value="Desconto">Desconto (-)</option>
-            <option value="Provento">Provento (+)</option>
-          </select>
+        <div className="form-group full-width">
+          <label>Descrição / Observação (Opcional)</label>
+          <input {...register('descricao')} placeholder="Detalhes adicionais (ex: Desconto de 6% conf. lei)" />
         </div>
 
-        <div className="form-group">
-          <label>Valor (R$)</label>
-          <input type="number" step="0.01" {...register('valor')} required placeholder="0,00" />
-        </div>
-
-        <button type="submit" className="btn-add" disabled={loading}>
-          {loading ? 'Salvando...' : 'Adicionar Item'}
+        <button type="submit" className="btn-add-card" disabled={loading}>
+          {loading ? 'Salvando...' : '+ Adicionar Item'}
         </button>
       </form>
 
-      {/* Tabela de Itens */}
-      <div className="tabela-beneficios-wrapper">
-        <table className="tabela-beneficios">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Tipo</th>
-              <th>Valor</th>
-              <th align="center">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {beneficios.length === 0 && (
-              <tr><td colSpan="4" className="empty-msg">Nenhum item extra cadastrado.</td></tr>
-            )}
-            {beneficios.map(ben => (
-              <tr key={ben.id}>
-                <td>{ben.nome}</td>
-                <td>
-                  <span className={`tag ${ben.tipo === 'Provento' ? 'tag-green' : 'tag-red'}`}>
-                    {ben.tipo}
-                  </span>
-                </td>
-                <td className={`font-bold ${ben.tipo === 'Provento' ? 'text-green' : 'text-red'}`}>
-                  {ben.tipo === 'Desconto' ? '- ' : '+ '}{formatMoney(ben.valor)}
-                </td>
-                <td align="center">
-                  <button type="button" onClick={() => handleDelete(ben.id)} className="btn-delete" title="Remover">
-                    <span className="material-symbols-outlined">delete</span>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="divider"><span>Itens Cadastrados</span></div>
+
+      {/* Grid de Cards Visual */}
+      <div className="cards-grid">
+        {beneficios.length === 0 && (
+          <div className="empty-cards">
+            <span className="material-symbols-outlined">post_add</span>
+            <p>Nenhum benefício ou desconto fixo cadastrado.</p>
+          </div>
+        )}
+
+        {beneficios.map(ben => {
+          // Calcula o valor estimado para exibição no card
+          const valorCalculado = ben.tipo_valor === 'Porcentagem' 
+            ? (Number(funcionario.salario_bruto) * (Number(ben.valor) / 100)) 
+            : Number(ben.valor);
+
+          return (
+            <div key={ben.id} className={`benefit-card ${ben.tipo === 'Desconto' ? 'card-desconto' : 'card-provento'}`}>
+              <div className="card-top">
+                <span className="card-icon material-symbols-outlined">
+                  {ben.tipo === 'Desconto' ? 'trending_down' : 'trending_up'}
+                </span>
+                <button onClick={() => handleDelete(ben.id)} className="btn-trash" title="Excluir">
+                  <span className="material-symbols-outlined">delete</span>
+                </button>
+              </div>
+              
+              <h4 title={ben.nome}>{ben.nome}</h4>
+              <p className="card-desc">{ben.descricao || ben.tipo}</p>
+              
+              <div className="card-values">
+                <div className="main-value">
+                  {ben.tipo_valor === 'Porcentagem' ? `${ben.valor}%` : formatMoney(ben.valor)}
+                </div>
+                {ben.tipo_valor === 'Porcentagem' && (
+                  <small className="sub-value">≈ {formatMoney(valorCalculado)}/mês</small>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

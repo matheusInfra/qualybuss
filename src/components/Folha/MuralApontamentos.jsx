@@ -8,131 +8,106 @@ import './MuralApontamentos.css';
 
 export default function MuralApontamentos({ empresaId }) {
   const [loading, setLoading] = useState(false);
-  const [competencia, setCompetencia] = useState(null); // Dados do Mês
-  const [apontamentos, setApontamentos] = useState([]); // Lista de Colaboradores + Variáveis
-  const [beneficiosCache, setBeneficiosCache] = useState({}); // Cache para cálculo
+  const [competencia, setCompetencia] = useState(null);
+  const [apontamentos, setApontamentos] = useState([]);
+  const [beneficiosCache, setBeneficiosCache] = useState({});
+  const [savingField, setSavingField] = useState(null); // {id, field}
   
-  // Seletores de Data
-  const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth() + 1);
-  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+  const hoje = new Date();
+  const [mesSelecionado, setMesSelecionado] = useState(hoje.getMonth() + 1);
+  const [anoSelecionado, setAnoSelecionado] = useState(hoje.getFullYear());
 
-  // --- CARREGAMENTO ---
   const carregarDados = useCallback(async () => {
     if (!empresaId) return;
     setLoading(true);
     try {
-      // 1. Busca a competência no banco
       const comp = await getCompetenciaAtual(mesSelecionado, anoSelecionado, empresaId);
       setCompetencia(comp);
-
       if (comp) {
-        // 2. Se existe, busca os apontamentos já criados
         const dados = await getApontamentos(comp.id);
         setApontamentos(dados);
         
-        // 3. Carrega benefícios para o cálculo em tempo real
+        // Carrega benefícios para cálculo em tempo real
         const ids = dados.map(d => d.funcionario_id);
-        const bens = await getBeneficiosEmLote(ids);
-        const map = {};
-        bens.forEach(b => {
-          if (!map[b.funcionario_id]) map[b.funcionario_id] = [];
-          map[b.funcionario_id].push(b);
-        });
-        setBeneficiosCache(map);
+        if (ids.length > 0) {
+          const bens = await getBeneficiosEmLote(ids);
+          const map = {};
+          bens.forEach(b => { 
+            if(!map[b.funcionario_id]) map[b.funcionario_id]=[]; 
+            map[b.funcionario_id].push(b); 
+          });
+          setBeneficiosCache(map);
+        } else {
+          setBeneficiosCache({});
+        }
       } else {
         setApontamentos([]);
+        setBeneficiosCache({});
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao carregar competência.");
-    } finally {
-      setLoading(false);
+    } catch (e) { 
+      console.error(e);
+      toast.error("Erro ao carregar folha."); 
+    } finally { 
+      setLoading(false); 
     }
   }, [empresaId, mesSelecionado, anoSelecionado]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
-  // --- AÇÕES ---
-
   const handleAbrirMes = async () => {
     try {
       setLoading(true);
-      // Busca todos os ativos para iniciar a folha
       const { data: funcs } = await getFuncionarios({ limit: 1000, status: 'Ativo', empresaId });
-      
-      if (!funcs || funcs.length === 0) {
-        toast.error("Não há funcionários ativos para abrir folha.");
-        return;
-      }
-
+      if (!funcs?.length) { toast.error("Sem funcionários ativos."); return; }
       await abrirCompetencia(mesSelecionado, anoSelecionado, empresaId, funcs);
-      toast.success(`Competência ${mesSelecionado}/${anoSelecionado} aberta!`);
+      toast.success("Competência Aberta!");
       carregarDados();
-    } catch (error) {
-      toast.error("Erro ao abrir mês.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Erro ao abrir."); } 
+    finally { setLoading(false); }
   };
 
   const handleUpdateCampo = async (id, campo, valor) => {
-    // Atualização Otimista na UI
-    const novosApontamentos = apontamentos.map(item => 
-      item.id === id ? { ...item, [campo]: valor } : item
-    );
-    setApontamentos(novosApontamentos);
-
-    // Salva no banco (debounce idealmente, aqui direto no onBlur)
-    try {
-      await salvarApontamento(id, { [campo]: valor });
-    } catch (error) {
-      toast.error("Erro ao salvar alteração.");
-    }
-  };
-
-  const handleProcessarPrevia = () => {
-    // Apenas recalcula visualmente os totais baseados nos inputs atuais
-    toast.success("Cálculos atualizados na tela.");
-    // O render já chama a calculadora, forçamos apenas um refresh visual se necessário
-    setApontamentos([...apontamentos]); 
+    setSavingField({ id, field: campo });
+    // Atualização otimista na tela
+    setApontamentos(prev => prev.map(p => p.id === id ? { ...p, [campo]: valor } : p));
+    try { await salvarApontamento(id, { [campo]: valor }); } 
+    catch { toast.error("Erro ao salvar."); } 
+    finally { setSavingField(null); }
   };
 
   const handleFecharFolha = async () => {
-    if (!window.confirm("ATENÇÃO: Fechar a folha irá congelar todos os valores e gerar o histórico oficial. Continuar?")) return;
-    
+    if (!window.confirm("Confirma o fechamento da folha? Os valores serão congelados.")) return;
     setLoading(true);
     try {
-      // 1. Processa todos os cálculos finais
       const dadosFinais = apontamentos.map(apont => {
         const func = apont.funcionario;
         const bens = beneficiosCache[func.id] || [];
         const calculo = calcularFolhaCompleta(func, apont, bens);
         return { funcionario: func, apontamento: apont, calculo };
       });
-
-      // 2. Envia para o backend congelar
       await fecharFolha(competencia.id, dadosFinais);
-      
-      toast.success("Folha fechada com sucesso!");
-      carregarDados(); // Recarrega status 'Fechada'
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao fechar folha.");
-    } finally {
-      setLoading(false);
-    }
+      toast.success("Folha Fechada com Sucesso!");
+      carregarDados();
+    } catch { toast.error("Erro no fechamento."); } 
+    finally { setLoading(false); }
   };
 
-  // --- RENDERIZADORES ---
-  const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+  const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-  const renderStatusBadge = () => {
-    if (!competencia) return <span className="badge-status inativo">Não Iniciada</span>;
-    return <span className={`badge-status ${competencia.status.toLowerCase()}`}>{competencia.status}</span>;
-  };
+  // --- CORREÇÃO DO FLUXO DE RENDERIZAÇÃO ---
 
-  // Se não tiver competência, mostra tela de abertura
-  if (!competencia && !loading) {
+  // 1. Se estiver carregando, mostra spinner
+  if (loading) {
+    return (
+      <div className="mural-container loading-wrapper">
+        <div className="spinner-simple"></div>
+        <p>Carregando competência...</p>
+      </div>
+    );
+  }
+
+  // 2. Se não tem competência (e não está carregando), mostra Empty State
+  if (!competencia) {
     return (
       <div className="mural-container empty-state-mural">
         <div className="selector-bar">
@@ -145,185 +120,63 @@ export default function MuralApontamentos({ empresaId }) {
           </select>
         </div>
         <div className="start-box">
-          <span className="material-symbols-outlined icon-big">calendar_add_on</span>
-          <h3>Nenhuma folha encontrada para este período</h3>
-          <p>Deseja iniciar o apontamento de horas e variáveis?</p>
+          <span className="material-symbols-outlined icon-big">calendar_month</span>
+          <h3>Nenhuma folha para este período</h3>
           <button className="btn-start" onClick={handleAbrirMes}>Iniciar Competência</button>
         </div>
       </div>
     );
   }
 
-  const isFechada = competencia?.status === 'Fechada';
+  // 3. Se chegou aqui, competência existe e não é null. Seguro para renderizar.
+  const isFechada = competencia.status === 'Fechada';
+  const totalLiq = apontamentos.reduce((acc, c) => acc + calcularFolhaCompleta(c.funcionario, c, beneficiosCache[c.funcionario_id]||[]).totais.liquido, 0);
+  const totalCusto = apontamentos.reduce((acc, c) => acc + calcularFolhaCompleta(c.funcionario, c, beneficiosCache[c.funcionario_id]||[]).totais.custoEmpresa, 0);
 
   return (
     <div className="mural-container fade-in">
-      {/* Header de Controle */}
       <div className="mural-header">
         <div className="mural-info">
           <h2>Mural de Apontamentos</h2>
-          <div className="meta-info">
-            Ref: <strong>{mesSelecionado}/{anoSelecionado}</strong>
-            {renderStatusBadge()}
-          </div>
+          <span>Competência: <strong>{mesSelecionado}/{anoSelecionado}</strong> <span className={`status-badge ${isFechada?'fechada':'aberta'}`}>{competencia.status}</span></span>
         </div>
-        <div className="mural-actions">
-          {!isFechada && (
-            <>
-              <button className="btn-secondary" onClick={handleProcessarPrevia} disabled={loading}>
-                <span className="material-symbols-outlined">calculate</span> Recalcular Prévia
-              </button>
-              <button className="btn-primary" onClick={handleFecharFolha} disabled={loading}>
-                <span className="material-symbols-outlined">lock</span> Fechar Folha
-              </button>
-            </>
-          )}
-          {isFechada && (
-            <button className="btn-success" disabled>
-              <span className="material-symbols-outlined">check_circle</span> Processado
-            </button>
-          )}
-        </div>
+        {!isFechada && <button className="btn-close-folha" onClick={handleFecharFolha} disabled={loading}>Fechar Folha</button>}
       </div>
 
-      {/* Tabela Excel-Like */}
       <div className="table-scroll-wrapper">
         <table className="mural-table">
           <thead>
             <tr>
               <th className="sticky-col">Colaborador</th>
-              <th>Salário Base</th>
-              <th className="input-col">HE 50% (h)</th>
-              <th className="input-col">HE 100% (h)</th>
-              <th className="input-col">DSR (R$)</th>
-              <th className="input-col">Bônus (R$)</th>
-              <th className="input-col text-red">Faltas (d)</th>
-              <th className="input-col text-red">Atrasos (min)</th>
-              <th>Bruto Calc.</th>
-              <th>Líquido Est.</th>
-              <th>Custo Empresa</th>
+              <th>Base</th>
+              <th className="input-head">HE 50%</th><th className="input-head">HE 100%</th><th className="input-head">DSR (R$)</th><th className="input-head">Bônus</th><th className="input-head text-red">Faltas (d)</th>
+              <th>Bruto</th><th>Líquido</th><th>Custo</th>
             </tr>
           </thead>
           <tbody>
             {apontamentos.map((apont) => {
-              // Calcula em tempo real para mostrar prévia (não salva no banco o cálculo, só inputs)
-              const calculoPreview = calcularFolhaCompleta(
-                apont.funcionario, 
-                apont, 
-                beneficiosCache[apont.funcionario_id] || []
-              );
-
+              const calc = calcularFolhaCompleta(apont.funcionario, apont, beneficiosCache[apont.funcionario_id] || []);
               return (
-                <tr key={apont.id} className={isFechada ? 'readonly-row' : ''}>
-                  <td className="sticky-col">
-                    <div className="user-mini">
-                      <strong>{apont.funcionario.nome_completo}</strong>
-                      <small>{apont.funcionario.cargo}</small>
-                    </div>
-                  </td>
-                  <td>{formatMoney(calculoPreview.base.salario)}</td>
-                  
-                  {/* Inputs de Variáveis */}
-                  <td>
-                    <input 
-                      type="number" className="input-cell" 
-                      disabled={isFechada}
-                      value={apont.horas_extras_50}
-                      onBlur={(e) => handleUpdateCampo(apont.id, 'horas_extras_50', e.target.value)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setApontamentos(prev => prev.map(p => p.id === apont.id ? {...p, horas_extras_50: val} : p));
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" className="input-cell"
-                      disabled={isFechada}
-                      value={apont.horas_extras_100}
-                      onBlur={(e) => handleUpdateCampo(apont.id, 'horas_extras_100', e.target.value)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setApontamentos(prev => prev.map(p => p.id === apont.id ? {...p, horas_extras_100: val} : p));
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" className="input-cell" placeholder="Auto"
-                      disabled={isFechada}
-                      value={apont.valor_dsr}
-                      onBlur={(e) => handleUpdateCampo(apont.id, 'valor_dsr', e.target.value)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setApontamentos(prev => prev.map(p => p.id === apont.id ? {...p, valor_dsr: val} : p));
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" className="input-cell text-green"
-                      disabled={isFechada}
-                      value={apont.bonus_comissao}
-                      onBlur={(e) => handleUpdateCampo(apont.id, 'bonus_comissao', e.target.value)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setApontamentos(prev => prev.map(p => p.id === apont.id ? {...p, bonus_comissao: val} : p));
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" className="input-cell text-red"
-                      disabled={isFechada}
-                      value={apont.faltas_dias}
-                      onBlur={(e) => handleUpdateCampo(apont.id, 'faltas_dias', e.target.value)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setApontamentos(prev => prev.map(p => p.id === apont.id ? {...p, faltas_dias: val} : p));
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" className="input-cell text-red"
-                      disabled={isFechada}
-                      value={apont.atrasos_minutos}
-                      onBlur={(e) => handleUpdateCampo(apont.id, 'atrasos_minutos', e.target.value)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setApontamentos(prev => prev.map(p => p.id === apont.id ? {...p, atrasos_minutos: val} : p));
-                      }}
-                    />
-                  </td>
-
-                  {/* Resultados Calculados (Prévia) */}
-                  <td className="font-bold">{formatMoney(calculoPreview.totais.bruto)}</td>
-                  <td className="text-green font-bold bg-green-light">{formatMoney(calculoPreview.totais.liquido)}</td>
-                  <td className="text-blue font-bold">{formatMoney(calculoPreview.totais.custoEmpresa)}</td>
+                <tr key={apont.id} className={isFechada ? 'readonly' : ''}>
+                  <td className="sticky-col"><strong>{apont.funcionario.nome_completo}</strong><br/><small>{apont.funcionario.cargo}</small></td>
+                  <td>{fmt(calc.base.salario)}</td>
+                  <td><input type="number" className={`input-cell ${savingField?.id===apont.id && savingField?.field==='horas_extras_50' ? 'saving':''}`} disabled={isFechada} value={apont.horas_extras_50} onChange={e=>setApontamentos(p=>p.map(x=>x.id===apont.id?{...x,horas_extras_50:e.target.value}:x))} onBlur={e=>handleUpdateCampo(apont.id,'horas_extras_50',e.target.value)} /></td>
+                  <td><input type="number" className="input-cell" disabled={isFechada} value={apont.horas_extras_100} onChange={e=>setApontamentos(p=>p.map(x=>x.id===apont.id?{...x,horas_extras_100:e.target.value}:x))} onBlur={e=>handleUpdateCampo(apont.id,'horas_extras_100',e.target.value)} /></td>
+                  <td><input type="number" className="input-cell" disabled={isFechada} value={apont.valor_dsr} onChange={e=>setApontamentos(p=>p.map(x=>x.id===apont.id?{...x,valor_dsr:e.target.value}:x))} onBlur={e=>handleUpdateCampo(apont.id,'valor_dsr',e.target.value)} /></td>
+                  <td><input type="number" className="input-cell text-green" disabled={isFechada} value={apont.bonus_comissao} onChange={e=>setApontamentos(p=>p.map(x=>x.id===apont.id?{...x,bonus_comissao:e.target.value}:x))} onBlur={e=>handleUpdateCampo(apont.id,'bonus_comissao',e.target.value)} /></td>
+                  <td><input type="number" className="input-cell text-red" disabled={isFechada} value={apont.faltas_dias} onChange={e=>setApontamentos(p=>p.map(x=>x.id===apont.id?{...x,faltas_dias:e.target.value}:x))} onBlur={e=>handleUpdateCampo(apont.id,'faltas_dias',e.target.value)} /></td>
+                  <td>{fmt(calc.totais.bruto)}</td>
+                  <td className="bg-green-light font-bold text-green">{fmt(calc.totais.liquido)}</td>
+                  <td className="text-blue font-bold">{fmt(calc.totais.custoEmpresa)}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-      
-      {/* Footer com Totais da Competência */}
       <div className="mural-footer">
-        <div>
-          <span>Total Líquido Previsto:</span>
-          <strong>{formatMoney(apontamentos.reduce((acc, curr) => {
-             const bens = beneficiosCache[curr.funcionario_id] || [];
-             return acc + calcularFolhaCompleta(curr.funcionario, curr, bens).totais.liquido;
-          }, 0))}</strong>
-        </div>
-        <div>
-          <span>Custo Total Empresa:</span>
-          <strong className="text-blue">{formatMoney(apontamentos.reduce((acc, curr) => {
-             const bens = beneficiosCache[curr.funcionario_id] || [];
-             return acc + calcularFolhaCompleta(curr.funcionario, curr, bens).totais.custoEmpresa;
-          }, 0))}</strong>
-        </div>
+        <div><span>Total Líquido Previsto:</span> <strong className="text-green">{fmt(totalLiq)}</strong></div>
+        <div style={{marginLeft:'20px'}}><span>Custo Empresa:</span> <strong className="text-blue">{fmt(totalCusto)}</strong></div>
       </div>
     </div>
   );
