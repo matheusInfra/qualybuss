@@ -10,55 +10,47 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
 }
 
 .page-header-salarios h1 {
   font-size: 1.6rem;
   color: var(--text-main);
-  margin-bottom: 0.2rem;
+  margin: 0;
 }
 
-.page-header-salarios p {
-  color: var(--text-secondary);
-}
-
-.resumo-cards-mini {
+/* Tabs */
+.tabs-header {
   display: flex;
   gap: 1rem;
 }
 
-.card-mini {
-  background: white;
-  padding: 0.8rem 1.2rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  min-width: 140px;
-  box-shadow: var(--shadow-sm);
-}
-
-.card-mini.highlight {
-  background-color: #f0f9ff;
-  border-color: #bae6fd;
-}
-
-.card-mini small {
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
   color: var(--text-secondary);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
 }
 
-.card-mini strong {
-  font-size: 1.2rem;
-  color: var(--text-main);
+.tab-btn.active {
+  color: var(--primary-600);
+  border-bottom-color: var(--primary-600);
 }
 
-/* --- BARRA DE FILTROS --- */
+.tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Filtros */
 .filtros-bar {
   background: white;
   padding: 1.5rem;
@@ -75,26 +67,19 @@
   align-items: end;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
 .form-group label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
+  display: block;
+  margin-bottom: 4px;
 }
 
-.form-group select, 
-.form-group input {
+.form-group input, .form-group select {
+  width: 100%;
   padding: 0.6rem;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 0.9rem;
-  width: 100%;
-  background-color: white;
 }
 
 .input-icon {
@@ -106,8 +91,7 @@
 .input-icon span {
   position: absolute;
   left: 10px;
-  color: var(--text-secondary);
-  font-size: 1.2rem;
+  color: #94a3b8;
 }
 
 .input-icon input {
@@ -120,32 +104,24 @@
 }
 
 .btn-primary {
-  background-color: var(--primary-600);
+  background: var(--primary-600);
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s;
-  height: 42px;
 }
 
 .btn-secondary {
-  background-color: #f1f5f9;
-  color: var(--text-main);
+  background: #f1f5f9;
   border: 1px solid var(--border-color);
   padding: 0.6rem 1rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s;
-  height: 42px;
 }
 
-.btn-secondary:hover { background-color: #e2e8f0; }
-.btn-primary:hover { background-color: var(--primary-700); }
-
-/* --- TABELA --- */
+/* Tabela */
 .tabela-container {
   background: white;
   border-radius: 12px;
@@ -161,196 +137,67 @@
 
 .tabela-salarios th {
   background: #f8fafc;
-  padding: 1rem 1.5rem;
+  padding: 1rem;
   text-align: left;
   font-size: 0.8rem;
-  font-weight: 700;
   color: var(--text-secondary);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border-color);
 }
 
 .tabela-salarios td {
-  padding: 1rem 1.5rem;
+  padding: 1rem;
   border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
   color: var(--text-main);
   font-size: 0.9rem;
 }
 
-.linha-principal {
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.linha-principal:hover { background-color: #f8fafc; }
+.linha-principal:hover { background-color: #f8fafc; cursor: pointer; }
 .linha-principal.active { background-color: #f1f5f9; border-left: 4px solid var(--primary-500); }
 
-.colaborador-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.avatar-circle {
-  width: 36px;
-  height: 36px;
-  background: #e0e7ff;
-  color: #4338ca;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.nome { display: block; font-weight: 600; color: var(--text-main); }
+.colaborador-info { display: flex; align-items: center; gap: 10px; }
+.avatar-circle { width: 32px; height: 32px; background: #e0e7ff; color: #4338ca; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.nome { display: block; font-weight: 600; }
 .cargo-mini { display: block; font-size: 0.75rem; color: var(--text-secondary); }
 
-.cell-liquido {
-  background-color: #f0fdf4;
-  padding: 4px 8px;
-  border-radius: 6px;
-  display: inline-block;
-  color: #166534;
-}
-
-/* Detalhes */
-.linha-detalhes { background-color: #f8fafc; }
-
-.detalhes-wrapper {
-  padding: 1.5rem 2rem;
-  border-bottom: 2px solid #e2e8f0;
-}
-
-.detalhes-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.bloco-detalhe {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-
-.bloco-detalhe.empresa-bg {
-  border-left: 4px solid #3b82f6;
-}
-
-.bloco-detalhe h4 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 1.2rem;
-  font-size: 0.95rem;
-  color: var(--text-main);
-  border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 0.5rem;
-}
-
-.detalhe-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.6rem;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.total-row {
-  margin-top: 1rem;
-  padding-top: 0.8rem;
-  border-top: 1px dashed #cbd5e1;
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-main);
-}
-
-.info-extra {
-  margin-top: 0.8rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  text-align: right;
-  font-style: italic;
-}
-
-/* Paginação */
-.paginacao-container {
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f8fafc;
-  border-top: 1px solid var(--border-color);
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.paginacao-btns button {
-  background: white;
-  border: 1px solid var(--border-color);
-  padding: 0.4rem 1rem;
-  margin-left: 0.5rem;
-  border-radius: 6px;
+.btn-icon-action {
+  background: none;
+  border: none;
+  color: var(--primary-600);
   cursor: pointer;
-  font-size: 0.85rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  padding: 4px;
+  transition: transform 0.2s;
 }
+.btn-icon-action:hover { transform: scale(1.1); color: var(--primary-700); }
 
-.paginacao-btns button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #f1f5f9;
-}
-
-.paginacao-btns button:hover:not(:disabled) {
-  background-color: #e2e8f0;
-}
-
-/* Loading e Empty States */
-.loading-state, .empty-state {
-  padding: 4rem;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.spinner-simple {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid var(--primary-600);
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
+/* Cores e Detalhes */
 .text-red { color: #dc2626; }
+.text-red-dark { color: #991b1b; }
 .text-green { color: #16a34a; }
 .text-blue { color: #2563eb; }
-.font-medium { font-weight: 500; }
-.font-bold { font-weight: 700; }
+.cell-liquido { background: #f0fdf4; padding: 4px 8px; border-radius: 6px; }
 
-/* Responsividade */
-@media (max-width: 768px) {
-  .filtros-grid {
-    grid-template-columns: 1fr;
-  }
-  .detalhes-grid {
-    grid-template-columns: 1fr;
-  }
-  .tabela-salarios th:nth-child(2),
-  .tabela-salarios td:nth-child(2),
-  .tabela-salarios th:nth-child(3),
-  .tabela-salarios td:nth-child(3) {
-    display: none; /* Esconde colunas menos importantes no mobile */
-  }
-}
+.linha-detalhes { background-color: #f8fafc; }
+.detalhes-wrapper { padding: 1.5rem 2rem; border-bottom: 2px solid #e2e8f0; }
+.detalhes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+
+.bloco-detalhe { background: white; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); }
+.bloco-detalhe.empresa-bg { border-left: 4px solid #3b82f6; }
+.bloco-detalhe h4 { margin-bottom: 1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; color: var(--text-main); font-size: 0.95rem; }
+
+.detalhe-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.total-row { margin-top: 1rem; border-top: 1px dashed #cbd5e1; padding-top: 0.8rem; font-weight: 700; font-size: 1rem; }
+
+/* Paginação */
+.paginacao-container { padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-top: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-secondary); }
+.paginacao-btns button { background: white; border: 1px solid var(--border-color); padding: 0.4rem 1rem; margin-left: 0.5rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.paginacao-btns button:disabled { opacity: 0.5; cursor: not-allowed; }
+.paginacao-btns button:hover:not(:disabled) { background: #e2e8f0; }
+
+.btn-back { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 4px; }
+.btn-back:hover { color: var(--text-main); text-decoration: underline; }
+
+.loading-state, .empty-state { padding: 3rem; text-align: center; color: var(--text-secondary); }
+.spinner-simple { width: 24px; height: 24px; border: 3px solid #e2e8f0; border-top-color: var(--primary-600); border-radius: 50%; animation: spin 1s infinite linear; margin: 0 auto 1rem; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -1,50 +1,45 @@
 import { supabase } from './supabaseClient';
 
-// --- CATÁLOGO DE BENEFÍCIOS ---
-
-export const getTiposBeneficios = async () => {
+export const getBeneficiosPorFuncionario = async (funcionarioId) => {
   const { data, error } = await supabase
-    .from('beneficios_tipos')
+    .from('beneficios_colaborador')
     .select('*')
-    .order('nome');
+    .eq('funcionario_id', funcionarioId);
+  
   if (error) throw error;
   return data;
 };
 
-export const createTipoBeneficio = async (dados) => {
-  const { data, error } = await supabase.from('beneficios_tipos').insert([dados]).select();
-  if (error) throw error;
-  return data[0];
-};
-
-export const deleteTipoBeneficio = async (id) => {
-  const { error } = await supabase.from('beneficios_tipos').delete().eq('id', id);
-  if (error) throw error;
-  return true;
-};
-
-// --- VÍNCULOS COM FUNCIONÁRIOS ---
-
-export const getBeneficiosFuncionarios = async () => {
-  // Busca todos os vínculos, trazendo os detalhes do tipo (Join)
+// Busca otimizada para carregar benefícios de vários funcionários de uma vez
+export const getBeneficiosEmLote = async (listaIds) => {
+  if (!listaIds || listaIds.length === 0) return [];
+  
   const { data, error } = await supabase
-    .from('funcionarios_beneficios')
-    .select(`
-      *,
-      beneficios_tipos ( nome, operacao, tipo_valor )
-    `);
+    .from('beneficios_colaborador')
+    .select('*')
+    .in('funcionario_id', listaIds);
+    
   if (error) throw error;
   return data;
 };
 
-export const vincularBeneficio = async (dados) => {
-  const { data, error } = await supabase.from('funcionarios_beneficios').insert([dados]).select();
+export const criarBeneficio = async (dados) => {
+  const { data, error } = await supabase
+    .from('beneficios_colaborador')
+    .insert([dados])
+    .select()
+    .single();
+    
   if (error) throw error;
-  return data[0];
+  return data;
 };
 
-export const removerVinculoBeneficio = async (id) => {
-  const { error } = await supabase.from('funcionarios_beneficios').delete().eq('id', id);
+export const deletarBeneficio = async (id) => {
+  const { error } = await supabase
+    .from('beneficios_colaborador')
+    .delete()
+    .eq('id', id);
+    
   if (error) throw error;
   return true;
 };
