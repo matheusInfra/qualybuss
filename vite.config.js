@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
-      react(), 
+      react(),
       basicSsl() // Mantém HTTPS se você precisa dele
     ],
     build: {
@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => {
         '/api-supa': {
           target: env.VITE_SUPABASE_URL, // Agora vai ler o IP correto do .env
           changeOrigin: true,
+          ws: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/api-supa/, ''),
         },

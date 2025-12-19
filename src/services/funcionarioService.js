@@ -22,7 +22,7 @@ export const getAvatarPublicUrl = (path) => {
   return data.publicUrl;
 };
 
-// --- CRUD DE FUNCIONÁRIOS ---
+// --- CRUD DE FUNCIONÁRIOS (OTIMIZADO COM FILTROS) ---
 
 export const createFuncionario = async (dadosFuncionario) => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -33,16 +33,47 @@ export const createFuncionario = async (dadosFuncionario) => {
   return data;
 };
 
-export const getFuncionarios = async ({ page = 1, limit = 10, search = '', status = 'Ativo' }) => {
-  let query = supabase.from('funcionarios').select('*', { count: 'exact' }).is('deleted_at', null);
+/**
+ * Busca funcionários com paginação e filtros no servidor (Performance)
+ */
+export const getFuncionarios = async ({ 
+  page = 1, 
+  limit = 10, 
+  search = '', 
+  status = 'Ativo',
+  empresaId = null,
+  departamento = null
+}) => {
+  let query = supabase
+    .from('funcionarios')
+    .select('*', { count: 'exact' })
+    .is('deleted_at', null);
+
+  // Filtros Dinâmicos
   if (status !== 'Todos') query = query.eq('status', status);
-  if (search) query = query.or(`nome_completo.ilike.%${search}%,cargo.ilike.%${search}%`);
+  if (empresaId) query = query.eq('empresa_id', empresaId);
+  if (departamento) query = query.eq('departamento', departamento);
   
+  // Busca por texto (Nome ou Cargo)
+  if (search) {
+    query = query.or(`nome_completo.ilike.%${search}%,cargo.ilike.%${search}%`);
+  }
+  
+  // Paginação
   const from = (page - 1) * limit;
   const to = from + limit - 1;
-  const { data, count, error } = await query.order('nome_completo', { ascending: true }).range(from, to);
+  
+  const { data, count, error } = await query
+    .order('nome_completo', { ascending: true })
+    .range(from, to);
+
   if (error) throw error;
-  return { data, count, totalPages: Math.ceil(count / limit) };
+  
+  return { 
+    data, 
+    count, 
+    totalPages: Math.ceil(count / limit) 
+  };
 };
 
 export const getFuncionariosDropdown = async () => {

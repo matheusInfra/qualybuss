@@ -1,192 +1,356 @@
-.salario-container {
-  padding: 20px;
-  max-width: 1200px;
+.salarios-container {
+  padding: 1.5rem;
+  max-width: 1400px;
   margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
 
-.salario-header {
+.page-header-salarios {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.competencia-selector {
+.page-header-salarios h1 {
+  font-size: 1.6rem;
+  color: var(--text-main);
+  margin-bottom: 0.2rem;
+}
+
+.page-header-salarios p {
+  color: var(--text-secondary);
+}
+
+.resumo-cards-mini {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  gap: 1rem;
+}
+
+.card-mini {
   background: white;
-  padding: 10px 15px;
+  padding: 0.8rem 1.2rem;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.competencia-selector input {
-  border: 1px solid #e2e8f0;
-  padding: 5px;
-  border-radius: 4px;
-}
-
-/* TABS */
-.tabs-nav {
+  border: 1px solid var(--border-color);
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 10px;
+  flex-direction: column;
+  min-width: 140px;
+  box-shadow: var(--shadow-sm);
 }
 
-.tabs-nav button {
+.card-mini.highlight {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.card-mini small {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.card-mini strong {
+  font-size: 1.2rem;
+  color: var(--text-main);
+}
+
+/* --- BARRA DE FILTROS --- */
+.filtros-bar {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.filtros-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.5fr auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-group select, 
+.form-group input {
+  padding: 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+  background-color: white;
+}
+
+.input-icon {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+}
+
+.input-icon span {
+  position: absolute;
+  left: 10px;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+}
+
+.input-icon input {
+  padding-left: 2.2rem;
+}
+
+.filtros-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-600);
+  color: white;
   border: none;
-  background: transparent;
-  color: #64748b;
-  font-weight: 500;
-  cursor: pointer;
+  padding: 0.6rem 1.2rem;
   border-radius: 6px;
-  transition: all 0.2s;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+  height: 42px;
 }
 
-.tabs-nav button.active {
-  background: #e0f2fe;
-  color: #0284c7;
-  font-weight: 600;
+.btn-secondary {
+  background-color: #f1f5f9;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  height: 42px;
 }
 
-/* CARDS GRID */
-.cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
+.btn-secondary:hover { background-color: #e2e8f0; }
+.btn-primary:hover { background-color: var(--primary-700); }
 
-.salary-card {
+/* --- TABELA --- */
+.tabela-container {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border: 1px solid var(--border-color);
   overflow: hidden;
-  border: 1px solid #f1f5f9;
+  box-shadow: var(--shadow-sm);
 }
 
-.card-header {
-  padding: 15px;
+.tabela-salarios {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela-salarios th {
+  background: #f8fafc;
+  padding: 1rem 1.5rem;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tabela-salarios td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.linha-principal {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.linha-principal:hover { background-color: #f8fafc; }
+.linha-principal.active { background-color: #f1f5f9; border-left: 4px solid var(--primary-500); }
+
+.colaborador-info {
   display: flex;
   align-items: center;
-  gap: 15px;
-  border-bottom: 1px solid #f1f5f9;
+  gap: 12px;
 }
 
-.avatar-placeholder {
-  width: 40px;
-  height: 40px;
-  background: #3b82f6;
-  color: white;
+.avatar-circle {
+  width: 36px;
+  height: 36px;
+  background: #e0e7ff;
+  color: #4338ca;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-}
-
-.card-body {
-  padding: 15px;
-}
-
-.row-value {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  font-weight: 700;
   font-size: 0.9rem;
 }
 
-.row-value.discount { color: #dc2626; }
-.row-value.highlight { font-weight: bold; color: #15803d; font-size: 1.1rem; }
+.nome { display: block; font-weight: 600; color: var(--text-main); }
+.cargo-mini { display: block; font-size: 0.75rem; color: var(--text-secondary); }
 
-.divider { height: 1px; background: #e2e8f0; margin: 10px 0; }
+.cell-liquido {
+  background-color: #f0fdf4;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  color: #166534;
+}
 
-.card-footer-cost {
-  background: #fff7ed;
-  padding: 10px 15px;
+/* Detalhes */
+.linha-detalhes { background-color: #f8fafc; }
+
+.detalhes-wrapper {
+  padding: 1.5rem 2rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.detalhes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.bloco-detalhe {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.bloco-detalhe.empresa-bg {
+  border-left: 4px solid #3b82f6;
+}
+
+.bloco-detalhe h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1.2rem;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.5rem;
+}
+
+.detalhe-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.total-row {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed #cbd5e1;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.info-extra {
+  margin-top: 0.8rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: right;
+  font-style: italic;
+}
+
+/* Paginação */
+.paginacao-container {
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #9a3412;
-  font-size: 0.85rem;
+  background: #f8fafc;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
-/* ANALYTICS */
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.kpi-box {
+.paginacao-btns button {
   background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
-
-.kpi-box.primary { background: #1e293b; color: white; }
-.kpi-box.primary h3 { color: #cbd5e1; }
-
-.bar-chart {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-}
-
-.bar-group {
-  margin-bottom: 15px;
-}
-
-.bar-fill {
-  height: 20px;
-  border-radius: 10px;
-  margin-top: 5px;
-}
-
-/* CONFIG */
-.config-form {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-}
-
-.input-group {
-  margin-bottom: 15px;
-}
-
-.input-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-}
-
-.btn-save {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 10px 20px;
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 1rem;
+  margin-left: 0.5rem;
   border-radius: 6px;
   cursor: pointer;
-  font-weight: bold;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.paginacao-btns button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+}
+
+.paginacao-btns button:hover:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+/* Loading e Empty States */
+.loading-state, .empty-state {
+  padding: 4rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.spinner-simple {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--primary-600);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.text-red { color: #dc2626; }
+.text-green { color: #16a34a; }
+.text-blue { color: #2563eb; }
+.font-medium { font-weight: 500; }
+.font-bold { font-weight: 700; }
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .filtros-grid {
+    grid-template-columns: 1fr;
+  }
+  .detalhes-grid {
+    grid-template-columns: 1fr;
+  }
+  .tabela-salarios th:nth-child(2),
+  .tabela-salarios td:nth-child(2),
+  .tabela-salarios th:nth-child(3),
+  .tabela-salarios td:nth-child(3) {
+    display: none; /* Esconde colunas menos importantes no mobile */
+  }
 }

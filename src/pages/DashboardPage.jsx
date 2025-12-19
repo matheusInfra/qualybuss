@@ -20,15 +20,12 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6'
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{
-        backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', minWidth: '150px', zIndex: 100
-      }}>
-        {label && <p style={{ fontWeight: '600', color: '#1e293b', marginBottom: '8px' }}>{label}</p>}
+      <div className="custom-tooltip">
+        {label && <p className="tooltip-label">{label}</p>}
         {payload.map((entry, index) => (
-          <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '0.875rem', marginBottom: '4px' }}>
+          <div key={index} className="tooltip-item">
             <span style={{ color: entry.color }}>● {entry.name}:</span>
-            <span style={{ fontWeight: '600', color: '#334155' }}>
+            <span className="tooltip-value">
               {typeof entry.value === 'number' ? entry.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : entry.value}
             </span>
           </div>
@@ -45,7 +42,7 @@ function DashboardPage() {
   const [showPendenciasModal, setShowPendenciasModal] = useState(false);
   const { mutate } = useSWRConfig();
   
-  // Referência para controlar o canal e evitar múltiplas inscrições
+  // Referência para controlar o canal e evitar recriação desnecessária
   const channelRef = useRef(null);
 
   const keyKPIs = ['dashboard_kpis', filtroEmpresa];
@@ -60,40 +57,44 @@ function DashboardPage() {
   const { data: proximasFerias } = useSWR(keyFerias, () => getProximasFerias(filtroEmpresa));
   const { data: aniversariantes } = useSWR(keyAniversario, () => getAniversariantesMes(filtroEmpresa));
 
-  // --- CONFIGURAÇÃO ROBUSTA DE WEBSOCKET ---
+  // --- WEBSOCKET ROBUSTO ---
   useEffect(() => {
-    // 1. Limpa canais anteriores se existirem
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
+    // Se já existe um canal aberto, não recria
+    if (channelRef.current) return;
 
-    // 2. Define um nome de canal estático para evitar criação de milhares de canais
-    const channelName = 'dashboard-global-room'; 
+    const channelName = `dashboard-room-${Date.now()}`;
+    
+    console.log("Iniciando conexão Realtime...");
 
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'funcionarios' }, () => {
+        // Atualiza todos os dados ao detectar mudança
         mutate(keyKPIs); mutate(keyEstrategicos); mutate(keyHistorico); mutate(keyAniversario);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitacoes_ausencia' }, () => {
         mutate(keyKPIs); mutate(keyFerias);
       })
       .subscribe((status) => {
-        if (status === 'CLOSED') {
-          console.warn('Conexão realtime fechada. Tentando reconectar na próxima atualização.');
+        if (status === 'SUBSCRIBED') {
+          // Conectado com sucesso
+        } else if (status === 'CLOSED') {
+          console.warn('Conexão realtime fechada pelo servidor.');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Erro no canal realtime. Verifique logs do Supabase.');
         }
       });
 
     channelRef.current = channel;
 
-    // 3. Cleanup ao desmontar
+    // Cleanup seguro ao desmontar
     return () => {
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current).catch(() => {});
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [filtroEmpresa, mutate]);
+  }, [mutate, keyKPIs, keyEstrategicos, keyHistorico, keyAniversario, keyFerias]);
 
   const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   const formatDateChart = (d) => { try { return new Date(d).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }); } catch { return d; } };
@@ -157,14 +158,14 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Gráficos - BLINDADOS CONTRA ERRO DE RENDERIZAÇÃO */}
+      {/* Gráficos - BLINDADOS COM TAMANHO FIXO */}
       <div className="charts-section">
         <div className="chart-card">
           <h3>📈 Evolução da Folha</h3>
-          {/* Wrapper com display block e dimensões forçadas */}
-          <div style={{ width: '99%', height: '300px', minWidth: '300px', display: 'block', position: 'relative' }}>
+          {/* Container com altura definida para evitar erro do Recharts */}
+          <div className="chart-wrapper">
             {listaHistorico && listaHistorico.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={listaHistorico}>
                   <defs>
                     <linearGradient id="colorFolha" x1="0" y1="0" x2="0" y2="1">
@@ -181,7 +182,7 @@ function DashboardPage() {
             ) : (
               <div className="chart-empty">
                 <span className="material-symbols-outlined" style={{fontSize:'48px', color:'#cbd5e1'}}>query_stats</span>
-                <p>Calculando histórico...</p>
+                <p>Aguardando dados...</p>
               </div>
             )}
           </div>
@@ -189,9 +190,9 @@ function DashboardPage() {
 
         <div className="chart-card">
           <h3>🏢 Distribuição por Departamento</h3>
-          <div style={{ width: '99%', height: '300px', minWidth: '300px', display: 'block', position: 'relative' }}>
+          <div className="chart-wrapper">
             {graficoDeptos && graficoDeptos.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={graficoDeptos} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" isAnimationActive={false}>
                     {graficoDeptos.map((entry, index) => (
@@ -203,7 +204,7 @@ function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="chart-empty"><p>{loadingStrat ? 'Carregando dados...' : 'Sem dados de departamentos.'}</p></div>
+              <div className="chart-empty"><p>{loadingStrat ? 'Carregando...' : 'Sem dados.'}</p></div>
             )}
           </div>
         </div>

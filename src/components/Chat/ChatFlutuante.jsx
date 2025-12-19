@@ -7,19 +7,18 @@ function ChatFlutuante() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Estado para o texto digitado (Correção do erro ReferenceError)
+  // Input Controlado (Vital para não dar erro de referência)
   const [inputMessage, setInputMessage] = useState('');
 
-  // Estado para Arquivos (Upload no Chat)
-  const [fileContext, setFileContext] = useState(null); // Texto extraído do arquivo
-  const [fileName, setFileName] = useState(null);       // Nome visual do arquivo
+  // Anexos
+  const [fileContext, setFileContext] = useState(null); 
+  const [fileName, setFileName] = useState(null);       
   const fileInputRef = useRef(null);
 
-  // Histórico de Mensagens (Memória)
   const [messages, setMessages] = useState([
     {
-      role: 'model', // 'model' ou 'user' (Padrão Gemini)
-      text: 'Olá! Sou o QualyBot. Posso analisar documentos, holerites, e dados financeiros da empresa. Como posso ajudar?'
+      role: 'model', 
+      text: 'Olá! Estou conectado aos dados da empresa (Folha, Funcionários, KPIs). Pode me pedir análises, previsões ou detalhes específicos.'
     }
   ]);
 
@@ -27,19 +26,14 @@ function ChatFlutuante() {
 
   const toggleChat = () => setIsOpen(!isOpen);
 
-  // Auto-scroll para a última mensagem
   useEffect(() => {
-    if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
 
-  // --- LÓGICA DE PROCESSAMENTO DE ARQUIVO (CLIENT-SIDE) ---
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Limite de segurança (5MB) para não travar o navegador
     if (file.size > 5 * 1024 * 1024) {
       alert("Arquivo muito grande. Máximo 5MB.");
       return;
@@ -55,7 +49,7 @@ function ChatFlutuante() {
       } else if (file.type.includes('text') || file.type.includes('json') || file.type.includes('csv')) {
         text = await file.text();
       } else {
-        alert("Formato não suportado pelo chat. Use PDF ou Texto.");
+        alert("Apenas PDF ou Texto/CSV.");
         setIsLoading(false);
         return;
       }
@@ -63,8 +57,7 @@ function ChatFlutuante() {
       setFileContext(text);
       setFileName(file.name);
     } catch (err) {
-      console.error("Erro ao ler arquivo:", err);
-      setMessages(prev => [...prev, { role: 'model', text: `Erro ao ler o arquivo: ${err.message}` }]);
+      console.error("Erro leitura:", err);
     } finally {
       setIsLoading(false);
     }
@@ -79,23 +72,20 @@ function ChatFlutuante() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Usa o estado inputMessage em vez de ler do evento
+    // Validação correta usando estado
     if (!inputMessage.trim() && !fileContext) return;
 
-    // 1. Atualiza UI imediatamente
     const displayText = fileName 
-      ? `📎 [Analisando ${fileName}]: ${inputMessage}` 
+      ? `📄 [Arquivo: ${fileName}]: ${inputMessage}` 
       : inputMessage;
 
     const newMessages = [...messages, { role: 'user', text: displayText }];
     setMessages(newMessages);
     setIsLoading(true);
-    
-    // Limpa o campo de texto
-    setInputMessage('');
+    setInputMessage(''); // Limpa input
 
     try {
-      // 2. Prepara histórico para a API (Limpa mensagens de erro antigas)
+      // Filtra mensagens para não enviar lixo para a IA
       const historyPayload = newMessages
         .filter(m => !m.text.includes('Erro'))
         .map(msg => ({
@@ -103,32 +93,22 @@ function ChatFlutuante() {
           parts: [{ text: msg.text }]
         }));
 
-      // 3. INJEÇÃO DE CONTEXTO DO ARQUIVO
-      // Se houver arquivo, ele é injetado "invisivelmente" no prompt atual
       const promptFinal = fileContext 
-        ? `CONTEXTO DO ARQUIVO ANEXADO (${fileName}):\n${fileContext}\n\nPERGUNTA DO USUÁRIO:\n${inputMessage}`
+        ? `CONTEXTO DO ARQUIVO (${fileName}):\n${fileContext}\n\nPERGUNTA: ${inputMessage}`
         : inputMessage;
 
-      // 4. Chama a Edge Function Inteligente
       const { data, error } = await supabase.functions.invoke('chat-assistente', {
-        body: { 
-          prompt: promptFinal,
-          history: historyPayload // Envia a memória
-        } 
+        body: { prompt: promptFinal, history: historyPayload } 
       });
 
       if (error) throw error;
       
-      // 5. Resposta da IA
       setMessages(prev => [...prev, { role: 'model', text: data.reply }]);
-      clearFile(); // Limpa o arquivo da memória após envio
+      clearFile();
 
     } catch (err) {
-      console.error('Erro no chat:', err);
-      setMessages(prev => [...prev, { 
-        role: 'model', 
-        text: 'Desculpe, tive um problema de conexão com o cérebro da IA. Tente novamente.' 
-      }]);
+      console.error(err);
+      setMessages(prev => [...prev, { role: 'model', text: 'Erro de conexão. Verifique o console.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -137,77 +117,51 @@ function ChatFlutuante() {
   return (
     <div className="chat-flutuante-wrapper">
       <div className={`chat-janela ${isOpen ? 'open' : ''}`}>
-        
         <div className="chat-header">
           <div className="header-info">
-            <h3>QualyBot AI</h3>
+            <h3>QualyBot Analyst</h3>
             <span className="status-dot"></span>
           </div>
           <button onClick={toggleChat} className="chat-close-btn">&times;</button>
         </div>
         
         <div className="chat-messages">
-          {messages.map((msg, index) => (
-            <div key={index} className={`message ${msg.role === 'user' ? 'user' : 'ai'}`}>
-              <div className="msg-bubble">
-                {msg.text}
-              </div>
+          {messages.map((msg, i) => (
+            <div key={i} className={`message ${msg.role === 'user' ? 'user' : 'ai'}`}>
+              <div className="msg-bubble">{msg.text}</div>
             </div>
           ))}
-          {isLoading && (
-            <div className="message ai typing">
-              <div className="dot-typing"></div>
-            </div>
-          )}
+          {isLoading && <div className="message ai typing"><div className="dot-typing"></div></div>}
           <div ref={messagesEndRef} />
         </div>
         
-        {/* Preview do Arquivo Anexado */}
         {fileName && (
           <div className="file-attachment-preview">
             <span className="material-symbols-outlined">description</span>
             <small>{fileName}</small>
-            <button type="button" onClick={clearFile} title="Remover anexo">&times;</button>
+            <button type="button" onClick={clearFile}>&times;</button>
           </div>
         )}
 
         <form className="chat-input-form" onSubmit={handleSubmit}>
-          {/* Botão de Clipe (Upload) */}
-          <button 
-            type="button" 
-            className="btn-attach" 
-            onClick={() => fileInputRef.current.click()}
-            title="Anexar PDF ou Texto"
-            disabled={isLoading}
-          >
+          <button type="button" className="btn-attach" onClick={() => fileInputRef.current.click()}>
             <span className="material-symbols-outlined">attach_file</span>
           </button>
           <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileSelect} 
-            hidden 
-            accept=".pdf,.txt,.csv,.json"
+            type="file" ref={fileInputRef} onChange={handleFileSelect} hidden accept=".pdf,.txt,.csv" 
           />
-
           <input
             type="text"
-            name="prompt"
-            placeholder={fileName ? "Pergunte sobre o arquivo..." : "Digite sua pergunta..."}
-            autoComplete="off"
-            disabled={isLoading}
+            placeholder="Pergunte sobre a folha, funcionários..."
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
+            disabled={isLoading}
           />
-          <button 
-            type="submit" 
-            disabled={isLoading || (!inputMessage.trim() && !fileContext)}
-          >
+          <button type="submit" disabled={isLoading || (!inputMessage.trim() && !fileContext)}>
             <span className="material-symbols-outlined">send</span>
           </button>
         </form>
       </div>
-
       <button onClick={toggleChat} className="chat-fab">
         <span className="material-symbols-outlined">smart_toy</span>
       </button>

@@ -1,97 +1,58 @@
-// src/utils/calculadoraSalario.js
-
-/**
- * Calcula INSS Progressivo (Mantido da versão anterior)
- */
-export const calcularINSS = (bruto, tabelaINSS) => {
-  if (!tabelaINSS || tabelaINSS.length === 0) return 0;
-  // ... (lógica anterior mantida para brevidade, se necessário repito)
-  // Vou focar nas novas funções de integração abaixo
-  
-  let faixaEncontrada = null;
-  const tabelaOrdenada = [...tabelaINSS].sort((a, b) => a.limite - b.limite);
-
-  for (const faixa of tabelaOrdenada) {
-    if (bruto <= faixa.limite) {
-      faixaEncontrada = faixa;
-      break;
-    }
+export const calcularINSS = (salarioBruto) => {
+  let inss = 0;
+  if (salarioBruto <= 1412.00) {
+    inss = salarioBruto * 0.075;
+  } else if (salarioBruto <= 2666.68) {
+    inss = (1412.00 * 0.075) + ((salarioBruto - 1412.00) * 0.09);
+  } else if (salarioBruto <= 4000.03) {
+    inss = (1412.00 * 0.075) + ((2666.68 - 1412.00) * 0.09) + ((salarioBruto - 2666.68) * 0.12);
+  } else if (salarioBruto <= 7786.02) {
+    inss = (1412.00 * 0.075) + ((2666.68 - 1412.00) * 0.09) + ((4000.03 - 2666.68) * 0.12) + ((salarioBruto - 4000.03) * 0.14);
+  } else {
+    inss = 908.85; // Teto 2024
   }
-  if (!faixaEncontrada) faixaEncontrada = tabelaOrdenada[tabelaOrdenada.length - 1];
-
-  const inssCalculado = (bruto * (faixaEncontrada.aliquota / 100)) - faixaEncontrada.deducao;
-  
-  // Teto máximo
-  const tetoFaixa = tabelaOrdenada[tabelaOrdenada.length - 1];
-  const tetoValor = (tetoFaixa.limite * (tetoFaixa.aliquota / 100)) - tetoFaixa.deducao;
-
-  return Math.max(0, Math.min(inssCalculado, tetoValor));
+  return inss;
 };
 
-export const calcularIRRF = (baseCalculo, tabelaIRRF) => {
-  if (!tabelaIRRF || baseCalculo <= 0) return 0;
-  const tabelaOrdenada = [...tabelaIRRF].sort((a, b) => a.limite - b.limite);
-  
-  for (const faixa of tabelaOrdenada) {
-    if (baseCalculo <= faixa.limite) {
-      return (baseCalculo * (faixa.aliquota / 100)) - faixa.deducao;
-    }
+export const calcularIRRF = (baseCalculo) => {
+  let irrf = 0;
+  if (baseCalculo <= 2259.20) {
+    irrf = 0;
+  } else if (baseCalculo <= 2826.65) {
+    irrf = (baseCalculo * 0.075) - 169.44;
+  } else if (baseCalculo <= 3751.05) {
+    irrf = (baseCalculo * 0.15) - 381.44;
+  } else if (baseCalculo <= 4664.68) {
+    irrf = (baseCalculo * 0.225) - 662.77;
+  } else {
+    irrf = (baseCalculo * 0.275) - 896.00;
   }
-  return 0;
+  return Math.max(0, irrf);
 };
 
-export const calcularMelhorIRRF = (bruto, inss, dependentes, config) => {
-  const deducaoDep = config.deducao_por_dependente || 189.59;
-  const deducaoSimplificada = 564.80; 
+export const calcularSalarioLiquido = (salarioBruto, dependentes = 0, outrosDescontos = 0) => {
+  const inss = calcularINSS(salarioBruto);
+  const deducaoDependentes = dependentes * 189.59;
+  const baseIRRF = salarioBruto - inss - deducaoDependentes;
+  const irrf = calcularIRRF(baseIRRF);
+  
+  const totalDescontos = inss + irrf + outrosDescontos;
+  const salarioLiquido = salarioBruto - totalDescontos;
 
-  const baseLegal = bruto - inss - (dependentes * deducaoDep);
-  const irrfLegal = Math.max(0, calcularIRRF(baseLegal, config.tabela_irrf));
-
-  const baseSimplificada = bruto - deducaoSimplificada;
-  const irrfSimplificado = Math.max(0, calcularIRRF(baseSimplificada, config.tabela_irrf));
-
-  const valorFinal = Math.min(irrfLegal, irrfSimplificado);
+  // Cálculos Patronais (Estimativas para Simples/Lucro Presumido)
+  const fgts = salarioBruto * 0.08;
+  // Estimativa de custo total (Salário + FGTS + Férias + 13º + Encargos ~60-70% em regimes normais, aqui simplificado para visão gerencial)
+  const custoEmpresa = salarioBruto + fgts; 
 
   return {
-    valor: valorFinal,
-    metodo: irrfSimplificado < irrfLegal ? 'Simplificado' : 'Legal',
-    base: irrfSimplificado < irrfLegal ? baseSimplificada : baseLegal
+    salarioBruto,
+    inss,
+    irrf,
+    outrosDescontos,
+    totalDescontos,
+    salarioLiquido,
+    fgts,
+    custoEmpresa, // Custo direto mensal (Sem provisionamento anual completo para não poluir, mas pode ajustar)
+    aliquotaEfetiva: ((totalDescontos / salarioBruto) * 100).toFixed(1)
   };
-};
-
-/**
- * [NOVO] Calcula Valor de Horas Extras
- * @param {number} salarioBase 
- * @param {number} minutosExtras - Total de minutos do banco
- * @param {number} percentual - 50, 100, etc.
- * @param {number} jornadaMensal - Padrão 220h
- */
-export const calcularHoraExtra = (salarioBase, minutosExtras, percentual = 50, jornadaMensal = 220) => {
-  if (!minutosExtras || minutosExtras <= 0) return 0;
-  
-  const valorHora = salarioBase / jornadaMensal;
-  const valorHoraComAdicional = valorHora * (1 + (percentual / 100));
-  const horasDecimais = minutosExtras / 60;
-  
-  return horasDecimais * valorHoraComAdicional;
-};
-
-/**
- * [NOVO] Calcula DSR sobre Horas Extras (Estimativa)
- * A fórmula exata exige dias úteis vs domingos/feriados do mês específico.
- * Aqui usamos uma média comercial de 1/6 (aprox 16.66%) se não informado os dias exatos.
- */
-export const calcularDSR = (valorHorasExtras, diasUteis = 25, diasInuteis = 5) => {
-  if (!valorHorasExtras) return 0;
-  // Fórmula: (Valor HE / Dias Úteis) * Dias Descanso
-  return (valorHorasExtras / diasUteis) * diasInuteis;
-};
-
-/**
- * [NOVO] Calcula Desconto de Atrasos/Faltas
- */
-export const calcularDescontoFaltas = (salarioBase, minutosAtraso, jornadaMensal = 220) => {
-  if (!minutosAtraso || minutosAtraso <= 0) return 0;
-  const valorHora = salarioBase / jornadaMensal;
-  return (minutosAtraso / 60) * valorHora;
 };
