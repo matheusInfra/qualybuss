@@ -17,7 +17,7 @@ function SalariosPage() {
   const [activeTab, setActiveTab] = useState('folha'); 
   const [empresaId, setEmpresaId] = useState('');
   
-  // -- Visão Geral --
+  // -- Estados Visão Geral --
   const [filtros, setFiltros] = useState({ empresa: '', departamento: '', search: '' });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -54,9 +54,13 @@ function SalariosPage() {
       bens.forEach(b => { if(!map[b.funcionario_id]) map[b.funcionario_id]=[]; map[b.funcionario_id].push(b); });
 
       const calc = res.data.map(f => {
-        // A calculadora retorna { salarioBruto, inss, irrf, salarioLiquido, custoEmpresa, custosDetalhados, listaBeneficios }
+        // Calcula e garante que a lista de benefícios esteja acessível no objeto principal
         const c = calcularSalarioLiquido(Number(f.salario_bruto), f.qtd_dependentes, map[f.id]||[]);
-        return { ...f, calculo: c };
+        return { 
+          ...f, 
+          calculo: c, 
+          beneficios: c.listaBeneficios || [] // Atalho direto para uso no JSX
+        };
       });
 
       setFolhaData(calc);
@@ -85,10 +89,10 @@ function SalariosPage() {
   const handleLimpar = () => { setFiltros({ empresa: '', departamento: '', search: '' }); setPage(1); setTimeout(fetchDadosGerais, 50); };
   const handleGestao = (func) => { setSelectedFuncionario(func); setActiveTab('beneficios'); };
 
-  // Helper para mostrar valor formatado (R$ ou %)
-  const renderValorBeneficio = (ben) => {
-    // ben.valorCalculado vem da calculadoraSalario.js
-    const valorReal = ben.valorCalculado || 0;
+  // --- FUNÇÃO DE RENDERIZAÇÃO (CORRIGIDA) ---
+  // Esta função deve estar DENTRO do componente, antes do return
+  const renderBeneficioValue = (ben) => {
+    const valorReal = ben.valorCalculado || ben.valor || 0;
     
     if (ben.tipo_valor === 'Porcentagem') {
       return (
@@ -109,7 +113,6 @@ function SalariosPage() {
           <p>Visão completa: Do bruto ao líquido e custo empresa.</p>
         </div>
         
-        {/* Cards de Resumo */}
         {activeTab === 'folha' && (
           <div className="resumo-cards-top">
             <div className="card-resumo">
@@ -136,7 +139,6 @@ function SalariosPage() {
         </div>
       </header>
 
-      {/* Abas */}
       <div className="tabs-bar">
         <button className={`tab-btn ${activeTab==='folha'?'active':''}`} onClick={()=>setActiveTab('folha')}>
           <span className="material-symbols-outlined">table_view</span> Visão Contratual
@@ -152,28 +154,14 @@ function SalariosPage() {
         </button>
       </div>
 
-      {/* --- ABA 1: TABELA GERAL (VISÃO CONTRATUAL) --- */}
       {activeTab === 'folha' && (
         <div className="tab-content fade-in">
-          {/* Filtros */}
           <div className="filtros-wrapper">
             <form onSubmit={handleFiltrar} className="filtros-form">
-              <div className="form-group">
-                <label>Buscar</label>
-                <input value={filtros.search} onChange={e=>setFiltros({...filtros,search:e.target.value})} placeholder="Colaborador..." />
-              </div>
-              <div className="form-group">
-                <label>Empresa</label>
-                <select value={filtros.empresa} onChange={e=>setFiltros({...filtros,empresa:e.target.value})}><option value="">Todas</option>{empresas?.map(e=><option key={e.id} value={e.id}>{e.nome_fantasia}</option>)}</select>
-              </div>
-              <div className="form-group">
-                <label>Departamento</label>
-                <select value={filtros.departamento} onChange={e=>setFiltros({...filtros,departamento:e.target.value})}><option value="">Todos</option>{departamentos.map(d=><option key={d} value={d}>{d}</option>)}</select>
-              </div>
-              <div className="actions-group">
-                <button type="button" className="btn-secondary" onClick={handleLimpar}>Limpar</button>
-                <button type="submit" className="btn-primary">Filtrar</button>
-              </div>
+              <div className="form-group"><label>Buscar</label><input value={filtros.search} onChange={e=>setFiltros({...filtros,search:e.target.value})} placeholder="Colaborador..." /></div>
+              <div className="form-group"><label>Empresa</label><select value={filtros.empresa} onChange={e=>setFiltros({...filtros,empresa:e.target.value})}><option value="">Todas</option>{empresas?.map(e=><option key={e.id} value={e.id}>{e.nome_fantasia}</option>)}</select></div>
+              <div className="form-group"><label>Departamento</label><select value={filtros.departamento} onChange={e=>setFiltros({...filtros,departamento:e.target.value})}><option value="">Todos</option>{departamentos.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+              <div className="actions-group"><button type="button" className="btn-secondary" onClick={handleLimpar}>Limpar</button><button type="submit" className="btn-primary">Filtrar</button></div>
             </form>
           </div>
 
@@ -200,7 +188,7 @@ function SalariosPage() {
                           <td>
                             <div className="colaborador-info">
                               <div className="avatar-circle">{i.nome_completo.charAt(0)}</div>
-                              <div><span className="nome">{i.nome_completo}</span><span className="cargo">{i.cargo}</span></div>
+                              <div><span className="nome">{i.nome_completo}</span><span className="cargo-mini">{i.cargo}</span></div>
                             </div>
                           </td>
                           <td className="font-medium">{fmt(i.calculo.salarioBruto)}</td>
@@ -217,14 +205,14 @@ function SalariosPage() {
                           </td>
                         </tr>
                         
-                        {/* --- CARD DETALHADO (AQUI ESTÁ A RIQUEZA VISUAL) --- */}
+                        {/* --- DETALHES COMPLETOS (Onde ocorria o erro) --- */}
                         {detalheExpandido === i.id && (
                           <tr className="linha-detalhes fade-in">
                             <td colSpan="7">
                               <div className="detalhes-wrapper">
                                 <div className="detalhes-grid">
                                   
-                                  {/* ESQUERDA: DO BRUTO AO LÍQUIDO (Colaborador) */}
+                                  {/* Card Esquerda: Colaborador */}
                                   <div className="card-detalhe card-colaborador">
                                     <div className="card-header">
                                       <span className="material-symbols-outlined">person</span>
@@ -233,8 +221,8 @@ function SalariosPage() {
                                     
                                     <div className="row"><span>(+) Salário Contratual:</span> <strong>{fmt(i.calculo.salarioBruto)}</strong></div>
                                     
-                                    {/* Lista de Proventos Extras (Verde) */}
-                                    {i.calculo.listaBeneficios.filter(b=>b.tipo==='Provento').map(b=>(
+                                    {/* Proventos Extras */}
+                                    {i.beneficios.filter(b=>b.tipo==='Provento').map(b=>(
                                       <div key={b.id} className="row text-green">
                                         <span>(+) {b.nome}</span> {renderBeneficioValue(b)}
                                       </div>
@@ -242,11 +230,12 @@ function SalariosPage() {
 
                                     <div className="divider-dashed"></div>
 
-                                    {/* Lista de Descontos (Vermelho) */}
+                                    {/* Descontos Oficiais */}
                                     <div className="row text-red"><span>(-) INSS (Oficial):</span> <span>{fmt(i.calculo.inss)}</span></div>
                                     <div className="row text-red"><span>(-) IRRF (Retido):</span> <span>{fmt(i.calculo.irrf)}</span></div>
                                     
-                                    {i.calculo.listaBeneficios.filter(b=>b.tipo==='Desconto').map(b=>(
+                                    {/* Descontos Benefícios */}
+                                    {i.beneficios.filter(b=>b.tipo==='Desconto').map(b=>(
                                       <div key={b.id} className="row text-red-dark">
                                         <span>(-) {b.nome}</span> {renderBeneficioValue(b)}
                                       </div>
@@ -258,7 +247,7 @@ function SalariosPage() {
                                     </div>
                                   </div>
 
-                                  {/* DIREITA: CUSTO REAL (Patrão) */}
+                                  {/* Card Direita: Empregador (Com Detalhamento Completo) */}
                                   <div className="card-detalhe card-empregador">
                                     <div className="card-header">
                                       <span className="material-symbols-outlined">domain</span>
@@ -267,7 +256,7 @@ function SalariosPage() {
 
                                     <div className="row"><span>(+) Salário Base:</span> <span>{fmt(i.calculo.salarioBruto)}</span></div>
                                     
-                                    {/* Detalhamento dos Encargos (Vem do custosDetalhados da calculadora) */}
+                                    {/* Detalhes do Custo Empresa (Vindos da Calculadora) */}
                                     {i.calculo.custosDetalhados?.beneficios > 0 && (
                                       <div className="row"><span>(+) Benefícios (Pago Empresa):</span> <span>{fmt(i.calculo.custosDetalhados.beneficios)}</span></div>
                                     )}
@@ -296,7 +285,6 @@ function SalariosPage() {
                   </tbody>
                 </table>
                 
-                {/* Paginação */}
                 <div className="pagination">
                   <span>Página {page} de {totalPages || 1}</span>
                   <div className="page-btns">
@@ -310,7 +298,6 @@ function SalariosPage() {
         </div>
       )}
 
-      {/* --- OUTRAS ABAS --- */}
       {activeTab === 'fechamento' && <MuralApontamentos empresaId={filtros.empresa || empresas?.[0]?.id} />}
       {activeTab === 'catalogo' && <CatalogoBeneficios empresaId={filtros.empresa || empresas?.[0]?.id} />}
       

@@ -8,6 +8,7 @@ export const getCatalogoBeneficios = async (empresaId) => {
     .eq('empresa_id', empresaId)
     .eq('ativo', true)
     .order('nome');
+  
   if (error) throw error;
   return data;
 };
@@ -18,52 +19,69 @@ export const criarItemCatalogo = async (dados) => {
     .insert([dados])
     .select()
     .single();
+    
   if (error) throw error;
   return data;
 };
 
-// --- DISTRIBUIÇÃO EM MASSA ---
+// --- DISTRIBUIÇÃO EM MASSA (CORE DA ATUALIZAÇÃO) ---
 export const distribuirBeneficio = async (beneficioModelo, funcionariosIds) => {
   if (!funcionariosIds || funcionariosIds.length === 0) return;
 
-  // Cria o vínculo individual para cada funcionário selecionado
+  // Mapeia os IDs selecionados para criar o payload de inserção
   const inserts = funcionariosIds.map(funcId => ({
     funcionario_id: funcId,
     nome: beneficioModelo.nome,
-    tipo: beneficioModelo.tipo,       // Provento ou Desconto
-    tipo_valor: beneficioModelo.tipo_valor, // Fixo ou Porcentagem
+    tipo: beneficioModelo.tipo,             // 'Provento' ou 'Desconto'
+    tipo_valor: beneficioModelo.tipo_valor, // 'Fixo' ou 'Porcentagem'
     valor: beneficioModelo.valor_padrao,
     descricao: beneficioModelo.descricao || 'Atribuído via Catálogo',
     recorrente: true
   }));
 
-  const { error } = await supabase.from('beneficios_colaborador').insert(inserts);
+  const { error } = await supabase
+    .from('beneficios_colaborador')
+    .insert(inserts);
+    
   if (error) throw error;
   return true;
 };
 
-// --- CRUD INDIVIDUAL (JÁ EXISTENTE) ---
+// --- CRUD INDIVIDUAL (COMPATIBILIDADE) ---
 export const getBeneficiosPorFuncionario = async (funcionarioId) => {
-  const { data, error } = await supabase.from('beneficios_colaborador').select('*').eq('funcionario_id', funcionarioId);
+  const { data, error } = await supabase
+    .from('beneficios_colaborador')
+    .select('*')
+    .eq('funcionario_id', funcionarioId);
   if (error) throw error;
   return data;
 };
 
 export const getBeneficiosEmLote = async (listaIds) => {
-  if (!listaIds?.length) return [];
-  const { data, error } = await supabase.from('beneficios_colaborador').select('*').in('funcionario_id', listaIds);
+  if (!listaIds || listaIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('beneficios_colaborador')
+    .select('*')
+    .in('funcionario_id', listaIds);
   if (error) throw error;
   return data;
 };
 
 export const criarBeneficio = async (dados) => {
-  const { data, error } = await supabase.from('beneficios_colaborador').insert([dados]).select().single();
+  const { data, error } = await supabase
+    .from('beneficios_colaborador')
+    .insert([dados])
+    .select()
+    .single();
   if (error) throw error;
   return data;
 };
 
 export const deletarBeneficio = async (id) => {
-  const { error } = await supabase.from('beneficios_colaborador').delete().eq('id', id);
+  const { error } = await supabase
+    .from('beneficios_colaborador')
+    .delete()
+    .eq('id', id);
   if (error) throw error;
   return true;
 };

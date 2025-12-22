@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { getCatalogoBeneficios, criarItemCatalogo, distribuirBeneficio } from '../../services/beneficioService';
 import { getFuncionarios } from '../../services/funcionarioService';
@@ -8,11 +8,13 @@ export default function CatalogoBeneficios({ empresaId }) {
   const [catalogo, setCatalogo] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Estados do Modal de Distribuição
+  // --- ESTADOS DO MODAL DE DISTRIBUIÇÃO ---
   const [showModal, setShowModal] = useState(false);
   const [selectedBeneficio, setSelectedBeneficio] = useState(null);
-  const [funcionarios, setFuncionarios] = useState([]);
-  const [selectedFuncs, setSelectedFuncs] = useState([]);
+  
+  const [funcionarios, setFuncionarios] = useState([]); // Todos os funcionários ativos
+  const [selectedFuncs, setSelectedFuncs] = useState([]); // IDs selecionados
+  const [searchTerm, setSearchTerm] = useState(''); // Filtro de busca
 
   // Form Novo Modelo
   const [newItem, setNewItem] = useState({ 
@@ -23,6 +25,7 @@ export default function CatalogoBeneficios({ empresaId }) {
     descricao: ''
   });
 
+  // Carrega catálogo ao iniciar
   useEffect(() => {
     if (empresaId) carregarCatalogo();
   }, [empresaId]);
@@ -57,36 +60,68 @@ export default function CatalogoBeneficios({ empresaId }) {
     }
   };
 
-  // --- FLUXO DE DISTRIBUIÇÃO ---
+  // --- LÓGICA DE DISTRIBUIÇÃO (MODAL) ---
+
   const handleOpenDistribuir = async (beneficio) => {
     setSelectedBeneficio(beneficio);
     setLoading(true);
-    // Carrega lista de funcionários para o modal
-    const { data } = await getFuncionarios({ limit: 1000, status: 'Ativo', empresaId });
-    setFuncionarios(data || []);
-    setSelectedFuncs([]);
-    setLoading(false);
-    setShowModal(true);
-  };
-
-  const handleConfirmarDistribuicao = async () => {
-    if (selectedFuncs.length === 0) return toast.error("Selecione colaboradores.");
-    
-    setLoading(true);
     try {
-      await distribuirBeneficio(selectedBeneficio, selectedFuncs);
-      toast.success(`Benefício aplicado a ${selectedFuncs.length} colaboradores!`);
-      setShowModal(false);
-    } catch (err) {
-      toast.error("Erro ao distribuir.");
+      // Busca todos os funcionários ativos para popular a lista
+      // Usamos limit alto para garantir que traga todos para seleção
+      const { data } = await getFuncionarios({ limit: 2000, status: 'Ativo', empresaId });
+      setFuncionarios(data || []);
+      setSelectedFuncs([]); // Começa limpo
+      setSearchTerm('');    // Limpa busca
+      setShowModal(true);
+    } catch (error) {
+      toast.error("Erro ao carregar lista de colaboradores.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Filtragem em tempo real (Memoizado para performance)
+  const funcionariosFiltrados = useMemo(() => {
+    if (!searchTerm) return funcionarios;
+    const lowerTerm = searchTerm.toLowerCase();
+    return funcionarios.filter(f => 
+      f.nome_completo.toLowerCase().includes(lowerTerm) ||
+      f.cargo?.toLowerCase().includes(lowerTerm) ||
+      f.departamento?.toLowerCase().includes(lowerTerm)
+    );
+  }, [funcionarios, searchTerm]);
+
+  // Lógica de Selecionar Todos (Apenas os visíveis no filtro!)
   const toggleSelectAll = () => {
-    if (selectedFuncs.length === funcionarios.length) setSelectedFuncs([]);
-    else setSelectedFuncs(funcionarios.map(f => f.id));
+    const idsVisiveis = funcionariosFiltrados.map(f => f.id);
+    const todosVisiveisSelecionados = idsVisiveis.every(id => selectedFuncs.includes(id));
+
+    if (todosVisiveisSelecionados) {
+      // Desmarcar todos os visíveis
+      setSelectedFuncs(prev => prev.filter(id => !idsVisiveis.includes(id)));
+    } else {
+      // Adicionar todos os visíveis aos já selecionados (sem duplicar)
+      setSelectedFuncs(prev => [...new Set([...prev, ...idsVisiveis])]);
+    }
+  };
+
+  const handleConfirmarDistribuicao = async () => {
+    if (selectedFuncs.length === 0) return toast.error("Selecione pelo menos um colaborador.");
+    
+    const confirmMsg = `Deseja atribuir "${selectedBeneficio.nome}" para ${selectedFuncs.length} colaboradores?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setLoading(true);
+    try {
+      await distribuirBeneficio(selectedBeneficio, selectedFuncs);
+      toast.success(`Sucesso! Benefício adicionado a ${selectedFuncs.length} pessoas.`);
+      setShowModal(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao distribuir benefício.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatValue = (item) => {
@@ -180,46 +215,80 @@ export default function CatalogoBeneficios({ empresaId }) {
         </div>
       </div>
 
-      {/* Modal de Distribuição */}
+      {/* MODAL DE DISTRIBUIÇÃO COM FILTRO */}
       {showModal && (
         <div className="modal-backdrop">
           <div className="modal-container">
             <div className="modal-header">
-              <h4>Atribuir: {selectedBeneficio?.nome}</h4>
+              <div className="modal-title">
+                <span className="material-symbols-outlined">diversity_3</span>
+                <div>
+                  <h4>Distribuir Benefício</h4>
+                  <p>Item: <strong>{selectedBeneficio?.nome}</strong> ({formatValue(selectedBeneficio)})</p>
+                </div>
+              </div>
               <button onClick={() => setShowModal(false)} className="close-btn">&times;</button>
             </div>
             
             <div className="modal-body">
-              <div className="selection-toolbar">
-                <span className="count-badge">{selectedFuncs.length} selecionados</span>
-                <button onClick={toggleSelectAll} className="btn-text">
-                  {selectedFuncs.length === funcionarios.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
-                </button>
+              {/* Barra de Filtro e Seleção */}
+              <div className="filter-bar">
+                <div className="input-search">
+                  <span className="material-symbols-outlined">search</span>
+                  <input 
+                    type="text" 
+                    placeholder="Filtrar por nome, cargo ou depto..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="selection-info-bar">
+                <label className="checkbox-all">
+                  <input 
+                    type="checkbox" 
+                    onChange={toggleSelectAll}
+                    checked={funcionariosFiltrados.length > 0 && funcionariosFiltrados.every(f => selectedFuncs.includes(f.id))}
+                  />
+                  <span>Selecionar {searchTerm ? 'Filtrados' : 'Todos'}</span>
+                </label>
+                <span className="count-badge">
+                  {selectedFuncs.length} selecionado(s)
+                </span>
               </div>
               
+              {/* Lista Scrollável */}
               <div className="scroll-list">
-                {funcionarios.map(func => (
-                  <label key={func.id} className="user-row-check">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedFuncs.includes(func.id)}
-                      onChange={(e) => {
-                        if(e.target.checked) setSelectedFuncs([...selectedFuncs, func.id]);
-                        else setSelectedFuncs(selectedFuncs.filter(id => id !== func.id));
-                      }}
-                    />
-                    <div className="user-info">
-                      <strong>{func.nome_completo}</strong>
-                      <small>{func.departamento} • {func.cargo}</small>
-                    </div>
-                  </label>
-                ))}
+                {funcionariosFiltrados.length === 0 ? (
+                  <p className="no-results">Nenhum colaborador encontrado.</p>
+                ) : (
+                  funcionariosFiltrados.map(func => (
+                    <label key={func.id} className={`user-row-check ${selectedFuncs.includes(func.id) ? 'selected' : ''}`}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedFuncs.includes(func.id)}
+                        onChange={(e) => {
+                          if(e.target.checked) setSelectedFuncs([...selectedFuncs, func.id]);
+                          else setSelectedFuncs(selectedFuncs.filter(id => id !== func.id));
+                        }}
+                      />
+                      <div className="avatar-mini">{func.nome_completo.charAt(0)}</div>
+                      <div className="user-info">
+                        <strong>{func.nome_completo}</strong>
+                        <small>{func.departamento} • {func.cargo}</small>
+                      </div>
+                    </label>
+                  ))
+                )}
               </div>
             </div>
             
             <div className="modal-footer">
-              <button onClick={handleConfirmarDistribuicao} className="btn-confirm" disabled={loading}>
-                {loading ? 'Aplicando...' : 'Confirmar Associação'}
+              <button onClick={() => setShowModal(false)} className="btn-cancel">Cancelar</button>
+              <button onClick={handleConfirmarDistribuicao} className="btn-confirm" disabled={loading || selectedFuncs.length === 0}>
+                {loading ? <div className="spinner-mini"></div> : <span className="material-symbols-outlined">check</span>}
+                Confirmar Associação
               </button>
             </div>
           </div>
