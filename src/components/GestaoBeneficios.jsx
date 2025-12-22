@@ -1,117 +1,107 @@
-// src/components/GestaoBeneficios.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+// Se você tiver um serviço de salvar benefícios, importe aqui.
+import { saveBeneficios } from '../services/beneficioService';
 
-const GestaoBeneficios = () => {
-  // Lista inicial de dados (pode vir de API futuramente)
-  const [listaBeneficios, setListaBeneficios] = useState([
-    { id: 1, nome: 'Vale Transporte', tipo: 'Desconto', valor: '6%', descricao: 'Lei vigente' },
-    { id: 2, nome: 'Vale Alimentação', tipo: 'Benefício', valor: 'R$ 600,00', descricao: 'Mensal' }
-  ]);
-
-  const [novoItem, setNovoItem] = useState({
+const GestaoBeneficios = ({ funcionarioId, dadosIniciais = [] }) => {
+  const [beneficios, setBeneficios] = useState(dadosIniciais);
+  const [novoBeneficio, setNovoBeneficio] = useState({
     nome: '',
-    tipo: 'Benefício',
+    tipo: 'Desconto', // Padronizado com SalariosPage (Provento/Desconto)
+    tipo_valor: 'Valor Fixo', // Valor Fixo ou Porcentagem
     valor: '',
-    descricao: ''
   });
 
+  useEffect(() => {
+    // Atualiza se mudar o funcionário selecionado
+    if(dadosIniciais) setBeneficios(dadosIniciais);
+  }, [funcionarioId, dadosIniciais]);
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setNovoItem(prev => ({ ...prev, [name]: value }));
+    setNovoBeneficio({ ...novoBeneficio, [e.target.name]: e.target.value });
   };
 
-  const adicionarBeneficio = (e) => {
+  const handleAdd = (e) => {
     e.preventDefault();
-    if (!novoItem.nome || !novoItem.valor) return;
+    if (!novoBeneficio.nome || !novoBeneficio.valor) return;
 
-    const itemParaSalvar = {
+    const item = {
       id: Date.now(),
-      ...novoItem
+      funcionario_id: funcionarioId,
+      ...novoBeneficio,
+      valor: parseFloat(novoBeneficio.valor)
     };
 
-    setListaBeneficios([...listaBeneficios, itemParaSalvar]);
-    setNovoItem({ nome: '', tipo: 'Benefício', valor: '', descricao: '' });
+    const novaLista = [...beneficios, item];
+    setBeneficios(novaLista);
+    setNovoBeneficio({ nome: '', tipo: 'Desconto', tipo_valor: 'Valor Fixo', valor: '' });
+    
+    // AQUI VOCÊ CHAMARIA O SERVIÇO PARA SALVAR NO BANCO
+    // saveBeneficios(item);
+    console.log("Salvar no banco:", item);
   };
 
-  const removerBeneficio = (id) => {
-    setListaBeneficios(listaBeneficios.filter(item => item.id !== id));
+  const handleRemove = (id) => {
+    setBeneficios(beneficios.filter(b => b.id !== id));
+    // deleteBeneficio(id);
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md h-full">
-      <h2 className="text-xl font-semibold mb-4 border-b pb-2 text-gray-800">Catálogo de Benefícios</h2>
-
-      {/* Formulário Rápido */}
-      <form onSubmit={adicionarBeneficio} className="mb-6 bg-gray-50 p-3 rounded border border-gray-200">
-        <h3 className="text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide">Adicionar Novo</h3>
-        <div className="grid grid-cols-1 gap-3">
-          <input
-            type="text"
-            name="nome"
-            placeholder="Nome do Benefício (ex: GymPass)"
-            value={novoItem.nome}
-            onChange={handleChange}
-            className="w-full p-2 border rounded text-sm"
+    <div className="bg-white p-6 rounded shadow">
+      <h2 className="text-xl font-bold mb-4">Gerenciar Benefícios Individuais</h2>
+      
+      <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-gray-50 p-4 rounded border">
+        <input 
+          name="nome" placeholder="Nome (ex: Plano Saúde)" 
+          value={novoBeneficio.nome} onChange={handleChange}
+          className="p-2 border rounded" required
+        />
+        <select name="tipo" value={novoBeneficio.tipo} onChange={handleChange} className="p-2 border rounded">
+          <option value="Desconto">Desconto (-)</option>
+          <option value="Provento">Provento (+)</option>
+        </select>
+        <div className="flex gap-2">
+           <select name="tipo_valor" value={novoBeneficio.tipo_valor} onChange={handleChange} className="p-2 border rounded w-1/2">
+            <option value="Valor Fixo">R$</option>
+            <option value="Porcentagem">%</option>
+          </select>
+          <input 
+            name="valor" type="number" step="0.01" placeholder="Valor" 
+            value={novoBeneficio.valor} onChange={handleChange}
+            className="p-2 border rounded w-1/2" required
           />
-          <div className="flex gap-2">
-            <select 
-              name="tipo" 
-              value={novoItem.tipo} 
-              onChange={handleChange}
-              className="p-2 border rounded text-sm flex-1"
-            >
-              <option value="Benefício">Crédito (Benefício)</option>
-              <option value="Desconto">Débito (Desconto)</option>
-            </select>
-            <input
-              type="text"
-              name="valor"
-              placeholder="Valor (R$ ou %)"
-              value={novoItem.valor}
-              onChange={handleChange}
-              className="w-full p-2 border rounded text-sm flex-1"
-            />
-          </div>
-          <button 
-            type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-1.5 rounded text-sm font-medium transition"
-          >
-            + Adicionar
-          </button>
         </div>
+        <button type="submit" className="bg-green-600 text-white rounded hover:bg-green-700">Adicionar</button>
       </form>
 
-      {/* Lista de Visualização */}
-      <div className="overflow-y-auto max-h-[400px]">
-        {listaBeneficios.length === 0 ? (
-          <p className="text-gray-500 text-center text-sm py-4">Nenhum benefício cadastrado.</p>
-        ) : (
-          <ul className="space-y-3">
-            {listaBeneficios.map((beneficio) => (
-              <li key={beneficio.id} className="flex justify-between items-center p-3 border rounded hover:shadow-sm transition bg-white">
-                <div>
-                  <p className="font-bold text-gray-800">{beneficio.nome}</p>
-                  <p className="text-xs text-gray-500">{beneficio.descricao}</p>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    beneficio.tipo === 'Desconto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                  }`}>
-                    {beneficio.tipo}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-gray-900">{beneficio.valor}</p>
-                  <button 
-                    onClick={() => removerBeneficio(beneficio.id)}
-                    className="text-xs text-red-500 hover:text-red-700 underline mt-1"
-                  >
-                    Remover
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <table className="w-full">
+        <thead>
+          <tr className="text-left text-gray-500 border-b">
+            <th className="pb-2">Nome</th>
+            <th className="pb-2">Tipo</th>
+            <th className="pb-2">Valor</th>
+            <th className="pb-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {beneficios.map(b => (
+            <tr key={b.id} className="border-b last:border-0">
+              <td className="py-3">{b.nome}</td>
+              <td className="py-3">
+                <span className={`text-xs font-bold px-2 py-1 rounded ${b.tipo === 'Desconto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                  {b.tipo}
+                </span>
+              </td>
+              <td className="py-3 font-mono">
+                {b.tipo_valor === 'Porcentagem' ? `${b.valor}%` : `R$ ${parseFloat(b.valor).toFixed(2)}`}
+              </td>
+              <td className="py-3 text-right">
+                <button onClick={() => handleRemove(b.id)} className="text-red-500 hover:text-red-700 text-sm">Remover</button>
+              </td>
+            </tr>
+          ))}
+          {beneficios.length === 0 && <tr><td colSpan="4" className="py-4 text-center text-gray-400">Nenhum benefício cadastrado.</td></tr>}
+        </tbody>
+      </table>
     </div>
   );
 };

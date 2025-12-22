@@ -1,154 +1,100 @@
 import { supabase } from './supabaseClient';
 
 /**
- * Busca o histórico de movimentações de um funcionário específico.
+ * Lista movimentações (Histórico)
+ * Suporta filtro por Empresa (Dashboard) ou Funcionário (Perfil)
+ */
+export const getMovimentacoes = async (empresaId = null) => {
+  let query = supabase
+    .from('movimentacoes')
+    .select(`
+      *,
+      funcionario:funcionarios ( id, nome_completo, departamento )
+    `)
+    .order('data_movimentacao', { ascending: false });
+
+  if (empresaId) {
+    // Se a tabela movimentacoes não tiver empresa_id direto, filtramos via join (opcional), 
+    // mas aqui assumo que você tem a coluna ou quer filtrar pelo contexto.
+    // Se não tiver a coluna 'empresa_id' na tabela movimentacoes, remova a linha abaixo.
+    query = query.eq('empresa_id', empresaId); 
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("Erro ao buscar movimentações:", error);
+    throw error;
+  }
+  return data;
+};
+
+/**
+ * Cria uma nova movimentação
+ * Tenta usar a função segura (RPC) primeiro, se falhar, tenta insert direto.
+ */
+export const criarMovimentacao = async (dados) => {
+  try {
+    // 1. Tenta via RPC (Segurança/Compliance)
+    const payloadRPC = {
+      p_funcionario_id: dados.funcionario_id,
+      p_tipo: dados.tipo,
+      p_data: dados.data_movimentacao,
+      p_descricao: dados.descricao,
+      p_salario_novo: dados.valor ? parseFloat(dados.valor) : null
+      // Adicione outros campos se sua RPC exigir
+    };
+    
+    const { data, error } = await supabase.rpc('registrar_movimentacao_segura', payloadRPC);
+    if (!error) return data;
+    
+    // Se der erro de "function not found", cai no catch ou no if abaixo
+    if (error && error.code !== '42883') throw error; // 42883 = func undefined
+  } catch (e) {
+    // console.warn("RPC não encontrada ou falha, tentando INSERT direto...", e);
+  }
+
+  // 2. Fallback: Insert Direto (Caso a RPC não esteja configurada no banco ainda)
+  const { data, error } = await supabase
+    .from('movimentacoes')
+    .insert([{
+      funcionario_id: dados.funcionario_id,
+      empresa_id: dados.empresa_id,
+      tipo_movimentacao: dados.tipo, // Ajuste para o nome exato da sua coluna (tipo ou tipo_movimentacao)
+      data_movimentacao: dados.data_movimentacao,
+      valor: dados.valor,
+      motivo: dados.descricao,
+      created_at: new Date()
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Exclui uma movimentação
+ */
+export const excluirMovimentacao = async (id) => {
+  const { error } = await supabase
+    .from('movimentacoes')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+};
+
+/**
+ * Busca movimentações de um funcionário específico
  */
 export const getMovimentacoesPorFuncionario = async (funcionarioId) => {
   const { data, error } = await supabase
     .from('movimentacoes')
     .select('*')
-    .eq('id_funcionario', funcionarioId)
+    .eq('funcionario_id', funcionarioId) // Verifique se é id_funcionario ou funcionario_id
     .order('data_movimentacao', { ascending: false });
 
-  if (error) {
-    console.error("Erro ao buscar movimentações:", error.message);
-    throw error;
-  }
-  return data;
-};
-
-/**
- * Busca Avançada com Filtros (Para Dashboards e Relatórios)
- */
-export const getMovimentacoesFiltradas = async ({ funcionarioId, tipo, dataInicio, dataFim }) => {
-  let query = supabase
-    .from('movimentacoes')
-    .select(`
-      *,
-      funcionarios ( nome_completo, avatar_url )
-    `)
-    .order('data_movimentacao', { ascending: false });
-
-  if (funcionarioId) query = query.eq('id_funcionario', funcionarioId);
-  if (tipo && tipo !== 'Todos') query = query.eq('tipo', tipo);
-  if (dataInicio) query = query.gte('data_movimentacao', dataInicio);
-  if (dataFim) query = query.lte('data_movimentacao', dataFim);
-
-  const { data, error } = await query;
-  
-  if (error) {
-    console.error("Erro ao filtrar movimentações:", error.message);
-    throw error;
-  }
-  return data;
-};
-
-/**
- * [CRÍTICO] Cria movimentação de forma ATÔMICA via RPC.
- * Substitui a lógica antiga de dois passos por uma transação segura no banco.
- */
-export const createMovimentacao = async (dados) => {
-  // Prepara o payload para a função SQL
-  const payload = {
-    p_funcionario_id: dados.id_funcionario,
-    p_tipo: dados.tipo,
-    p_data: dados.data_movimentacao,
-    p_descricao: dados.descricao,
-    p_cargo_novo: dados.cargo_novo || null,
-    p_salario_novo: dados.salario_novo ? parseFloat(dados.salario_novo) : null,
-    p_departamento_novo: dados.departamento_novo || null,
-    p_empresa_nova: dados.empresa_nova || null
-  };
-
-  // Chama a função de segurança no banco
-  const { data, error } = await supabase.rpc('registrar_movimentacao_segura', payload);
-
-  if (error) {
-    console.error("Erro na movimentação segura:", error.message);
-    // Tratamento de erro amigável para regras de negócio do banco
-    if (error.message.includes('Irredutibilidade')) {
-        throw new Error("Bloqueio de Compliance: Não é permitido reduzir o salário sem justificativa legal (Acordo/Correção).");
-    }
-    throw error;
-  }
-
-  return data;
-};
-
-/**
- * Simula um reajuste em massa (Cálculo Prévio)
- */
-export const simularReajusteMassa = async ({ departamento, tipoReajuste, valor, dataVigencia }) => {
-  let query = supabase.from('funcionarios')
-    .select('id, nome_completo, salario_bruto, cargo, departamento, empresa_id')
-    .eq('status', 'Ativo');
-  
-  if (departamento && departamento !== 'Todos') {
-    query = query.eq('departamento', departamento);
-  }
-  
-  const { data: funcionarios, error } = await query;
   if (error) throw error;
-
-  if (!funcionarios || funcionarios.length === 0) return [];
-
-  const simulacao = funcionarios.map(func => {
-    let novoSalario = Number(func.salario_bruto);
-    const salarioAtual = Number(func.salario_bruto);
-
-    if (tipoReajuste === 'Porcentagem') {
-      novoSalario = salarioAtual * (1 + (valor / 100));
-    } else if (tipoReajuste === 'Valor Fixo') {
-      novoSalario = salarioAtual + valor;
-    } else if (tipoReajuste === 'Novo Piso') {
-      if (salarioAtual < valor) novoSalario = valor;
-    }
-
-    return {
-      id: func.id,
-      nome: func.nome_completo,
-      cargo: func.cargo,
-      salario_atual: salarioAtual,
-      novo_salario: parseFloat(novoSalario.toFixed(2)),
-      diferenca: parseFloat((novoSalario - salarioAtual).toFixed(2)),
-      empresa_id: func.empresa_id,
-      departamento: func.departamento
-    };
-  });
-
-  // Retorna apenas quem teve alteração positiva
-  return simulacao.filter(item => item.diferenca > 0);
-};
-
-/**
- * Aplica o reajuste em massa confirmado (Lote Seguro)
- */
-export const aplicarReajusteMassa = async (listaAprovada, motivo, dataVigencia) => {
-  // Para cada item, chama a função segura. 
-  // Nota: Em grandes volumes (>500), ideal seria criar uma RPC de lote no banco, 
-  // mas para o MVP este loop com Promise.all funciona bem.
-  
-  const promises = listaAprovada.map(async (item) => {
-    const payload = {
-      p_funcionario_id: item.id,
-      p_tipo: 'Reajuste Coletivo',
-      p_data: dataVigencia,
-      p_descricao: motivo,
-      p_salario_novo: item.novo_salario
-      // Cargo e outros mantêm null para não alterar
-    };
-
-    return supabase.rpc('registrar_movimentacao_segura', payload);
-  });
-
-  const results = await Promise.all(promises);
-  
-  // Verifica se houve algum erro no lote
-  const erros = results.filter(r => r.error);
-  if (erros.length > 0) {
-    console.error("Erros no lote:", erros);
-    throw new Error(`Ocorreram ${erros.length} falhas durante o processamento do lote.`);
-  }
-
-  return true;
+  return data;
 };

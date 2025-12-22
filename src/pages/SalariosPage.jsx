@@ -1,316 +1,179 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
-import { getFuncionarios } from '../services/funcionarioService';
-import { getEmpresas } from '../services/empresaService';
-import { getBeneficiosEmLote } from '../services/beneficioService';
-import { calcularSalarioLiquido } from '../utils/calculadoraSalario';
 import { toast } from 'react-hot-toast';
 
-// Componentes da Pasta Folha/Ausencias
-import GestaoBeneficios from '../components/Ausencias/GestaoBeneficios';
-import MuralApontamentos from '../components/Folha/MuralApontamentos';
+// SERVIÇOS
+import { getFuncionarios } from '../services/funcionarioService';
+import { getEmpresas } from '../services/empresaService';
+import { getBeneficiosEmLote } from '../services/beneficioService'; // Certifique-se que este arquivo existe
+import { calcularSalarioLiquido } from '../utils/calculadoraSalario';
+
+// COMPONENTES
+// Correção do Path: Assumindo que GestaoBeneficios.jsx está em src/components/
+import GestaoBeneficios from '../components/GestaoBeneficios'; 
+// Se estes arquivos abaixo não existirem, comente-os temporariamente
+import MuralApontamentos from '../components/Folha/MuralApontamentos'; 
 import CatalogoBeneficios from '../components/Folha/CatalogoBeneficios';
 
 import './SalariosPage.css';
 
 function SalariosPage() {
-  const [activeTab, setActiveTab] = useState('folha'); // 'folha', 'fechamento', 'catalogo', 'beneficios'
+  const [activeTab, setActiveTab] = useState('folha'); 
   const [empresaId, setEmpresaId] = useState('');
-  
-  // -- Visão Geral --
   const [filtros, setFiltros] = useState({ empresa: '', departamento: '', search: '' });
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
   const [folhaData, setFolhaData] = useState([]);
-  const [resumoGeral, setResumoGeral] = useState({ bruto: 0, liquido: 0, custo: 0 });
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  
-  const [detalheExpandido, setDetalheExpandido] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [selectedFuncionario, setSelectedFuncionario] = useState(null);
+  const [detalheExpandido, setDetalheExpandido] = useState(null);
 
+  // Carrega Empresas
   const { data: empresas } = useSWR('getEmpresas', getEmpresas, {
     onSuccess: (data) => { if(data?.length > 0 && !empresaId) setEmpresaId(data[0].id); }
   });
-  
-  const departamentos = ["Administrativo", "Financeiro", "Comercial", "TI", "Operacional", "RH", "Logística", "Diretoria"];
-  const fmt = (v) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 
-  // --- BUSCA E CÁLCULO ---
   const fetchDadosGerais = useCallback(async () => {
-    // Só carrega se estiver na aba relevante
     if(activeTab !== 'folha') return;
-    
     setLoading(true);
     try {
+      // 1. Busca Funcionários
       const res = await getFuncionarios({
-        page, limit: 10, search: filtros.search,
-        empresaId: filtros.empresa || null, departamento: filtros.departamento || null, status: 'Ativo'
+        limit: 50, // Aumentei o limite para carregar mais na tela inicial
+        search: filtros.search,
+        empresaId: filtros.empresa || empresaId || null, 
+        departamento: filtros.departamento !== 'Todos' ? filtros.departamento : null, 
+        status: 'Ativo'
       });
 
-      const ids = res.data.map(f => f.id);
-      const bens = await getBeneficiosEmLote(ids);
-      const map = {};
-      bens.forEach(b => { if(!map[b.funcionario_id]) map[b.funcionario_id]=[]; map[b.funcionario_id].push(b); });
-
-      const calc = res.data.map(f => {
-        // Calcula usando os dados atuais do contrato
-        const c = calcularSalarioLiquido(Number(f.salario_bruto), f.qtd_dependentes, map[f.id]||[]);
-        return { ...f, calculo: c };
-      });
-
-      setFolhaData(calc);
-      setTotalCount(res.count);
-      setTotalPages(res.totalPages);
-
-      // Totais dos Cards de Resumo (Topo)
-      const totais = calc.reduce((acc, curr) => ({
-        bruto: acc.bruto + curr.calculo.salarioBruto,
-        liquido: acc.liquido + curr.calculo.salarioLiquido,
-        custo: acc.custo + curr.calculo.custoEmpresa
-      }), { bruto: 0, liquido: 0, custo: 0 });
+      const listaFuncionarios = res.data || [];
+      const ids = listaFuncionarios.map(f => f.id);
       
-      setResumoGeral(totais);
+      // 2. Busca Benefícios (Proteção se o serviço falhar)
+      let mapBeneficios = {};
+      try {
+        if (ids.length > 0) {
+          const bens = await getBeneficiosEmLote(ids);
+          bens.forEach(b => { 
+             if(!mapBeneficios[b.funcionario_id]) mapBeneficios[b.funcionario_id]=[]; 
+             mapBeneficios[b.funcionario_id].push(b); 
+          });
+        }
+      } catch (err) {
+        console.warn("Não foi possível carregar benefícios externos, calculando apenas legal.", err);
+      }
+
+      // 3. Realiza Cálculos
+      const calculados = listaFuncionarios.map(f => {
+        const beneficiosFunc = mapBeneficios[f.id] || [];
+        const calculo = calcularSalarioLiquido(
+          Number(f.salario_bruto || 0), 
+          Number(f.qtd_dependentes || 0), 
+          beneficiosFunc
+        );
+        return { ...f, calculo };
+      });
+
+      setFolhaData(calculados);
 
     } catch(e) { 
       console.error(e); 
-      toast.error("Erro ao carregar dados.");
+      toast.error("Erro ao processar folha.");
     } finally { 
       setLoading(false); 
     }
-  }, [page, filtros, activeTab]);
+  }, [filtros, empresaId, activeTab]);
 
   useEffect(() => { fetchDadosGerais(); }, [fetchDadosGerais]);
 
-  const handleFiltrar = (e) => { e.preventDefault(); setPage(1); fetchDadosGerais(); };
-  const handleLimpar = () => { setFiltros({ empresa: '', departamento: '', search: '' }); setPage(1); setTimeout(fetchDadosGerais, 50); };
-  const handleGestao = (func) => { setSelectedFuncionario(func); setActiveTab('beneficios'); };
-
-  // --- HELPER DE RENDERIZAÇÃO (DENTRO DO COMPONENTE) ---
-  const renderBeneficioValue = (ben) => {
-    // Valor calculado vem da calculadora (tratando %)
-    const valorExibido = ben.valorCalculado || ben.valor || 0;
-    
-    if (ben.tipo_valor === 'Porcentagem') {
-      return (
-        <div className="valor-composto">
-          <span className="badge-pct">{ben.valor}%</span>
-          <span className="valor-real">{fmt(valorExibido)}</span>
-        </div>
-      );
-    }
-    return <span className="valor-real">{fmt(valorExibido)}</span>;
-  };
+  const fmt = (v) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 
   return (
-    <div className="salarios-container fade-in">
-      <header className="page-header-salarios">
-        <div className="header-left">
-          <h1>Central de Folha</h1>
-          <p>Visão contratual, benefícios e fechamento mensal.</p>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Central de Folha</h1>
+          <p className="text-gray-500">Visão contratual e processamento.</p>
         </div>
         
-        {/* Cards de Resumo (Visíveis na aba Folha) */}
-        {activeTab === 'folha' && (
-          <div className="resumo-cards-top">
-            <div className="card-resumo">
-              <span className="label">Total Bruto (Pág)</span>
-              <strong className="value">{fmt(resumoGeral.bruto)}</strong>
-            </div>
-            <div className="card-resumo highlight-green">
-              <span className="label">Total Líquido (Pág)</span>
-              <strong className="value text-green">{fmt(resumoGeral.liquido)}</strong>
-            </div>
-            <div className="card-resumo highlight-blue">
-              <span className="label">Custo Empresa (Est.)</span>
-              <strong className="value text-blue">{fmt(resumoGeral.custo)}</strong>
-            </div>
-          </div>
-        )}
-
-        <div className="empresa-selector-header">
-          <span className="material-symbols-outlined">domain</span>
-          <select value={empresaId} onChange={e=>setEmpresaId(e.target.value)}>
+        <div className="mt-4 md:mt-0">
+          <select 
+            className="p-2 border rounded bg-white shadow-sm"
+            value={empresaId} 
+            onChange={e=>setEmpresaId(e.target.value)}
+          >
             <option value="">Todas as Empresas</option>
             {empresas?.map(e=><option key={e.id} value={e.id}>{e.nome_fantasia}</option>)}
           </select>
         </div>
       </header>
 
-      {/* Navegação */}
-      <div className="tabs-header-modern">
-        <button className={`tab-item ${activeTab==='folha'?'active':''}`} onClick={()=>setActiveTab('folha')}>
-          <span className="material-symbols-outlined">table_view</span> Visão Contratual
+      {/* Navegação Abas */}
+      <div className="flex space-x-4 border-b mb-6">
+        <button className={`pb-2 px-4 ${activeTab==='folha' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-gray-500'}`} onClick={()=>setActiveTab('folha')}>
+          Visão Geral
         </button>
-        <button className={`tab-item ${activeTab==='fechamento'?'active':''}`} onClick={()=>setActiveTab('fechamento')}>
-          <span className="material-symbols-outlined">edit_calendar</span> Mural de Fechamento
-        </button>
-        <button className={`tab-item ${activeTab==='catalogo'?'active':''}`} onClick={()=>setActiveTab('catalogo')}>
-          <span className="material-symbols-outlined">library_books</span> Catálogo Benefícios
-        </button>
-        <button className={`tab-item ${activeTab==='beneficios'?'active':''}`} disabled={!selectedFuncionario} onClick={()=>setActiveTab('beneficios')}>
-          <span className="material-symbols-outlined">person</span> {selectedFuncionario ? 'Individual: '+selectedFuncionario.nome_completo : 'Selecione na Tabela'}
+        <button className={`pb-2 px-4 ${activeTab==='beneficios' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-gray-500'}`} onClick={()=>setActiveTab('beneficios')} disabled={!selectedFuncionario}>
+          {selectedFuncionario ? `Benefícios: ${selectedFuncionario.nome_completo}` : 'Gestão Individual'}
         </button>
       </div>
 
-      {/* --- ABA 1: TABELA GERAL --- */}
+      {/* ABA FOLHA */}
       {activeTab === 'folha' && (
-        <div className="tab-body fade-in">
-          {/* Filtros */}
-          <div className="filtros-bar">
-            <form onSubmit={handleFiltrar} className="filtros-grid">
-              <div className="form-group"><label>Buscar</label><div className="input-icon"><span className="material-symbols-outlined">search</span><input value={filtros.search} onChange={e=>setFiltros({...filtros,search:e.target.value})} placeholder="Nome, Cargo..." /></div></div>
-              <div className="form-group"><label>Empresa</label><select value={filtros.empresa} onChange={e=>setFiltros({...filtros,empresa:e.target.value})}><option value="">Todas</option>{empresas?.map(e=><option key={e.id} value={e.id}>{e.nome_fantasia}</option>)}</select></div>
-              <div className="form-group"><label>Departamento</label><select value={filtros.departamento} onChange={e=>setFiltros({...filtros,departamento:e.target.value})}><option value="">Todos</option>{departamentos.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-              <div className="filtros-actions"><button type="button" className="btn-secondary" onClick={handleLimpar}>Limpar</button><button type="submit" className="btn-primary">Filtrar</button></div>
-            </form>
-          </div>
-
-          <div className="tabela-container">
-            {loading ? <div className="loading-state"><div className="spinner-simple"></div>Calculando...</div> : (
-              <>
-                <table className="tabela-salarios">
-                  <thead>
-                    <tr>
-                      <th>Colaborador</th>
-                      <th>Salário Base</th>
-                      <th className="text-red">Impostos</th>
-                      <th className="text-red">Benefícios (-)</th>
-                      <th className="text-green">Líquido Est.</th>
-                      <th>Custo Empresa</th>
-                      <th width="50"></th>
+        <div className="bg-white rounded shadow overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">Carregando cálculos...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colaborador</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salário Bruto</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-red-500 uppercase">Desc. Legais</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-green-600 uppercase">Líquido Est.</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase">Custo Total</th>
+                    <th className="px-6 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {folhaData.map(func => (
+                    <tr key={func.id} className="hover:bg-gray-50 cursor-pointer" onClick={()=>setDetalheExpandido(detalheExpandido===func.id?null:func.id)}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{func.nome_completo}</div>
+                        <div className="text-xs text-gray-500">{func.cargo}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-700">{fmt(func.calculo.salarioBruto)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-red-600">
+                         - {fmt(func.calculo.inss + func.calculo.irrf)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-bold text-green-700">{fmt(func.calculo.salarioLiquido)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-blue-700">{fmt(func.calculo.custoEmpresa)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button 
+                          className="text-blue-600 hover:text-blue-900 text-sm"
+                          onClick={(e)=>{ e.stopPropagation(); setSelectedFuncionario(func); setActiveTab('beneficios'); }}
+                        >
+                          Editar Benefícios
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {folhaData.length === 0 && <tr><td colSpan="7" className="empty-state">Nenhum dado encontrado.</td></tr>}
-                    {folhaData.map(i => (
-                      <React.Fragment key={i.id}>
-                        <tr onClick={()=>setDetalheExpandido(detalheExpandido===i.id?null:i.id)} className={`linha-principal ${detalheExpandido===i.id?'active':''}`}>
-                          <td>
-                            <div className="colaborador-info">
-                              <div className="avatar-circle">{i.nome_completo.charAt(0)}</div>
-                              <div><span className="nome">{i.nome_completo}</span><span className="cargo-mini">{i.cargo}</span></div>
-                            </div>
-                          </td>
-                          <td className="font-medium">{fmt(i.calculo.salarioBruto)}</td>
-                          <td className="text-red">- {fmt(i.calculo.inss + i.calculo.irrf)}</td>
-                          <td className="text-red font-bold">
-                            {i.calculo.totalDescontosExtras > 0 ? `- ${fmt(i.calculo.totalDescontosExtras)}` : '--'}
-                          </td>
-                          <td className="text-green font-bold cell-liquido">{fmt(i.calculo.salarioLiquido)}</td>
-                          <td className="text-secondary">{fmt(i.calculo.custoEmpresa)}</td>
-                          <td onClick={e=>e.stopPropagation()}>
-                            <button className="btn-icon-action" onClick={()=>handleGestao(i)} title="Editar Benefícios">
-                              <span className="material-symbols-outlined">edit_document</span>
-                            </button>
-                          </td>
-                        </tr>
-                        
-                        {/* --- CARD DETALHADO EXPANDIDO --- */}
-                        {detalheExpandido === i.id && (
-                          <tr className="linha-detalhes fade-in">
-                            <td colSpan="7">
-                              <div className="detalhes-wrapper">
-                                <div className="detalhes-grid">
-                                  
-                                  {/* ESQUERDA: DO BRUTO AO LÍQUIDO (Visão Colaborador) */}
-                                  <div className="bloco-detalhe card-colaborador">
-                                    <div className="bloco-header">
-                                      <span className="material-symbols-outlined">person</span>
-                                      <h4>Demonstrativo Colaborador</h4>
-                                    </div>
-                                    
-                                    <div className="detalhe-row"><span>(+) Salário Contratual:</span> <strong>{fmt(i.calculo.salarioBruto)}</strong></div>
-                                    
-                                    {/* Proventos Extras */}
-                                    {i.calculo.listaBeneficios.filter(b=>b.tipo==='Provento').map(b=>(
-                                      <div key={b.id} className="detalhe-row text-green">
-                                        <span>(+) {b.nome}</span> {renderBeneficioValue(b)}
-                                      </div>
-                                    ))}
-
-                                    <div className="divider-dashed"></div>
-
-                                    {/* Descontos */}
-                                    <div className="detalhe-row text-red"><span>(-) INSS (Oficial):</span> <span>{fmt(i.calculo.inss)}</span></div>
-                                    <div className="detalhe-row text-red"><span>(-) IRRF (Retido):</span> <span>{fmt(i.calculo.irrf)}</span></div>
-                                    
-                                    {/* Benefícios de Desconto */}
-                                    {i.calculo.listaBeneficios.filter(b=>b.tipo==='Desconto').map(b=>(
-                                      <div key={b.id} className="detalhe-row text-red-dark">
-                                        <span>(-) {b.nome}</span> {renderBeneficioValue(b)}
-                                      </div>
-                                    ))}
-
-                                    <div className="detalhe-row total-row">
-                                      <span>= Líquido a Receber:</span>
-                                      <span className="big-green">{fmt(i.calculo.salarioLiquido)}</span>
-                                    </div>
-                                  </div>
-
-                                  {/* DIREITA: CUSTO REAL (Visão Empregador) */}
-                                  <div className="bloco-detalhe empresa-bg card-empregador">
-                                    <div className="bloco-header">
-                                      <span className="material-symbols-outlined">domain</span>
-                                      <h4>Visão do Empregador (Custo Total)</h4>
-                                    </div>
-
-                                    <div className="detalhe-row"><span>(+) Salário Base:</span> <span>{fmt(i.calculo.salarioBruto)}</span></div>
-                                    
-                                    {/* Itens detalhados do custo */}
-                                    {i.calculo.custosDetalhados?.beneficios > 0 && (
-                                      <div className="detalhe-row"><span>(+) Benefícios (Pagos):</span> <span>{fmt(i.calculo.custosDetalhados.beneficios)}</span></div>
-                                    )}
-                                    
-                                    <div className="detalhe-row"><span>(+) FGTS (8%):</span> <span>{fmt(i.calculo.custosDetalhados?.fgts)}</span></div>
-                                    <div className="detalhe-row"><span>(+) INSS Patronal (20%):</span> <span>{fmt(i.calculo.custosDetalhados?.patronal)}</span></div>
-                                    <div className="detalhe-row"><span>(+) RAT/Sistema S (5.8%):</span> <span>{fmt(i.calculo.custosDetalhados?.rat_terceiros)}</span></div>
-                                    <div className="detalhe-row"><span>(+) Provisão Férias/13º (11%):</span> <span>{fmt(i.calculo.custosDetalhados?.provisionamento)}</span></div>
-
-                                    <div className="detalhe-row total-row">
-                                      <span>= Custo Total Mensal:</span>
-                                      <span className="big-blue">{fmt(i.calculo.custoEmpresa)}</span>
-                                    </div>
-                                    <div className="info-extra">
-                                      <small>*Estimativa baseada em Regime Normal (Não Simples).</small>
-                                    </div>
-                                  </div>
-
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {/* Paginação */}
-                <div className="paginacao-container">
-                  <span>Página {page} de {totalPages || 1}</span>
-                  <div className="paginacao-btns">
-                    <button disabled={page===1} onClick={()=>setPage(p=>p-1)}>Anterior</button>
-                    <button disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Próxima</button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+                  ))}
+                  {folhaData.length === 0 && (
+                    <tr><td colSpan="6" className="p-6 text-center text-gray-500">Nenhum funcionário encontrado.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* --- OUTRAS ABAS --- */}
-      {activeTab === 'fechamento' && <MuralApontamentos empresaId={filtros.empresa || empresas?.[0]?.id} />}
-      {activeTab === 'catalogo' && <CatalogoBeneficios empresaId={filtros.empresa || empresas?.[0]?.id} />}
-      
+      {/* ABA BENEFÍCIOS */}
       {activeTab === 'beneficios' && selectedFuncionario && (
-        <div className="tab-content fade-in gestao-wrapper">
-          <button className="btn-back" onClick={()=>setActiveTab('folha')}>← Voltar para Tabela</button>
+        <div className="fade-in">
+          <button onClick={()=>setActiveTab('folha')} className="mb-4 text-sm text-gray-600 hover:text-gray-900">← Voltar para lista</button>
           <GestaoBeneficios 
-            funcionario={selectedFuncionario} 
-            beneficios={folhaData.find(f=>f.id===selectedFuncionario.id)?.beneficios||[]} 
-            onUpdate={fetchDadosGerais} 
+            funcionarioId={selectedFuncionario.id} // Passamos ID para o componente saber quem é
+            dadosIniciais={selectedFuncionario.calculo.listaBeneficios} // Passamos o que já temos
           />
         </div>
       )}
