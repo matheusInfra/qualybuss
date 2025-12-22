@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-// --- CATÁLOGO (MODELOS) ---
+// --- CATÁLOGO CORPORATIVO (MODELOS) ---
 export const getCatalogoBeneficios = async (empresaId) => {
   const { data, error } = await supabase
     .from('beneficios_catalogo')
@@ -13,23 +13,27 @@ export const getCatalogoBeneficios = async (empresaId) => {
 };
 
 export const criarItemCatalogo = async (dados) => {
-  const { data, error } = await supabase.from('beneficios_catalogo').insert([dados]).select().single();
+  const { data, error } = await supabase
+    .from('beneficios_catalogo')
+    .insert([dados])
+    .select()
+    .single();
   if (error) throw error;
   return data;
 };
 
-// --- DISTRIBUIÇÃO EM MASSA (A Lógica de Escala) ---
-export const distribuirBeneficio = async (beneficioCatalogo, funcionariosIds) => {
+// --- DISTRIBUIÇÃO EM MASSA ---
+export const distribuirBeneficio = async (beneficioModelo, funcionariosIds) => {
   if (!funcionariosIds || funcionariosIds.length === 0) return;
 
-  // Prepara o payload para cada funcionário selecionado
+  // Cria o vínculo individual para cada funcionário selecionado
   const inserts = funcionariosIds.map(funcId => ({
     funcionario_id: funcId,
-    nome: beneficioCatalogo.nome,
-    tipo: beneficioCatalogo.tipo,
-    tipo_valor: beneficioCatalogo.tipo_valor,
-    valor: beneficioCatalogo.valor_padrao,
-    descricao: beneficioCatalogo.descricao,
+    nome: beneficioModelo.nome,
+    tipo: beneficioModelo.tipo,       // Provento ou Desconto
+    tipo_valor: beneficioModelo.tipo_valor, // Fixo ou Porcentagem
+    valor: beneficioModelo.valor_padrao,
+    descricao: beneficioModelo.descricao || 'Atribuído via Catálogo',
     recorrente: true
   }));
 
@@ -38,7 +42,7 @@ export const distribuirBeneficio = async (beneficioCatalogo, funcionariosIds) =>
   return true;
 };
 
-// --- VÍNCULOS INDIVIDUAIS (Mantido) ---
+// --- CRUD INDIVIDUAL (JÁ EXISTENTE) ---
 export const getBeneficiosPorFuncionario = async (funcionarioId) => {
   const { data, error } = await supabase.from('beneficios_colaborador').select('*').eq('funcionario_id', funcionarioId);
   if (error) throw error;
@@ -52,13 +56,13 @@ export const getBeneficiosEmLote = async (listaIds) => {
   return data;
 };
 
-export const criarBeneficio = async (dados) => { /* Mantido igual anterior */
+export const criarBeneficio = async (dados) => {
   const { data, error } = await supabase.from('beneficios_colaborador').insert([dados]).select().single();
   if (error) throw error;
   return data;
 };
 
-export const deletarBeneficio = async (id) => { /* Mantido igual anterior */
+export const deletarBeneficio = async (id) => {
   const { error } = await supabase.from('beneficios_colaborador').delete().eq('id', id);
   if (error) throw error;
   return true;
