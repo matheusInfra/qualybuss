@@ -1,5 +1,7 @@
 import { supabase } from './supabaseClient';
 
+// --- CRUD DE FUNCIONÁRIOS ---
+
 export const getFuncionarios = async ({ 
   page = 1, 
   limit = 10, 
@@ -13,28 +15,19 @@ export const getFuncionarios = async ({
       .from('funcionarios')
       .select('*', { count: 'exact' });
 
-    // Aplicação rigorosa de filtros
-    if (empresaId) {
-      query = query.eq('empresa_id', empresaId);
-    }
+    // Filtros
+    if (empresaId) query = query.eq('empresa_id', empresaId);
+    if (departamento && departamento !== 'Todos') query = query.eq('departamento', departamento);
+    if (status && status !== 'Todos') query = query.eq('status', status);
     
-    if (departamento && departamento !== 'Todos') {
-      query = query.eq('departamento', departamento);
-    }
-    
-    if (status && status !== 'Todos') {
-      query = query.eq('status', status);
-    }
-    
-    // Busca textual (Nome ou Cargo)
+    // Busca Textual
     if (search) {
       query = query.or(`nome_completo.ilike.%${search}%,cargo.ilike.%${search}%`);
     }
 
-    // Ordenação padrão
+    // Ordenação e Paginação
     query = query.order('nome_completo', { ascending: true });
-
-    // Paginação
+    
     const from = (page - 1) * limit;
     const to = from + limit - 1;
     query = query.range(from, to);
@@ -49,7 +42,7 @@ export const getFuncionarios = async ({
       totalPages: Math.ceil((count || 0) / limit)
     };
   } catch (error) {
-    console.error("Erro no serviço de funcionários:", error);
+    console.error("Erro ao buscar funcionários:", error);
     throw error;
   }
 };
@@ -88,6 +81,23 @@ export const updateFuncionario = async (id, updates) => {
   return data;
 };
 
+// --- FUNÇÃO DE DESLIGAMENTO (CORREÇÃO DO ERRO) ---
+export const desligarFuncionario = async (id, dadosDesligamento) => {
+  // dadosDesligamento espera: { data_desligamento, motivo, observacoes, ... }
+  const { data, error } = await supabase
+    .from('funcionarios')
+    .update({ 
+      status: 'Desligado',
+      ...dadosDesligamento 
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
 export const deleteFuncionario = async (id) => {
   const { error } = await supabase
     .from('funcionarios')
@@ -96,4 +106,22 @@ export const deleteFuncionario = async (id) => {
 
   if (error) throw error;
   return true;
+};
+
+// --- GESTÃO DE AVATAR ---
+
+export const getAvatarPublicUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return data.publicUrl;
+};
+
+export const uploadAvatar = async (file, path) => {
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true });
+
+  if (error) throw error;
+  return data.path;
 };

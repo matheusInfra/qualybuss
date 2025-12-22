@@ -1,34 +1,30 @@
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'react-hot-toast';
 import { desligarFuncionario } from '../../services/funcionarioService';
-import { useSWRConfig } from 'swr';
-import './ModalSolicitarAjuste.css'; // Reutiliza CSS de modal existente
+import './ModalDesligamento.css';
 
-function ModalDesligamento({ funcionario, onClose }) {
+export default function ModalDesligamento({ funcionario, onClose, onSuccess }) {
+  const { register, handleSubmit, formState: { errors } } = useForm();
   const [loading, setLoading] = useState(false);
-  const [motivo, setMotivo] = useState('Sem Justa Causa');
-  const [dataSaida, setDataSaida] = useState(new Date().toISOString().split('T')[0]);
-  const [confirmacao, setConfirmacao] = useState('');
-  const { mutate } = useSWRConfig();
 
-  const handleDesligar = async () => {
-    if (confirmacao !== 'DESLIGAR') {
-      return toast.error("Digite DESLIGAR para confirmar.");
-    }
+  const onSubmit = async (data) => {
+    if (!window.confirm(`Tem certeza que deseja desligar ${funcionario.nome_completo}?`)) return;
 
     setLoading(true);
     try {
       await desligarFuncionario(funcionario.id, {
-        data_desligamento: dataSaida,
-        motivo: motivo
+        data_desligamento: data.data_desligamento,
+        motivo_desligamento: data.motivo,
+        observacoes: data.observacoes
       });
-
-      toast.success(`${funcionario.nome_completo} foi desligado(a) com sucesso.`);
-      mutate('getFuncionarios'); // Atualiza lista
-      mutate('dashboard_kpis'); // Atualiza dashboard (menos 1 ativo)
+      
+      toast.success('Desligamento registrado com sucesso.');
+      if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
-      toast.error("Erro ao processar desligamento: " + error.message);
+      console.error(error);
+      toast.error('Erro ao processar desligamento.');
     } finally {
       setLoading(false);
     }
@@ -36,78 +32,58 @@ function ModalDesligamento({ funcionario, onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{maxWidth: '450px'}}>
-        <div className="modal-header" style={{borderBottom: '1px solid #fee2e2'}}>
-          <h3 style={{color: '#b91c1c'}}>🚫 Desligamento de Colaborador</h3>
-          <button onClick={onClose}>×</button>
+      <div className="modal-container-danger">
+        <div className="modal-header-danger">
+          <h3>Registrar Desligamento</h3>
+          <button className="btn-close" onClick={onClose}>&times;</button>
         </div>
-
-        <div className="modal-body">
-          <div style={{background: '#fef2f2', padding: '12px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #fecaca'}}>
-            <p style={{color: '#991b1b', fontSize: '0.9rem', margin: 0}}>
-              Você está prestes a desligar <strong>{funcionario.nome_completo}</strong>. 
-              O acesso ao sistema será revogado e o status passará para "Inativo".
-            </p>
+        
+        <form onSubmit={handleSubmit(onSubmit)} className="modal-body">
+          <div className="alert-box">
+            <span className="material-symbols-outlined">warning</span>
+            <p>Você está prestes a desligar <strong>{funcionario.nome_completo}</strong>. O status será alterado para "Desligado".</p>
           </div>
 
           <div className="form-group">
             <label>Data do Desligamento</label>
             <input 
               type="date" 
-              value={dataSaida} 
-              onChange={(e) => setDataSaida(e.target.value)} 
-              style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc'}}
+              {...register('data_desligamento', { required: 'Data é obrigatória' })} 
+              className={errors.data_desligamento ? 'error' : ''}
             />
+            {errors.data_desligamento && <span className="error-msg">{errors.data_desligamento.message}</span>}
           </div>
 
-          <div className="form-group" style={{marginTop: '12px'}}>
-            <label>Motivo da Saída</label>
-            <select 
-              value={motivo} 
-              onChange={(e) => setMotivo(e.target.value)}
-              style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc'}}
-            >
-              <option>Sem Justa Causa</option>
-              <option>Pedido de Demissão</option>
-              <option>Com Justa Causa</option>
-              <option>Término de Contrato</option>
-              <option>Acordo</option>
+          <div className="form-group">
+            <label>Motivo</label>
+            <select {...register('motivo', { required: 'Selecione um motivo' })}>
+              <option value="">Selecione...</option>
+              <option value="Sem Justa Causa">Demissão sem Justa Causa</option>
+              <option value="Com Justa Causa">Demissão por Justa Causa</option>
+              <option value="Pedido de Demissão">Pedido de Demissão</option>
+              <option value="Término de Contrato">Término de Contrato</option>
+              <option value="Acordo">Acordo (Comum Acordo)</option>
             </select>
+            {errors.motivo && <span className="error-msg">{errors.motivo.message}</span>}
           </div>
 
-          <div className="form-group" style={{marginTop: '20px'}}>
-             <label style={{fontSize: '0.8rem', color: '#666'}}>Confirmação de Segurança</label>
-             <input 
-               type="text" 
-               placeholder="Digite DESLIGAR"
-               value={confirmacao}
-               onChange={(e) => setConfirmacao(e.target.value.toUpperCase())}
-               style={{width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #b91c1c', fontWeight: 'bold'}}
-             />
+          <div className="form-group">
+            <label>Observações</label>
+            <textarea 
+              {...register('observacoes')} 
+              placeholder="Detalhes adicionais sobre o desligamento..."
+              rows="3"
+            ></textarea>
           </div>
 
-          <div style={{display: 'flex', gap: '10px', marginTop: '24px'}}>
-            <button 
-              onClick={onClose} 
-              style={{flex: 1, padding: '10px', border: '1px solid #ccc', background: 'white', borderRadius: '6px', cursor: 'pointer'}}
-            >
-              Cancelar
-            </button>
-            <button 
-              onClick={handleDesligar}
-              disabled={loading || confirmacao !== 'DESLIGAR'}
-              style={{
-                flex: 1, padding: '10px', border: 'none', background: '#dc2626', color: 'white', 
-                borderRadius: '6px', cursor: 'pointer', opacity: confirmacao !== 'DESLIGAR' ? 0.5 : 1
-              }}
-            >
+          <div className="modal-footer">
+            <button type="button" className="btn-cancel" onClick={onClose} disabled={loading}>Cancelar</button>
+            <button type="submit" className="btn-confirm-danger" disabled={loading}>
               {loading ? 'Processando...' : 'Confirmar Desligamento'}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
 }
-
-export default ModalDesligamento;

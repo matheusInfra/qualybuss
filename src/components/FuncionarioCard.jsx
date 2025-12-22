@@ -1,26 +1,77 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getAvatarPublicUrl } from '../services/funcionarioService';
 import './FuncionarioCard.css';
 
-function FuncionarioCard({ funcionario }) {
-  const avatarUrl = funcionario.avatar_url 
-    ? getAvatarPublicUrl(funcionario.avatar_url) 
-    : 'https://placehold.co/100';
+const FuncionarioCard = ({ funcionario }) => {
+  const navigate = useNavigate();
+
+  const handleCardClick = () => {
+    navigate(`/funcionarios/${funcionario.id}`);
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Ativo': return 'status-ativo';
+      case 'Férias': return 'status-ferias';
+      case 'Afastado': return 'status-afastado';
+      case 'Desligado': return 'status-desligado';
+      default: return '';
+    }
+  };
+
+  const avatarUrl = funcionario.foto_url 
+    ? getAvatarPublicUrl(funcionario.foto_url) 
+    : null;
 
   return (
-    // CORREÇÃO: O Link deve apontar para /funcionarios/editar/ID
-    // Isso deve bater exatamente com <Route path="/funcionarios/editar/:id" ... /> do App.jsx
-    <Link to={`/funcionarios/editar/${funcionario.id}`} className="card-link">
-      <div className="funcionario-card">
-        <img src={avatarUrl} alt={funcionario.nome_completo} className="card-avatar" />
-        <div className="card-info">
-          <h3 className="card-nome">{funcionario.nome_completo}</h3>
-          <p className="card-cargo">{funcionario.cargo || 'Cargo não definido'}</p>
+    <div className="funcionario-card" onClick={handleCardClick}>
+      <div className="card-header-func">
+        <div className={`status-badge ${getStatusColor(funcionario.status)}`}>
+          {funcionario.status}
+        </div>
+        {funcionario.data_admissao && (
+          <span className="tempo-casa">
+            {new Date().getFullYear() - new Date(funcionario.data_admissao).getFullYear()} anos
+          </span>
+        )}
+      </div>
+
+      <div className="card-body-func">
+        <div className="avatar-wrapper">
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl} 
+              alt={funcionario.nome_completo} 
+              className="avatar-img"
+              onError={(e) => {e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=USER'}}
+            />
+          ) : (
+            <div className="avatar-placeholder">
+              {funcionario.nome_completo.charAt(0)}
+            </div>
+          )}
+        </div>
+        
+        <h3 className="func-nome" title={funcionario.nome_completo}>
+          {funcionario.nome_completo}
+        </h3>
+        <p className="func-cargo">{funcionario.cargo || 'Cargo não informado'}</p>
+        <p className="func-depto">{funcionario.departamento || 'Geral'}</p>
+      </div>
+
+      <div className="card-footer-func">
+        <div className="info-mini">
+          <span className="material-symbols-outlined">mail</span>
+          <span className="text-truncate">{funcionario.email_corporativo || '--'}</span>
+        </div>
+        <div className="info-mini">
+          <span className="material-symbols-outlined">call</span>
+          <span>{funcionario.telefone || '--'}</span>
         </div>
       </div>
-    </Link>
+    </div>
   );
-}
+};
 
 export default FuncionarioCard;
