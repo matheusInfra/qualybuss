@@ -3,12 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { getAvatarPublicUrl } from '../services/funcionarioService';
 import './FuncionarioCard.css';
 
-const FuncionarioCard = ({ funcionario }) => {
+const FuncionarioCard = ({ funcionario, onEdit }) => {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
-    // Redireciona para o formulário de edição passando o ID
-    navigate(`/funcionarios/${funcionario.id}`);
+    // CORREÇÃO: Verifica se existe uma função onEdit passada pelo pai, 
+    // caso contrário navega para a rota correta de edição.
+    if (onEdit) {
+      onEdit();
+    } else {
+      // O erro estava aqui: faltava o segmento '/editar' na URL
+      navigate(`/funcionarios/editar/${funcionario.id}`);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -21,7 +27,7 @@ const FuncionarioCard = ({ funcionario }) => {
     }
   };
 
-  // Resolve a URL da imagem usando o serviço corrigido
+  // Resolve a URL da imagem com segurança
   const avatarUrl = funcionario.foto_url 
     ? getAvatarPublicUrl(funcionario.foto_url) 
     : null;
@@ -50,7 +56,7 @@ const FuncionarioCard = ({ funcionario }) => {
             />
           ) : (
             <div className="avatar-placeholder">
-              {funcionario.nome_completo.charAt(0)}
+              {funcionario.nome_completo ? funcionario.nome_completo.charAt(0) : '?'}
             </div>
           )}
         </div>
@@ -65,7 +71,9 @@ const FuncionarioCard = ({ funcionario }) => {
       <div className="card-footer-func">
         <div className="info-mini">
           <span className="material-symbols-outlined">mail</span>
-          <span className="text-truncate">{funcionario.email_corporativo || '--'}</span>
+          <span className="text-truncate" title={funcionario.email_corporativo}>
+            {funcionario.email_corporativo || '--'}
+          </span>
         </div>
         <div className="info-mini">
           <span className="material-symbols-outlined">call</span>

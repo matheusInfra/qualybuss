@@ -1,6 +1,6 @@
 // src/utils/calculadoraSalario.js
 
-// Tabelas INSS/IRRF 2024
+// Tabelas de Referência 2024/2025
 const FAIXAS_INSS = [
   { limite: 1412.00, aliq: 0.075, deducao: 0 },
   { limite: 2666.68, aliq: 0.09, deducao: 21.18 },
@@ -16,21 +16,26 @@ const FAIXAS_IRRF = [
   { limite: 9999999, aliq: 0.275, deducao: 896.00 }
 ];
 
-export const calcularINSSProgressivo = (baseCalculo) => {
+/**
+ * Calcula INSS Progressivo
+ */
+export const calcularINSS = (salarioBruto) => {
   let inss = 0;
-  const baseTeto = Math.min(baseCalculo, 7786.02); // Teto 2024
+  const baseTeto = Math.min(salarioBruto, 7786.02);
   
   for (const faixa of FAIXAS_INSS) {
     if (baseTeto <= faixa.limite) {
       inss = (baseTeto * faixa.aliq) - faixa.deducao;
       break;
     }
-    // Caso supere a penúltima faixa, aplica a última (teto)
-    if (faixa.limite === 7786.02) inss = 908.85; 
+    if (faixa.limite === 7786.02) inss = 908.85; // Teto
   }
-  return Math.max(0, inss);
+  return parseFloat(Math.max(0, inss).toFixed(2));
 };
 
+/**
+ * Calcula IRRF
+ */
 export const calcularIRRF = (baseCalculo) => {
   let irrf = 0;
   for (const faixa of FAIXAS_IRRF) {
@@ -39,54 +44,70 @@ export const calcularIRRF = (baseCalculo) => {
       break;
     }
   }
-  return Math.max(0, irrf);
+  return parseFloat(Math.max(0, irrf).toFixed(2));
 };
 
-// Função Principal Exportada
-export const calcularSalarioLiquido = (salarioBruto, dependentes = 0, listaBeneficios = []) => {
+/**
+ * Calcula Salário Líquido Individual
+ */
+export const calcularSalarioLiquido = (salarioBruto, dependentes = 0, outrosDescontos = 0) => {
   const bruto = Number(salarioBruto) || 0;
-  const inss = calcularINSSProgressivo(bruto);
+  const inss = calcularINSS(bruto);
   const deducaoDep = dependentes * 189.59;
   const baseIRRF = Math.max(0, bruto - inss - deducaoDep);
   const irrf = calcularIRRF(baseIRRF);
-
-  // Processar Benefícios Extras
-  let proventosExtras = 0;
-  let descontosExtras = 0;
-
-  // Mapeia para calcular valores finais (caso seja %)
-  const beneficiosProcessados = listaBeneficios.map(ben => {
-    let valor = Number(ben.valor) || 0;
-    if (ben.tipo_valor === 'Porcentagem') {
-      valor = bruto * (valor / 100);
-    }
-    
-    if (ben.tipo === 'Provento') proventosExtras += valor;
-    if (ben.tipo === 'Desconto') descontosExtras += valor;
-
-    return { ...ben, valorCalculado: valor };
-  });
-
-  const totalDescontos = inss + irrf + descontosExtras;
-  const liquido = bruto + proventosExtras - totalDescontos;
-
-  // Custo Empresa Simplificado
-  const fgts = bruto * 0.08;
-  const patronal = bruto * 0.20; // Estimativa
-  const custoEmpresa = bruto + fgts + patronal + proventosExtras; // Empresa paga bruto + encargos + proventos extras
+  
+  const liquido = bruto - inss - irrf - Number(outrosDescontos);
 
   return {
-    salarioBruto: bruto,
+    bruto,
     inss,
     irrf,
-    totalProventosExtras: proventosExtras,
-    totalDescontosExtras: descontosExtras,
-    salarioLiquido: parseFloat(liquido.toFixed(2)),
-    custoEmpresa: parseFloat(custoEmpresa.toFixed(2)),
-    listaBeneficios: beneficiosProcessados,
-    // Detalhes extras se precisar no futuro
-    custosDetalhados: { fgts, patronal } 
+    liquido: parseFloat(liquido.toFixed(2)),
+    totalDescontos: parseFloat((inss + irrf + Number(outrosDescontos)).toFixed(2))
   };
 };
 
-export default { calcularSalarioLiquido, calcularINSSProgressivo, calcularIRRF };
+/**
+ * [CORREÇÃO] Função que estava faltando e quebrava o módulo de folha
+ * Processa uma lista de funcionários e gera o resumo da folha.
+ */
+export const calcularFolhaCompleta = (listaFuncionarios) => {
+  if (!Array.isArray(listaFuncionarios)) return { resumo: {}, holerites: [] };
+
+  const resumo = {
+    totalBruto: 0,
+    totalLiquido: 0,
+    totalINSS: 0,
+    totalIRRF: 0,
+    totalFuncionarios: 0
+  };
+
+  const holerites = listaFuncionarios.map(func => {
+    const salario = parseFloat(func.salario_bruto || 0);
+    const dependentes = parseInt(func.qtd_dependentes || 0);
+    
+    const calculo = calcularSalarioLiquido(salario, dependentes);
+
+    resumo.totalBruto += salario;
+    resumo.totalLiquido += calculo.liquido;
+    resumo.totalINSS += calculo.inss;
+    resumo.totalIRRF += calculo.irrf;
+    resumo.totalFuncionarios++;
+
+    return {
+      funcionario: func,
+      ...calculo
+    };
+  });
+
+  return { resumo, holerites };
+};
+
+// Export Default para compatibilidade
+export default {
+  calcularINSS,
+  calcularIRRF,
+  calcularSalarioLiquido,
+  calcularFolhaCompleta
+};
