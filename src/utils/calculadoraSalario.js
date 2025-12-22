@@ -1,6 +1,6 @@
 // src/utils/calculadoraSalario.js
 
-// Tabelas Oficiais 2024
+// Tabelas Oficiais (Base 2024 - Progressiva)
 const FAIXAS_INSS = [
   { limite: 1412.00, aliq: 0.075, deducao: 0 },
   { limite: 2666.68, aliq: 0.09, deducao: 21.18 },
@@ -16,6 +16,7 @@ const FAIXAS_IRRF = [
   { limite: 9999999, aliq: 0.275, deducao: 896.00 }
 ];
 
+// Funções Auxiliares
 export const calcularINSSProgressivo = (baseCalculo) => {
   let inss = 0;
   const baseTeto = Math.min(baseCalculo, 7786.02);
@@ -25,7 +26,7 @@ export const calcularINSSProgressivo = (baseCalculo) => {
       inss = (baseTeto * faixa.aliq) - faixa.deducao;
       break;
     }
-    if (faixa.limite === 7786.02) inss = 908.85; 
+    if (faixa.limite === 7786.02) inss = 908.85; // Teto
   }
   return Math.max(0, inss);
 };
@@ -41,19 +42,21 @@ export const calcularIRRF = (baseCalculo) => {
   return Math.max(0, irrf);
 };
 
-// --- MOTOR DE CÁLCULO ATUALIZADO ---
+// --- MOTOR PRINCIPAL ---
 export const calcularFolhaCompleta = (funcionario, apontamentos, beneficiosFixos = []) => {
-  const salarioBase = Number(funcionario.salario_bruto) || 0;
-  const dependentes = Number(funcionario.qtd_dependentes) || 0;
+  const safeNum = (v) => Number(v) || 0;
+  const salarioBase = safeNum(funcionario.salario_bruto);
+  const dependentes = safeNum(funcionario.qtd_dependentes);
   
-  // 1. Variáveis
-  const qtdHe50 = Number(apontamentos?.horas_extras_50) || 0;
-  const qtdHe100 = Number(apontamentos?.horas_extras_100) || 0;
-  const faltasDias = Number(apontamentos?.faltas_dias) || 0;
-  const atrasosMin = Number(apontamentos?.atrasos_minutos) || 0;
-  const bonus = Number(apontamentos?.bonus_comissao) || 0;
-  const outrosDesc = Number(apontamentos?.outros_descontos) || 0;
+  // 1. Variáveis (Inputs do Mural)
+  const qtdHe50 = safeNum(apontamentos?.horas_extras_50);
+  const qtdHe100 = safeNum(apontamentos?.horas_extras_100);
+  const faltasDias = safeNum(apontamentos?.faltas_dias);
+  const atrasosMin = safeNum(apontamentos?.atrasos_minutos);
+  const bonus = safeNum(apontamentos?.bonus_comissao);
+  const outrosDesc = safeNum(apontamentos?.outros_descontos);
   
+  // 2. Cálculos de Horas
   const valorHora = salarioBase / 220;
   const valorDia = salarioBase / 30;
   
@@ -62,39 +65,54 @@ export const calcularFolhaCompleta = (funcionario, apontamentos, beneficiosFixos
   const totalFaltas = faltasDias * valorDia;
   const totalAtrasos = (atrasosMin / 60) * valorHora;
   
-  const dsrVariaveis = apontamentos?.valor_dsr > 0 ? Number(apontamentos.valor_dsr) : (totalHe50 + totalHe100) / 6;
-  const dsrDesconto = faltasDias > 0 ? valorDia : 0;
+  // DSR (Estimativa ou Manual)
+  const dsrVariaveis = safeNum(apontamentos?.valor_dsr) > 0 
+    ? safeNum(apontamentos.valor_dsr) 
+    : (totalHe50 + totalHe100) / 6;
 
-  // 2. Benefícios (Lógica % ou R$)
+  const dsrDesconto = faltasDias > 0 ? valorDia : 0; 
+
+  // 3. Benefícios (Lógica % vs R$)
   let proventosBeneficios = 0;
   let descontosBeneficios = 0;
+  
+  // Cria lista detalhada com o valor final calculado
   const beneficiosCalculados = beneficiosFixos.map(ben => {
-    let valorFinal = Number(ben.valor);
+    let valorFinal = safeNum(ben.valor);
+    
+    // Se for porcentagem, calcula sobre o Salário Base
     if (ben.tipo_valor === 'Porcentagem') {
       valorFinal = salarioBase * (valorFinal / 100);
     }
+
     if (ben.tipo === 'Provento') proventosBeneficios += valorFinal;
     if (ben.tipo === 'Desconto') descontosBeneficios += valorFinal;
+
     return { ...ben, valorCalculado: valorFinal };
   });
 
-  // 3. Base de Cálculo e Impostos Colaborador
+  // 4. Base Tributária
+  // Base INSS = Salário + HE + DSR + Bônus - Faltas
   const baseINSS = Math.max(0, (salarioBase + totalHe50 + totalHe100 + dsrVariaveis + bonus) - (totalFaltas + totalAtrasos + dsrDesconto));
   
+  // 5. Impostos Colaborador
   const valorINSS = calcularINSSProgressivo(baseINSS);
+  
   const deducaoDep = dependentes * 189.59;
   const baseIRRF = Math.max(0, baseINSS - valorINSS - deducaoDep);
   const valorIRRF = calcularIRRF(baseIRRF);
 
+  // 6. Totais Finais (Líquido)
   const totalProventos = salarioBase + totalHe50 + totalHe100 + dsrVariaveis + bonus + proventosBeneficios;
   const totalDescontos = totalFaltas + totalAtrasos + dsrDesconto + valorINSS + valorIRRF + descontosBeneficios + outrosDesc;
+  
   const liquido = Math.max(0, totalProventos - totalDescontos);
 
-  // 4. Custo Empresa (Detalhamento Completo)
+  // 7. Custo Empresa (Shadow Payroll - Detalhado)
   const fgts = baseINSS * 0.08;
-  const patronal = baseINSS * 0.20; // INSS Patronal (20%)
+  const patronal = baseINSS * 0.20; // 20% INSS Patronal
   const rat_terceiros = baseINSS * 0.058; // Sistema S + RAT (Médio)
-  const provisionamento = baseINSS * 0.1111; // 1/12 Férias + 1/3 Férias + 1/12 13º (~11.11%)
+  const provisionamento = baseINSS * 0.1111; // ~1/12 Férias + 1/3 + 1/12 13º
 
   const custoTotal = baseINSS + fgts + patronal + rat_terceiros + provisionamento + proventosBeneficios;
 
@@ -103,20 +121,23 @@ export const calcularFolhaCompleta = (funcionario, apontamentos, beneficiosFixos
     proventos: { he50: totalHe50, he100: totalHe100, dsr: dsrVariaveis, bonus, beneficios: proventosBeneficios },
     descontos: { faltas: totalFaltas + totalAtrasos + dsrDesconto, inss: valorINSS, irrf: valorIRRF, beneficios: descontosBeneficios, outros: outrosDesc },
     totais: { bruto: totalProventos, descontos: totalDescontos, liquido, custoEmpresa: custoTotal },
-    // NOVO: Objeto detalhado para o card da empresa
+    
+    // Objeto detalhado para o Card do Patrão
     custosDetalhados: {
       fgts,
       patronal,
       rat_terceiros,
       provisionamento,
-      beneficios: proventosBeneficios, // Empresa paga os proventos de benefício
+      beneficios: proventosBeneficios, // Empresa paga os proventos extras
       total: custoTotal
     },
-    beneficiosDetalhados: beneficiosCalculados
+    
+    // Lista com valores finais processados
+    listaBeneficios: beneficiosCalculados 
   };
 };
 
-// Wrapper Legado (Atualizado para passar o detalhamento)
+// Wrapper para compatibilidade (quando não há apontamentos variáveis)
 export const calcularSalarioLiquido = (salarioBruto, dependentes = 0, listaBeneficios = []) => {
   const resultado = calcularFolhaCompleta(
     { salario_bruto: salarioBruto, qtd_dependentes: dependentes },
@@ -133,7 +154,7 @@ export const calcularSalarioLiquido = (salarioBruto, dependentes = 0, listaBenef
     totalDescontos: resultado.totais.descontos,
     salarioLiquido: resultado.totais.liquido,
     custoEmpresa: resultado.totais.custoEmpresa,
-    custosDetalhados: resultado.custosDetalhados, // Passando o detalhe adiante
-    listaBeneficios: resultado.beneficiosDetalhados
+    custosDetalhados: resultado.custosDetalhados, // IMPORTANTE
+    listaBeneficios: resultado.listaBeneficios    // IMPORTANTE
   };
 };
