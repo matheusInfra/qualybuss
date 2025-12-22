@@ -12,9 +12,9 @@ export default function CatalogoBeneficios({ empresaId }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedBeneficio, setSelectedBeneficio] = useState(null);
   
-  const [funcionarios, setFuncionarios] = useState([]); // Todos os funcionários ativos
+  const [funcionarios, setFuncionarios] = useState([]); // Lista completa da empresa
   const [selectedFuncs, setSelectedFuncs] = useState([]); // IDs selecionados
-  const [searchTerm, setSearchTerm] = useState(''); // Filtro de busca
+  const [searchTerm, setSearchTerm] = useState(''); // Filtro local do modal
 
   // Form Novo Modelo
   const [newItem, setNewItem] = useState({ 
@@ -25,7 +25,7 @@ export default function CatalogoBeneficios({ empresaId }) {
     descricao: ''
   });
 
-  // Carrega catálogo ao iniciar
+  // Carrega catálogo ao mudar a empresa
   useEffect(() => {
     if (empresaId) carregarCatalogo();
   }, [empresaId]);
@@ -35,13 +35,15 @@ export default function CatalogoBeneficios({ empresaId }) {
       const data = await getCatalogoBeneficios(empresaId);
       setCatalogo(data || []);
     } catch (error) {
+      console.error(error);
       toast.error("Erro ao carregar catálogo.");
     }
   };
 
   const handleCriarModelo = async (e) => {
     e.preventDefault();
-    if (!newItem.nome || !newItem.valor_padrao) return;
+    if (!empresaId) return toast.error("Selecione uma empresa antes de criar.");
+    if (!newItem.nome || !newItem.valor_padrao) return toast.error("Preencha os campos obrigatórios.");
     
     setLoading(true);
     try {
@@ -54,71 +56,87 @@ export default function CatalogoBeneficios({ empresaId }) {
       setNewItem({ nome: '', tipo: 'Desconto', tipo_valor: 'Fixo', valor_padrao: '', descricao: '' });
       carregarCatalogo();
     } catch (err) { 
+      console.error(err);
       toast.error("Erro ao criar modelo."); 
     } finally { 
       setLoading(false); 
     }
   };
 
-  // --- LÓGICA DE DISTRIBUIÇÃO (MODAL) ---
+  // --- LÓGICA DE DISTRIBUIÇÃO ---
 
   const handleOpenDistribuir = async (beneficio) => {
+    if (!empresaId) return toast.error("Selecione uma empresa no topo da página.");
+    
     setSelectedBeneficio(beneficio);
     setLoading(true);
     try {
-      // Busca todos os funcionários ativos para popular a lista
-      // Usamos limit alto para garantir que traga todos para seleção
-      const { data } = await getFuncionarios({ limit: 2000, status: 'Ativo', empresaId });
-      setFuncionarios(data || []);
-      setSelectedFuncs([]); // Começa limpo
-      setSearchTerm('');    // Limpa busca
+      // Busca TODOS os ativos da empresa (limit alto para trazer todos)
+      const resultado = await getFuncionarios({ 
+        limit: 2000, 
+        status: 'Ativo', 
+        empresaId: empresaId 
+      });
+      
+      // Verifica se retornou dados
+      const listaFuncionarios = resultado.data || [];
+      
+      if (listaFuncionarios.length === 0) {
+        toast('Nenhum funcionário ativo encontrado nesta empresa.', { icon: '⚠️' });
+      }
+
+      setFuncionarios(listaFuncionarios);
+      setSelectedFuncs([]); // Reseta seleção
+      setSearchTerm('');    // Reseta busca
       setShowModal(true);
     } catch (error) {
+      console.error(error);
       toast.error("Erro ao carregar lista de colaboradores.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtragem em tempo real (Memoizado para performance)
+  // Filtro Local no Modal (Performance UX)
   const funcionariosFiltrados = useMemo(() => {
     if (!searchTerm) return funcionarios;
     const lowerTerm = searchTerm.toLowerCase();
     return funcionarios.filter(f => 
       f.nome_completo.toLowerCase().includes(lowerTerm) ||
-      f.cargo?.toLowerCase().includes(lowerTerm) ||
-      f.departamento?.toLowerCase().includes(lowerTerm)
+      (f.cargo && f.cargo.toLowerCase().includes(lowerTerm)) ||
+      (f.departamento && f.departamento.toLowerCase().includes(lowerTerm))
     );
   }, [funcionarios, searchTerm]);
 
-  // Lógica de Selecionar Todos (Apenas os visíveis no filtro!)
+  // Selecionar Todos (Apenas os filtrados na tela)
   const toggleSelectAll = () => {
     const idsVisiveis = funcionariosFiltrados.map(f => f.id);
-    const todosVisiveisSelecionados = idsVisiveis.every(id => selectedFuncs.includes(id));
+    const todosVisiveisJaSelecionados = idsVisiveis.every(id => selectedFuncs.includes(id));
 
-    if (todosVisiveisSelecionados) {
-      // Desmarcar todos os visíveis
+    if (todosVisiveisJaSelecionados) {
+      // Remove os visíveis da seleção
       setSelectedFuncs(prev => prev.filter(id => !idsVisiveis.includes(id)));
     } else {
-      // Adicionar todos os visíveis aos já selecionados (sem duplicar)
-      setSelectedFuncs(prev => [...new Set([...prev, ...idsVisiveis])]);
+      // Adiciona os visíveis que ainda não estavam selecionados
+      const novosIds = idsVisiveis.filter(id => !selectedFuncs.includes(id));
+      setSelectedFuncs(prev => [...prev, ...novosIds]);
     }
   };
 
   const handleConfirmarDistribuicao = async () => {
     if (selectedFuncs.length === 0) return toast.error("Selecione pelo menos um colaborador.");
     
-    const confirmMsg = `Deseja atribuir "${selectedBeneficio.nome}" para ${selectedFuncs.length} colaboradores?`;
-    if (!window.confirm(confirmMsg)) return;
+    const confirmacao = window.confirm(`Deseja atribuir "${selectedBeneficio.nome}" para ${selectedFuncs.length} colaboradores?`);
+    if (!confirmacao) return;
 
     setLoading(true);
     try {
       await distribuirBeneficio(selectedBeneficio, selectedFuncs);
-      toast.success(`Sucesso! Benefício adicionado a ${selectedFuncs.length} pessoas.`);
+      toast.success(`Benefício aplicado para ${selectedFuncs.length} colaboradores!`);
       setShowModal(false);
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao distribuir benefício.");
+      toast.error("Erro na distribuição.");
     } finally {
       setLoading(false);
     }
@@ -131,7 +149,7 @@ export default function CatalogoBeneficios({ empresaId }) {
 
   return (
     <div className="catalogo-wrapper fade-in">
-      {/* Sidebar: Criação */}
+      {/* Sidebar: Cadastro */}
       <div className="catalogo-sidebar">
         <div className="sidebar-header">
           <span className="material-symbols-outlined">library_add</span>
@@ -141,7 +159,7 @@ export default function CatalogoBeneficios({ empresaId }) {
         <form onSubmit={handleCriarModelo} className="form-catalogo">
           <div className="form-group">
             <label>Nome do Benefício</label>
-            <input value={newItem.nome} onChange={e=>setNewItem({...newItem, nome: e.target.value})} placeholder="Ex: VT 6%" required />
+            <input value={newItem.nome} onChange={e=>setNewItem({...newItem, nome: e.target.value})} placeholder="Ex: GymPass" required />
           </div>
           
           <div className="form-row">
@@ -188,7 +206,7 @@ export default function CatalogoBeneficios({ empresaId }) {
           {catalogo.length === 0 && (
             <div className="empty-state-cat">
               <span className="material-symbols-outlined">dataset</span>
-              <p>Nenhum modelo cadastrado.</p>
+              <p>Nenhum modelo cadastrado nesta empresa.</p>
             </div>
           )}
           
@@ -215,7 +233,7 @@ export default function CatalogoBeneficios({ empresaId }) {
         </div>
       </div>
 
-      {/* MODAL DE DISTRIBUIÇÃO COM FILTRO */}
+      {/* MODAL DE DISTRIBUIÇÃO */}
       {showModal && (
         <div className="modal-backdrop">
           <div className="modal-container">
@@ -223,23 +241,24 @@ export default function CatalogoBeneficios({ empresaId }) {
               <div className="modal-title">
                 <span className="material-symbols-outlined">diversity_3</span>
                 <div>
-                  <h4>Distribuir Benefício</h4>
-                  <p>Item: <strong>{selectedBeneficio?.nome}</strong> ({formatValue(selectedBeneficio)})</p>
+                  <h4>Distribuir: {selectedBeneficio?.nome}</h4>
+                  <p>Selecione os colaboradores para aplicar este benefício.</p>
                 </div>
               </div>
               <button onClick={() => setShowModal(false)} className="close-btn">&times;</button>
             </div>
             
             <div className="modal-body">
-              {/* Barra de Filtro e Seleção */}
+              {/* Barra de Filtro e Checkbox All */}
               <div className="filter-bar">
                 <div className="input-search">
                   <span className="material-symbols-outlined">search</span>
                   <input 
                     type="text" 
-                    placeholder="Filtrar por nome, cargo ou depto..." 
+                    placeholder="Filtrar por nome, cargo..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    autoFocus
                   />
                 </div>
               </div>
@@ -251,14 +270,12 @@ export default function CatalogoBeneficios({ empresaId }) {
                     onChange={toggleSelectAll}
                     checked={funcionariosFiltrados.length > 0 && funcionariosFiltrados.every(f => selectedFuncs.includes(f.id))}
                   />
-                  <span>Selecionar {searchTerm ? 'Filtrados' : 'Todos'}</span>
+                  <span>Selecionar Visíveis</span>
                 </label>
-                <span className="count-badge">
-                  {selectedFuncs.length} selecionado(s)
-                </span>
+                <span className="count-badge">{selectedFuncs.length} selecionados</span>
               </div>
               
-              {/* Lista Scrollável */}
+              {/* Lista com Scroll */}
               <div className="scroll-list">
                 {funcionariosFiltrados.length === 0 ? (
                   <p className="no-results">Nenhum colaborador encontrado.</p>
@@ -287,8 +304,7 @@ export default function CatalogoBeneficios({ empresaId }) {
             <div className="modal-footer">
               <button onClick={() => setShowModal(false)} className="btn-cancel">Cancelar</button>
               <button onClick={handleConfirmarDistribuicao} className="btn-confirm" disabled={loading || selectedFuncs.length === 0}>
-                {loading ? <div className="spinner-mini"></div> : <span className="material-symbols-outlined">check</span>}
-                Confirmar Associação
+                {loading ? 'Processando...' : 'Confirmar Associação'}
               </button>
             </div>
           </div>
