@@ -7,6 +7,7 @@ const FuncionarioCard = ({ funcionario }) => {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
+    // Redireciona para o formulário de edição passando o ID
     navigate(`/funcionarios/${funcionario.id}`);
   };
 
@@ -20,6 +21,7 @@ const FuncionarioCard = ({ funcionario }) => {
     }
   };
 
+  // Resolve a URL da imagem usando o serviço corrigido
   const avatarUrl = funcionario.foto_url 
     ? getAvatarPublicUrl(funcionario.foto_url) 
     : null;

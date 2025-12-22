@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-// --- CRUD DE FUNCIONÁRIOS ---
+// --- LEITURA E LISTAGEM ---
 
 export const getFuncionarios = async ({ 
   page = 1, 
@@ -25,9 +25,10 @@ export const getFuncionarios = async ({
       query = query.or(`nome_completo.ilike.%${search}%,cargo.ilike.%${search}%`);
     }
 
-    // Ordenação e Paginação
+    // Ordenação
     query = query.order('nome_completo', { ascending: true });
     
+    // Paginação
     const from = (page - 1) * limit;
     const to = from + limit - 1;
     query = query.range(from, to);
@@ -47,6 +48,21 @@ export const getFuncionarios = async ({
   }
 };
 
+// Função Leve para Dropdowns (CORREÇÃO DO ERRO)
+export const getFuncionariosDropdown = async (empresaId) => {
+  if (!empresaId) return [];
+  
+  const { data, error } = await supabase
+    .from('funcionarios')
+    .select('id, nome_completo, cargo, departamento')
+    .eq('empresa_id', empresaId)
+    .eq('status', 'Ativo')
+    .order('nome_completo');
+
+  if (error) throw error;
+  return data;
+};
+
 export const getFuncionarioById = async (id) => {
   const { data, error } = await supabase
     .from('funcionarios')
@@ -57,6 +73,8 @@ export const getFuncionarioById = async (id) => {
   if (error) throw error;
   return data;
 };
+
+// --- ESCRITA E ATUALIZAÇÃO ---
 
 export const createFuncionario = async (funcionario) => {
   const { data, error } = await supabase
@@ -81,9 +99,7 @@ export const updateFuncionario = async (id, updates) => {
   return data;
 };
 
-// --- FUNÇÃO DE DESLIGAMENTO (CORREÇÃO DO ERRO) ---
 export const desligarFuncionario = async (id, dadosDesligamento) => {
-  // dadosDesligamento espera: { data_desligamento, motivo, observacoes, ... }
   const { data, error } = await supabase
     .from('funcionarios')
     .update({ 
@@ -108,11 +124,12 @@ export const deleteFuncionario = async (id) => {
   return true;
 };
 
-// --- GESTÃO DE AVATAR ---
+// --- ARQUIVOS / IMAGENS ---
 
 export const getAvatarPublicUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
+  
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
   return data.publicUrl;
 };
