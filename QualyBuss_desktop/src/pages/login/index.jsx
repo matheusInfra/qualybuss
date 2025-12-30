@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../services/supabase'; // Importamos o cliente que criamos
+import { supabase } from '../../services/supabase'; // Importação do cliente
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,21 +22,31 @@ const Login = () => {
     setErrorMsg('');
 
     try {
-      // Chamada oficial ao Supabase
+      // Chamada ao Supabase para autenticação
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Tratamento de erros específicos para melhor UX
+        if (error.message.includes('Invalid login credentials')) {
+          setErrorMsg('E-mail ou senha incorretos. Verifique seus dados.');
+        } else if (error.message.includes('Network')) {
+          setErrorMsg('Erro de conexão. Verifique sua internet.');
+        } else {
+          setErrorMsg(error.message);
+        }
+        return;
+      }
 
-      // Se deu certo, vai para o dashboard
-      console.log("Login realizado:", data);
+      // Se o login for bem-sucedido
+      console.log("Login realizado com sucesso:", data.user.email);
       navigate('/dashboard');
       
     } catch (error) {
-      setErrorMsg('Erro ao entrar: Verifique seu e-mail e senha.');
-      console.error(error.message);
+      setErrorMsg('Ocorreu um erro inesperado. Tente novamente mais tarde.');
+      console.error('Erro crítico no login:', error);
     } finally {
       setLoading(false);
     }
@@ -52,8 +62,9 @@ const Login = () => {
           <p className="text-slate-500 mt-2">Acesse sua conta para gerenciar a frota</p>
         </div>
 
+        {/* Exibição de mensagens de erro dinâmicas */}
         {errorMsg && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center">
+          <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg text-sm text-center animate-pulse">
             {errorMsg}
           </div>
         )}
@@ -65,8 +76,10 @@ const Login = () => {
               name="email"
               type="email" 
               required
+              value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              disabled={loading}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-50"
               placeholder="exemplo@qualybuss.com"
             />
           </div>
@@ -77,8 +90,10 @@ const Login = () => {
               name="password"
               type="password" 
               required
+              value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              disabled={loading}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-50"
               placeholder="••••••••"
             />
           </div>
@@ -86,9 +101,18 @@ const Login = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className={`w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            className={`w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 ${
+              loading ? 'opacity-70 cursor-not-allowed' : 'active:scale-[0.98]'
+            }`}
           >
-            {loading ? 'Entrando...' : 'Entrar no Sistema'}
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Autenticando...
+              </>
+            ) : (
+              'Entrar no Sistema'
+            )}
           </button>
         </form>
       </div>
